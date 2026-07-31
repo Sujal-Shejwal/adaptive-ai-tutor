@@ -20,7 +20,7 @@ function Features() {
         </div>
 
         {/* Feature Cards */}
-        <div className="grid grid-cols-4 gap-8 mt-20">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-8 mt-20">
 
           {/* Card 1 */}
           <div className="bg-white rounded-3xl border border-gray-200 p-7 shadow-sm hover:shadow-lg transition">
