@@ -48,15 +48,15 @@ function HowItWorks() {
           <div className="text-center">
 
             <div className="w-16 h-16 rounded-full bg-blue-100 flex items-center justify-center mx-auto">
-              <MessageSquareText className="w-8 h-8 text-blue-600" />
+              <BookOpen className="w-8 h-8 text-blue-600" /> 
             </div>
 
             <h3 className="mt-6 text-2xl font-semibold">
-              Ask Questions
+              Choose Your Subject
             </h3>
 
             <p className="mt-4 text-gray-500 leading-8">
-              Chat with the AI tutor and get instant explanations.
+             Pick from DBMS, OS, Networks, Java and more.
             </p>
 
           </div>
@@ -65,15 +65,15 @@ function HowItWorks() {
           <div className="text-center">
 
             <div className="w-16 h-16 rounded-full bg-blue-100 flex items-center justify-center mx-auto">
-              <BookOpen className="w-8 h-8 text-blue-600" />
+             <MessageSquareText className="w-8 h-8 text-blue-600" />
             </div>
 
             <h3 className="mt-6 text-2xl font-semibold">
-              Learn Daily
+              Learn with AI
             </h3>
 
             <p className="mt-4 text-gray-500 leading-8">
-              Read notes, practice quizzes and strengthen concepts.
+              Ask questions, take quizzes, and track progress.
             </p>
 
           </div>

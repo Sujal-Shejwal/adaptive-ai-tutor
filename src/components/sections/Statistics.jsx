@@ -1,6 +1,6 @@
 function Statistics() {
   return (
-    <section className="border-y border-gray-200 py-12">
+    <section className="border-y border-gray-50 py-12">
       <div className="max-w-7xl mx-auto">
         <div className="flex justify-around">
 
