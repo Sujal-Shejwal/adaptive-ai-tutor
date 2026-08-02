@@ -1,15 +1,22 @@
 import { GraduationCap } from "lucide-react";
 
-function Logo({ textColor = "text-gray-800" }) {
+function Logo({ textColor = "text-slate-900" }) {
   return (
-    <div className="flex items-center gap-3">
-      <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center">
-        <GraduationCap className="w-5 h-5 text-white" />
+    <div className="flex items-center gap-2.5">
+
+      <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-600">
+
+        <GraduationCap
+          className="h-5 w-5 text-white"
+          strokeWidth={2}
+        />
+
       </div>
 
-      <h1 className={`text-xl font-bold ${textColor}`}>
+      <h1 className={`text-[18px] font-semibold ${textColor}`}>
         Adaptive AI Tutor
       </h1>
+
     </div>
   );
 }
