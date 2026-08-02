@@ -1,6 +1,9 @@
+import { useNavigate } from "react-router-dom";
 import Logo from "../common/Logo";
 
 function Footer() {
+  const navigate = useNavigate();
+
   return (
     <footer>
       {/* CTA Section */}
@@ -15,8 +18,11 @@ function Footer() {
             their exams.
           </p>
 
-            <button className="mt-8 bg-white text-blue-600 font-semibold text-base px-8 py-3 rounded-xl hover:bg-gray-100 transition duration-300">
-              Start Learning for Free
+          <button
+            onClick={() => navigate("/signup")}
+            className="mt-8 bg-white text-blue-600 font-semibold text-base px-8 py-3 rounded-xl hover:bg-gray-100 transition duration-300"
+          >
+            Start Learning for Free
           </button>
         </div>
       </div>
@@ -24,6 +30,7 @@ function Footer() {
       {/* Bottom Footer */}
       <div className="bg-slate-900 py-6">
         <div className="max-w-[1360px] mx-auto px-10 flex flex-col md:flex-row items-center justify-between">
+
           {/* Logo */}
           <Logo textColor="text-white" />
 
@@ -34,6 +41,7 @@ function Footer() {
 
           {/* Footer Links */}
           <div className="flex items-center gap-6">
+
             <a
               href="#"
               className="text-gray-400 hover:text-white transition"
@@ -54,6 +62,7 @@ function Footer() {
             >
               Contact
             </a>
+
           </div>
         </div>
       </div>
