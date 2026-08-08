@@ -1,13 +1,25 @@
 import Sidebar from "./Sidebar";
+import DashboardHeader from "./DashboardHeader";
 
 function DashboardLayout({ children }) {
   return (
-    <div className="flex">
+    <div className="min-h-screen bg-slate-50">
+
+      {/* Fixed Sidebar */}
       <Sidebar />
 
-      <main className="flex-1">
-        {children}
-      </main>
+      {/* Main Area */}
+      <div className="ml-[290px]">
+
+        {/* Fixed Header */}
+        <DashboardHeader />
+
+        {/* Dashboard Content */}
+        <main>
+          {children}
+        </main>
+
+      </div>
     </div>
   );
 }
