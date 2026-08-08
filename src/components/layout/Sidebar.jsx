@@ -52,7 +52,8 @@ const menuItems = [
 
 function Sidebar() {
   return (
-    <aside className="flex h-screen w-[290px] flex-col border-r border-slate-200 bg-white">
+    <aside className="fixed left-0 top-0 z-50 flex h-screen w-[290px] flex-col border-r border-slate-200 bg-white">
+      
       {/* Brand */}
       <div className="border-b border-slate-200 p-6">
         <Link to="/" className="flex items-center gap-4">
@@ -89,12 +90,11 @@ function Sidebar() {
               <Link
                 key={item.title}
                 to={item.path}
-                className={`flex items-center gap-3 rounded-xl px-4 py-3 transition
-                  ${
-                    item.title === "Dashboard"
-                      ? "bg-blue-100 text-blue-600"
-                      : "text-slate-600 hover:bg-slate-100 hover:text-blue-600"
-                  }`}
+                className={`flex items-center gap-3 rounded-xl px-4 py-3 transition ${
+                  item.title === "Dashboard"
+                    ? "bg-blue-100 text-blue-600"
+                    : "text-slate-600 hover:bg-slate-100 hover:text-blue-600"
+                }`}
               >
                 <Icon className="h-5 w-5" />
 
