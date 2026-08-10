@@ -6,7 +6,7 @@ const WelcomeSection = () => {
             </h1>
 
             <p className="mt-1 text-sm text-gray-500">
-                Here's your learning summary for today, Monday 14 July 2025.
+                Here's your learning summary for today, Monday 10 Aug 2026.
             </p>
         </section>
     );
