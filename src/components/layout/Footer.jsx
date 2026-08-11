@@ -36,7 +36,7 @@ function Footer() {
 
           {/* Copyright */}
           <p className="text-gray-400 text-[15px]">
-            © 2025 Adaptive AI Tutor. Final Year Engineering Project.
+            © 2026 Adaptive AI Tutor. Final Year Engineering Project.
           </p>
 
           {/* Footer Links */}

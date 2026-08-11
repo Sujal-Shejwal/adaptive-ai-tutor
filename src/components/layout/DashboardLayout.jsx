@@ -2,26 +2,26 @@ import Sidebar from "./Sidebar";
 import DashboardHeader from "./DashboardHeader";
 
 function DashboardLayout({ children }) {
-  return (
-    <div className="min-h-screen bg-slate-50">
+    return (
+        <div className="min-h-screen bg-slate-50">
 
-      {/* Fixed Sidebar */}
-      <Sidebar />
+            {/* Fixed Sidebar */}
+            <Sidebar />
 
-      {/* Main Area */}
-      <div className="ml-[290px]">
+            {/* Main Area */}
+            <div className="ml-[290px]">
 
-        {/* Fixed Header */}
-        <DashboardHeader />
+                {/* Fixed Header */}
+                <DashboardHeader />
 
-        {/* Dashboard Content */}
-        <main>
-          {children}
-        </main>
+                {/* Dashboard Content */}
+                <main>
+                    {children}
+                </main>
 
-      </div>
-    </div>
-  );
+            </div>
+        </div>
+    );
 }
 
 export default DashboardLayout;
