@@ -4,34 +4,51 @@ import {
     ClipboardCheck,
 } from "lucide-react";
 
-import { Link, useParams } from "react-router-dom";
+import {
+    Link,
+    useParams,
+} from "react-router-dom";
 
 import subjects from "../../data/subjects";
 
 
 function QuizPage() {
+
+    // Get subject ID from URL
     const { subjectId } = useParams();
 
+
+    // Find subject from shared data
     const subject = subjects.find(
         (item) => item.id === subjectId
     );
 
 
+    // Subject not found
     if (!subject) {
+
         return (
             <div className="min-h-full bg-slate-50 px-6 pb-10 pt-20">
 
-                <h1 className="text-2xl font-bold text-slate-900">
-                    Subject Not Found
-                </h1>
+                <div className="rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
 
-                <Link
-                    to="/student/subjects"
-                    className="mt-5 inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white"
-                >
-                    <ArrowLeft size={16} />
-                    Back to Subjects
-                </Link>
+                    <h1 className="text-2xl font-bold text-slate-900">
+                        Subject Not Found
+                    </h1>
+
+                    <p className="mt-2 text-sm text-slate-500">
+                        The subject you are trying to access does not exist.
+                    </p>
+
+                    <Link
+                        to="/student/subjects"
+                        className="mt-5 inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-blue-700"
+                    >
+                        <ArrowLeft size={16} />
+                        Back to Subjects
+                    </Link>
+
+                </div>
 
             </div>
         );
@@ -44,7 +61,7 @@ function QuizPage() {
             {/* Back */}
             <Link
                 to="/student/subjects"
-                className="mb-6 inline-flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-blue-600"
+                className="mb-6 inline-flex items-center gap-2 text-sm font-medium text-slate-500 transition hover:text-blue-600"
             >
                 <ArrowLeft size={17} />
                 Back to Subjects

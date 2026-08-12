@@ -27,12 +27,12 @@ const menuItems = [
     },
     {
         title: "AI Chat",
-        path: "/student/chat",
+        path: "/student/chat/dbms",
         icon: MessageSquare,
     },
     {
         title: "Quiz",
-        path: "/student/quiz",
+        path: "/student/quiz/dbms",
         icon: ClipboardList,
     },
     {
@@ -55,8 +55,8 @@ const menuItems = [
 
 function Sidebar() {
 
-    // Get the current URL path
     const location = useLocation();
+
 
     return (
         <aside className="fixed left-0 top-0 z-50 flex h-screen w-[290px] flex-col border-r border-slate-200 bg-white">
@@ -64,7 +64,10 @@ function Sidebar() {
             {/* Brand */}
             <div className="border-b border-slate-200 p-6">
 
-                <Link to="/" className="flex items-center gap-4">
+                <Link
+                    to="/"
+                    className="flex items-center gap-4"
+                >
 
                     <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-blue-600">
 
@@ -74,7 +77,6 @@ function Sidebar() {
                         />
 
                     </div>
-
 
                     <div>
 
@@ -107,8 +109,28 @@ function Sidebar() {
 
                         const Icon = item.icon;
 
-                        // Check if this menu item matches the current URL
-                        const isActive = location.pathname === item.path;
+
+                        // Keep AI Chat active on all dynamic chat pages
+                        const isChatActive =
+                            item.title === "AI Chat" &&
+                            location.pathname.startsWith("/student/chat");
+
+
+                        // Keep Quiz active on all dynamic quiz pages
+                        const isQuizActive =
+                            item.title === "Quiz" &&
+                            location.pathname.startsWith("/student/quiz");
+
+
+                        // Normal exact route matching
+                        const isExactActive =
+                            location.pathname === item.path;
+
+
+                        const isActive =
+                            isExactActive ||
+                            isChatActive ||
+                            isQuizActive;
 
 
                         return (
@@ -154,7 +176,10 @@ function Sidebar() {
                 </div>
 
 
-                <button className="mt-8 flex items-center gap-3 text-red-500 transition hover:text-red-600">
+                <button
+                    type="button"
+                    className="mt-8 flex items-center gap-3 text-red-500 transition hover:text-red-600"
+                >
 
                     <LogOut className="h-5 w-5" />
 

@@ -7,7 +7,10 @@ import {
     PlayCircle,
 } from "lucide-react";
 
-import { Link, useParams } from "react-router-dom";
+import {
+    Link,
+    useParams,
+} from "react-router-dom";
 
 import subjects from "../../data/subjects";
 
@@ -49,18 +52,19 @@ function StudyPage() {
     const { subjectId } = useParams();
 
 
-    // Find matching subject from shared data
+    // Find matching subject
     const subject = subjects.find(
         (item) => item.id === subjectId
     );
 
 
-    // If subject doesn't exist
+    // Subject not found
     if (!subject) {
+
         return (
             <div className="min-h-full bg-slate-50 px-6 pb-8 pt-20">
 
-                <div className="rounded-2xl border border-slate-200 bg-white p-8">
+                <div className="rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
 
                     <h1 className="text-2xl font-bold text-slate-900">
                         Subject Not Found
@@ -72,7 +76,7 @@ function StudyPage() {
 
                     <Link
                         to="/student/subjects"
-                        className="mt-6 inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-blue-700"
+                        className="mt-6 inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-blue-700"
                     >
                         <ArrowLeft size={16} />
                         Back to Subjects
@@ -115,7 +119,6 @@ function StudyPage() {
                             {subject.shortName}
                         </div>
 
-
                         <div>
 
                             <h1 className="text-2xl font-bold text-slate-900">
@@ -146,7 +149,6 @@ function StudyPage() {
 
                         </div>
 
-
                         <div className="h-2.5 overflow-hidden rounded-full bg-slate-100">
 
                             <div
@@ -154,7 +156,7 @@ function StudyPage() {
                                 style={{
                                     width: `${subject.progress}%`,
                                 }}
-                            ></div>
+                            />
 
                         </div>
 
@@ -168,6 +170,7 @@ function StudyPage() {
             {/* Learning Summary */}
             <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-3">
 
+                {/* Units */}
                 <div className="rounded-xl border border-slate-200 bg-white p-5">
 
                     <div className="flex items-center gap-3">
@@ -193,6 +196,7 @@ function StudyPage() {
                 </div>
 
 
+                {/* Topics */}
                 <div className="rounded-xl border border-slate-200 bg-white p-5">
 
                     <div className="flex items-center gap-3">
@@ -218,6 +222,7 @@ function StudyPage() {
                 </div>
 
 
+                {/* Learning Status */}
                 <div className="rounded-xl border border-slate-200 bg-white p-5">
 
                     <div className="flex items-center gap-3">
@@ -245,7 +250,7 @@ function StudyPage() {
             </div>
 
 
-            {/* Units */}
+            {/* Course Units */}
             <div className="mt-8">
 
                 <div className="mb-4">
@@ -266,7 +271,8 @@ function StudyPage() {
                     {subject.study.units.map((unit, index) => {
 
                         const completed =
-                            index < Math.floor(
+                            index <
+                            Math.floor(
                                 subject.study.units.length *
                                 (subject.progress / 100)
                             );
