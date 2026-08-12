@@ -5,6 +5,8 @@ import {
     ArrowRight,
 } from "lucide-react";
 
+import { Link } from "react-router-dom";
+
 import subjects from "../../data/subjects";
 
 
@@ -136,28 +138,28 @@ function SubjectsPage() {
                             <div className="mt-6 flex gap-3">
 
                                 {/* ASK AI */}
-                                <a
-                                    href={`/student/chat/${subject.id}`}
+                                <Link
+                                    to={`/student/chat/${subject.id}`}
                                     className={`flex flex-1 items-center justify-center gap-2 rounded-lg border px-4 py-2.5 text-sm font-medium transition ${styles.button}`}
                                 >
                                     <MessageSquare size={17} />
                                     Ask AI
-                                </a>
+                                </Link>
 
 
                                 {/* QUIZ */}
-                                <a
-                                    href={`/student/quiz/${subject.id}`}
+                                <Link
+                                    to={`/student/quiz/${subject.id}`}
                                     className="flex flex-1 items-center justify-center gap-2 rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
                                 >
                                     <ClipboardCheck size={17} />
                                     Quiz
-                                </a>
+                                </Link>
 
 
                                 {/* STUDY */}
-                                <a
-                                    href={`/student/study/${subject.id}`}
+                                <Link
+                                    to={`/student/study/${subject.id}`}
                                     className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium text-white transition ${styles.study}`}
                                 >
                                     <BookOpen size={17} />
@@ -165,7 +167,7 @@ function SubjectsPage() {
                                     Study
 
                                     <ArrowRight size={16} />
-                                </a>
+                                </Link>
 
                             </div>
 

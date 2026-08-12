@@ -1,4 +1,9 @@
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import {
+    BrowserRouter,
+    Routes,
+    Route,
+} from "react-router-dom";
+
 
 import DashboardPage from "../pages/student/DashboardPage";
 import SubjectsPage from "../pages/student/SubjectsPage";
@@ -6,7 +11,9 @@ import StudyPage from "../pages/student/StudyPage";
 import AIChatPage from "../pages/student/AIChatPage";
 import QuizPage from "../pages/student/QuizPage";
 
+
 import DashboardLayout from "../components/layout/DashboardLayout";
+
 
 import LandingPage from "../pages/LandingPage";
 import LoginPage from "../pages/LoginPage";
@@ -14,12 +21,16 @@ import SignupPage from "../pages/SignupPage";
 
 
 function AppRoutes() {
+
     return (
         <BrowserRouter>
 
             <Routes>
 
-                {/* Public Pages */}
+                {/* ========================= */}
+                {/* PUBLIC PAGES */}
+                {/* ========================= */}
+
                 <Route
                     path="/"
                     element={<LandingPage />}
@@ -36,7 +47,10 @@ function AppRoutes() {
                 />
 
 
-                {/* Dashboard */}
+                {/* ========================= */}
+                {/* STUDENT DASHBOARD */}
+                {/* ========================= */}
+
                 <Route
                     path="/student/dashboard"
                     element={
@@ -47,7 +61,10 @@ function AppRoutes() {
                 />
 
 
-                {/* Subjects */}
+                {/* ========================= */}
+                {/* STUDENT SUBJECTS */}
+                {/* ========================= */}
+
                 <Route
                     path="/student/subjects"
                     element={
@@ -58,7 +75,10 @@ function AppRoutes() {
                 />
 
 
-                {/* Dynamic Study */}
+                {/* ========================= */}
+                {/* STUDY PAGE */}
+                {/* ========================= */}
+
                 <Route
                     path="/student/study/:subjectId"
                     element={
@@ -69,7 +89,10 @@ function AppRoutes() {
                 />
 
 
-                {/* Dynamic AI Chat */}
+                {/* ========================= */}
+                {/* AI CHAT PAGE */}
+                {/* ========================= */}
+
                 <Route
                     path="/student/chat/:subjectId"
                     element={
@@ -80,7 +103,10 @@ function AppRoutes() {
                 />
 
 
-                {/* Dynamic Quiz */}
+                {/* ========================= */}
+                {/* QUIZ PAGE */}
+                {/* ========================= */}
+
                 <Route
                     path="/student/quiz/:subjectId"
                     element={
