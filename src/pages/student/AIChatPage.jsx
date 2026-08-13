@@ -662,6 +662,7 @@ function AIChatPage() {
 
             {/* ================================================= */}
             {/* CHAT SIDEBAR */}
+            
             {/* ================================================= */}
 
             <aside className="flex w-[255px] shrink-0 flex-col border-r border-slate-200 bg-white">
