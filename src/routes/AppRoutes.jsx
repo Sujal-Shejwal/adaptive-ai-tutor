@@ -10,7 +10,8 @@ import SubjectsPage from "../pages/student/SubjectsPage";
 import StudyPage from "../pages/student/StudyPage";
 import AIChatPage from "../pages/student/AIChatPage";
 import QuizPage from "../pages/student/QuizPage";
-
+import ProgressPage from "../pages/student/ProgressPage";
+import ProfilePage from "../pages/student/ProfilePage";
 
 import DashboardLayout from "../components/layout/DashboardLayout";
 
@@ -18,7 +19,7 @@ import DashboardLayout from "../components/layout/DashboardLayout";
 import LandingPage from "../pages/LandingPage";
 import LoginPage from "../pages/LoginPage";
 import SignupPage from "../pages/SignupPage";
-
+import SettingsPage from "../pages/student/SettingsPage";
 
 function AppRoutes() {
 
@@ -59,6 +60,22 @@ function AppRoutes() {
                         </DashboardLayout>
                     }
                 />
+
+
+
+
+                {/* ========================= */
+/* SETTINGS PAGE */
+/* ========================= */}
+
+<Route
+    path="/student/settings"
+    element={
+        <DashboardLayout>
+            <SettingsPage />
+        </DashboardLayout>
+    }
+/>
 
 
                 {/* ========================= */}
@@ -112,6 +129,33 @@ function AppRoutes() {
                     element={
                         <DashboardLayout>
                             <QuizPage />
+                        </DashboardLayout>
+                    }
+                />
+
+
+                {/* ========================= */
+/* PROFILE PAGE */
+/* ========================= */}
+
+<Route
+    path="/student/profile"
+    element={
+        <DashboardLayout>
+            <ProfilePage />
+        </DashboardLayout>
+    }
+/>
+
+
+                {/* PROGRESS PAGE */}
+               
+
+                <Route
+                    path="/student/progress"
+                    element={
+                        <DashboardLayout>
+                            <ProgressPage />
                         </DashboardLayout>
                     }
                 />

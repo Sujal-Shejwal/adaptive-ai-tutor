@@ -16,13 +16,13 @@ const QuickActions = () => {
             icon: MessageSquare,
             label: "Start AI Chat",
             color: "blue",
-            path: "/student/chat",
+            path: "/student/chat/dbms",
         },
         {
             icon: ClipboardCheck,
             label: "Take a Quiz",
             color: "green",
-            path: "/student/quiz",
+            path: "/student/quiz/dbms",
         },
         {
             icon: BarChart3,
@@ -53,6 +53,7 @@ const QuickActions = () => {
 
                     const Icon = action.icon;
 
+
                     return (
                         <Link
                             key={action.label}
@@ -73,7 +74,9 @@ const QuickActions = () => {
                                             : "bg-orange-100 text-orange-600"
                                     }`}
                                 >
+
                                     <Icon size={16} />
+
                                 </div>
 
 
@@ -91,6 +94,7 @@ const QuickActions = () => {
 
                         </Link>
                     );
+
                 })}
 
             </div>
