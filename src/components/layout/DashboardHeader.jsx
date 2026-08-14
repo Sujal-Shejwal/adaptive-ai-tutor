@@ -4,19 +4,49 @@ import {
     UserRound,
 } from "lucide-react";
 
-import { Link } from "react-router-dom";
-import { useState } from "react";
+import {
+    Link,
+    useNavigate,
+} from "react-router-dom";
+
+import {
+    useState,
+} from "react";
 
 
 const DashboardHeader = () => {
 
-    const [showProfileMenu, setShowProfileMenu] = useState(false);
+    const [showProfileMenu, setShowProfileMenu] =
+        useState(false);
+
+    const navigate = useNavigate();
+
+
+    /* ===================================================== */
+    /* LOGOUT                                                */
+    /* ===================================================== */
+
+    const handleLogout = () => {
+
+        // Remove temporary frontend session data
+        localStorage.removeItem("token");
+        localStorage.removeItem("user");
+
+        // Close dropdown
+        setShowProfileMenu(false);
+
+        // Go to login page
+        navigate("/login");
+    };
 
 
     return (
         <header className="fixed left-[290px] right-0 top-0 z-40 flex h-[68px] items-center justify-between border-b border-gray-200 bg-white px-6">
 
-            {/* Search */}
+            {/* ================================================= */}
+            {/* SEARCH                                            */}
+            {/* ================================================= */}
+
             <div className="w-full max-w-[478px]">
 
                 <div className="flex h-10 items-center gap-3 rounded-xl border border-gray-200 bg-gray-50 px-3">
@@ -37,10 +67,17 @@ const DashboardHeader = () => {
             </div>
 
 
-            {/* Right Side */}
+            {/* ================================================= */}
+            {/* RIGHT SIDE                                        */}
+            {/* ================================================= */}
+
             <div className="ml-6 flex items-center gap-3">
 
-                {/* Notification */}
+
+                {/* ================================================= */}
+                {/* NOTIFICATION                                      */}
+                {/* ================================================= */}
+
                 <button
                     type="button"
                     className="relative flex h-10 w-10 items-center justify-center rounded-xl border border-gray-200 bg-white"
@@ -51,17 +88,25 @@ const DashboardHeader = () => {
                         className="text-gray-500"
                     />
 
-                    <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-red-500"></span>
+                    <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-red-500" />
 
                 </button>
 
 
-                {/* User Profile */}
+                {/* ================================================= */}
+                {/* USER PROFILE                                      */}
+                {/* ================================================= */}
+
                 <div className="relative">
 
                     <button
                         type="button"
-                        onClick={() => setShowProfileMenu((prev) => !prev)}
+                        onClick={() =>
+                            setShowProfileMenu(
+                                (previous) =>
+                                    !previous
+                            )
+                        }
                         className="flex h-10 items-center gap-3 rounded-xl border border-gray-200 bg-white px-2.5 transition hover:bg-gray-50"
                     >
 
@@ -92,14 +137,22 @@ const DashboardHeader = () => {
                     </button>
 
 
-                    {/* Profile Dropdown */}
+                    {/* ================================================= */}
+                    {/* PROFILE DROPDOWN                                  */}
+                    {/* ================================================= */}
+
                     {showProfileMenu && (
+
                         <div className="absolute right-0 top-[48px] z-[100] w-56 overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-xl">
 
                             {/* View Profile */}
                             <Link
                                 to="/student/profile"
-                                onClick={() => setShowProfileMenu(false)}
+                                onClick={() =>
+                                    setShowProfileMenu(
+                                        false
+                                    )
+                                }
                                 className="block px-5 py-4 text-sm text-gray-700 transition hover:bg-gray-50"
                             >
                                 View Profile
@@ -109,7 +162,11 @@ const DashboardHeader = () => {
                             {/* Settings */}
                             <Link
                                 to="/student/settings"
-                                onClick={() => setShowProfileMenu(false)}
+                                onClick={() =>
+                                    setShowProfileMenu(
+                                        false
+                                    )
+                                }
                                 className="block px-5 py-4 text-sm text-gray-700 transition hover:bg-gray-50"
                             >
                                 Settings
@@ -117,19 +174,22 @@ const DashboardHeader = () => {
 
 
                             {/* Divider */}
-                            <div className="border-t border-gray-200"></div>
+                            <div className="border-t border-gray-200" />
 
 
                             {/* Logout */}
                             <button
                                 type="button"
-                                onClick={() => setShowProfileMenu(false)}
+                                onClick={
+                                    handleLogout
+                                }
                                 className="block w-full px-5 py-4 text-left text-sm text-red-500 transition hover:bg-red-50"
                             >
                                 Logout
                             </button>
 
                         </div>
+
                     )}
 
                 </div>

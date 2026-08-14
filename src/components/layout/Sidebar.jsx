@@ -7,11 +7,14 @@ import {
     BarChart3,
     User,
     Settings,
-    Sun,
     LogOut,
 } from "lucide-react";
 
-import { Link, useLocation } from "react-router-dom";
+import {
+    Link,
+    useLocation,
+    useNavigate,
+} from "react-router-dom";
 
 
 const menuItems = [
@@ -57,11 +60,37 @@ function Sidebar() {
 
     const location = useLocation();
 
+    const navigate = useNavigate();
+
+
+    /* ===================================================== */
+    /* LOGOUT                                                */
+    /* ===================================================== */
+
+    const handleLogout = () => {
+
+        /*
+         * Temporary frontend logout.
+         * Real authentication/session cleanup
+         * will be added with the backend.
+         */
+
+        localStorage.removeItem("token");
+
+        localStorage.removeItem("user");
+
+        navigate("/login");
+    };
+
 
     return (
         <aside className="fixed left-0 top-0 z-50 flex h-screen w-[290px] flex-col border-r border-slate-200 bg-white">
 
-            {/* Brand */}
+
+            {/* ================================================= */}
+            {/* BRAND                                             */}
+            {/* ================================================= */}
+
             <div className="border-b border-slate-200 p-6">
 
                 <Link
@@ -77,6 +106,7 @@ function Sidebar() {
                         />
 
                     </div>
+
 
                     <div>
 
@@ -95,7 +125,10 @@ function Sidebar() {
             </div>
 
 
-            {/* Navigation */}
+            {/* ================================================= */}
+            {/* NAVIGATION                                        */}
+            {/* ================================================= */}
+
             <div className="p-6">
 
                 <p className="mb-4 text-xs font-semibold uppercase tracking-wider text-slate-400">
@@ -107,22 +140,24 @@ function Sidebar() {
 
                     {menuItems.map((item) => {
 
-                        const Icon = item.icon;
+                        const Icon =
+                            item.icon;
 
 
-                        // Keep AI Chat active on all dynamic chat pages
                         const isChatActive =
                             item.title === "AI Chat" &&
-                            location.pathname.startsWith("/student/chat");
+                            location.pathname.startsWith(
+                                "/student/chat"
+                            );
 
 
-                        // Keep Quiz active on all dynamic quiz pages
                         const isQuizActive =
                             item.title === "Quiz" &&
-                            location.pathname.startsWith("/student/quiz");
+                            location.pathname.startsWith(
+                                "/student/quiz"
+                            );
 
 
-                        // Normal exact route matching
                         const isExactActive =
                             location.pathname === item.path;
 
@@ -160,25 +195,16 @@ function Sidebar() {
             </div>
 
 
-            {/* Bottom Section */}
+            {/* ================================================= */}
+            {/* BOTTOM                                            */}
+            {/* ================================================= */}
+
             <div className="mt-auto border-t border-slate-200 p-6">
-
-                <div className="flex items-center gap-3">
-
-                    <div className="h-6 w-11 rounded-full bg-slate-300"></div>
-
-                    <Sun className="h-5 w-5 text-slate-400" />
-
-                    <span className="text-[15px] text-slate-600">
-                        Light Mode
-                    </span>
-
-                </div>
-
 
                 <button
                     type="button"
-                    className="mt-8 flex items-center gap-3 text-red-500 transition hover:text-red-600"
+                    onClick={handleLogout}
+                    className="flex w-full items-center gap-3 text-red-500 transition hover:text-red-600"
                 >
 
                     <LogOut className="h-5 w-5" />
