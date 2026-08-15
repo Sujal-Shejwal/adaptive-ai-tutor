@@ -1,169 +1,236 @@
 import {
-    BrowserRouter,
-    Routes,
-    Route,
+  BrowserRouter,
+  Routes,
+  Route,
 } from "react-router-dom";
 
 
-import DashboardPage from "../pages/student/DashboardPage";
-import SubjectsPage from "../pages/student/SubjectsPage";
-import StudyPage from "../pages/student/StudyPage";
-import AIChatPage from "../pages/student/AIChatPage";
-import QuizPage from "../pages/student/QuizPage";
-import ProgressPage from "../pages/student/ProgressPage";
-import ProfilePage from "../pages/student/ProfilePage";
+// =========================
+// TEACHER
+// =========================
 
-import DashboardLayout from "../components/layout/DashboardLayout";
+import TeacherLayout from "../components/teacher/TeacherLayout";
+
+import TeacherDashboardPage
+  from "../pages/teacher/TeacherDashboardPage";
+
+import TeacherUploadNotesPage
+  from "../pages/teacher/TeacherUploadNotesPage";
 
 
-import LandingPage from "../pages/LandingPage";
-import LoginPage from "../pages/LoginPage";
-import SignupPage from "../pages/SignupPage";
-import SettingsPage from "../pages/student/SettingsPage";
+// =========================
+// STUDENT
+// =========================
+
+import DashboardLayout
+  from "../components/layout/DashboardLayout";
+
+import DashboardPage
+  from "../pages/student/DashboardPage";
+
+import SubjectsPage
+  from "../pages/student/SubjectsPage";
+
+import StudyPage
+  from "../pages/student/StudyPage";
+
+import AIChatPage
+  from "../pages/student/AIChatPage";
+
+import QuizPage
+  from "../pages/student/QuizPage";
+
+import ProgressPage
+  from "../pages/student/ProgressPage";
+
+import ProfilePage
+  from "../pages/student/ProfilePage";
+
+import SettingsPage
+  from "../pages/student/SettingsPage";
+
+
+// =========================
+// PUBLIC
+// =========================
+
+import LandingPage
+  from "../pages/LandingPage";
+
+import LoginPage
+  from "../pages/LoginPage";
+
+import SignupPage
+  from "../pages/SignupPage";
+
 
 function AppRoutes() {
 
-    return (
-        <BrowserRouter>
+  return (
 
-            <Routes>
+    <BrowserRouter>
 
-                {/* ========================= */}
-                {/* PUBLIC PAGES */}
-                {/* ========================= */}
-
-                <Route
-                    path="/"
-                    element={<LandingPage />}
-                />
-
-                <Route
-                    path="/login"
-                    element={<LoginPage />}
-                />
-
-                <Route
-                    path="/signup"
-                    element={<SignupPage />}
-                />
+      <Routes>
 
 
-                {/* ========================= */}
-                {/* STUDENT DASHBOARD */}
-                {/* ========================= */}
+        {/* ========================= */}
+        {/* PUBLIC PAGES */}
+        {/* ========================= */}
 
-                <Route
-                    path="/student/dashboard"
-                    element={
-                        <DashboardLayout>
-                            <DashboardPage />
-                        </DashboardLayout>
-                    }
-                />
+        <Route
+          path="/"
+          element={<LandingPage />}
+        />
 
+        <Route
+          path="/login"
+          element={<LoginPage />}
+        />
 
-
-
-                {/* ========================= */
-/* SETTINGS PAGE */
-/* ========================= */}
-
-<Route
-    path="/student/settings"
-    element={
-        <DashboardLayout>
-            <SettingsPage />
-        </DashboardLayout>
-    }
-/>
+        <Route
+          path="/signup"
+          element={<SignupPage />}
+        />
 
 
-                {/* ========================= */}
-                {/* STUDENT SUBJECTS */}
-                {/* ========================= */}
+        {/* ========================= */}
+        {/* TEACHER PAGES */}
+        {/* ========================= */}
 
-                <Route
-                    path="/student/subjects"
-                    element={
-                        <DashboardLayout>
-                            <SubjectsPage />
-                        </DashboardLayout>
-                    }
-                />
+        <Route element={<TeacherLayout />}>
 
+          {/* Teacher Dashboard */}
+          <Route
+            path="/teacher/dashboard"
+            element={<TeacherDashboardPage />}
+          />
 
-                {/* ========================= */}
-                {/* STUDY PAGE */}
-                {/* ========================= */}
+          {/* Teacher Upload Notes */}
+          <Route
+            path="/teacher/upload-notes"
+            element={<TeacherUploadNotesPage />}
+          />
 
-                <Route
-                    path="/student/study/:subjectId"
-                    element={
-                        <DashboardLayout>
-                            <StudyPage />
-                        </DashboardLayout>
-                    }
-                />
+        </Route>
 
 
-                {/* ========================= */}
-                {/* AI CHAT PAGE */}
-                {/* ========================= */}
+        {/* ========================= */}
+        {/* STUDENT DASHBOARD */}
+        {/* ========================= */}
 
-                <Route
-                    path="/student/chat/:subjectId"
-                    element={
-                        <DashboardLayout>
-                            <AIChatPage />
-                        </DashboardLayout>
-                    }
-                />
-
-
-                {/* ========================= */}
-                {/* QUIZ PAGE */}
-                {/* ========================= */}
-
-                <Route
-                    path="/student/quiz/:subjectId"
-                    element={
-                        <DashboardLayout>
-                            <QuizPage />
-                        </DashboardLayout>
-                    }
-                />
+        <Route
+          path="/student/dashboard"
+          element={
+            <DashboardLayout>
+              <DashboardPage />
+            </DashboardLayout>
+          }
+        />
 
 
-                {/* ========================= */
-/* PROFILE PAGE */
-/* ========================= */}
+        {/* ========================= */}
+        {/* STUDENT SETTINGS */}
+        {/* ========================= */}
 
-<Route
-    path="/student/profile"
-    element={
-        <DashboardLayout>
-            <ProfilePage />
-        </DashboardLayout>
-    }
-/>
+        <Route
+          path="/student/settings"
+          element={
+            <DashboardLayout>
+              <SettingsPage />
+            </DashboardLayout>
+          }
+        />
 
 
-                {/* PROGRESS PAGE */}
-               
+        {/* ========================= */}
+        {/* STUDENT SUBJECTS */}
+        {/* ========================= */}
 
-                <Route
-                    path="/student/progress"
-                    element={
-                        <DashboardLayout>
-                            <ProgressPage />
-                        </DashboardLayout>
-                    }
-                />
+        <Route
+          path="/student/subjects"
+          element={
+            <DashboardLayout>
+              <SubjectsPage />
+            </DashboardLayout>
+          }
+        />
 
-            </Routes>
 
-        </BrowserRouter>
-    );
+        {/* ========================= */}
+        {/* STUDENT STUDY */}
+        {/* ========================= */}
+
+        <Route
+          path="/student/study/:subjectId"
+          element={
+            <DashboardLayout>
+              <StudyPage />
+            </DashboardLayout>
+          }
+        />
+
+
+        {/* ========================= */}
+        {/* STUDENT AI CHAT */}
+        {/* ========================= */}
+
+        <Route
+          path="/student/chat/:subjectId"
+          element={
+            <DashboardLayout>
+              <AIChatPage />
+            </DashboardLayout>
+          }
+        />
+
+
+        {/* ========================= */}
+        {/* STUDENT QUIZ */}
+        {/* ========================= */}
+
+        <Route
+          path="/student/quiz/:subjectId"
+          element={
+            <DashboardLayout>
+              <QuizPage />
+            </DashboardLayout>
+          }
+        />
+
+
+        {/* ========================= */}
+        {/* STUDENT PROFILE */}
+        {/* ========================= */}
+
+        <Route
+          path="/student/profile"
+          element={
+            <DashboardLayout>
+              <ProfilePage />
+            </DashboardLayout>
+          }
+        />
+
+
+        {/* ========================= */}
+        {/* STUDENT PROGRESS */}
+        {/* ========================= */}
+
+        <Route
+          path="/student/progress"
+          element={
+            <DashboardLayout>
+              <ProgressPage />
+            </DashboardLayout>
+          }
+        />
+
+
+      </Routes>
+
+    </BrowserRouter>
+
+  );
 }
 
 
