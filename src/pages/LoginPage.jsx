@@ -9,6 +9,18 @@ function LoginPage() {
 
   const navigate = useNavigate();
 
+  const handleLogin = () => {
+    // Temporary frontend role system.
+    // Later this will come from FastAPI authentication/JWT.
+    localStorage.setItem("userRole", role);
+
+    if (role === "teacher") {
+      navigate("/teacher/dashboard");
+    } else {
+      navigate("/student/dashboard");
+    }
+  };
+
   return (
     <main className="flex min-h-screen flex-col items-center bg-slate-50 pt-14">
       {/* Logo */}
@@ -31,6 +43,7 @@ function LoginPage() {
         {/* Student / Teacher Toggle */}
         <div className="flex rounded-2xl bg-slate-100 p-1">
           <button
+            type="button"
             onClick={() => setRole("student")}
             className={`flex-1 rounded-xl py-3 text-[16px] font-medium transition ${
               role === "student"
@@ -42,6 +55,7 @@ function LoginPage() {
           </button>
 
           <button
+            type="button"
             onClick={() => setRole("teacher")}
             className={`flex-1 rounded-xl py-3 text-[16px] font-medium transition ${
               role === "teacher"
@@ -109,7 +123,8 @@ function LoginPage() {
 
         {/* Sign In Button */}
         <button
-          onClick={() => navigate("/student/dashboard")}
+          type="button"
+          onClick={handleLogin}
           className="mt-7 h-[52px] w-full rounded-xl bg-blue-600 text-[17px] font-semibold text-white transition hover:bg-blue-700"
         >
           Sign In as {role === "student" ? "Student" : "Teacher"}
@@ -122,6 +137,7 @@ function LoginPage() {
         <div className="text-center text-sm text-slate-500">
           Don't have an account?{" "}
           <button
+            type="button"
             onClick={() => navigate("/signup")}
             className="font-semibold text-blue-600 hover:underline"
           >

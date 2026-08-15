@@ -10,6 +10,18 @@ function SignupPage() {
 
   const navigate = useNavigate();
 
+  const handleSignup = () => {
+    // Temporary frontend role system.
+    // Later this will be handled by FastAPI/database authentication.
+    localStorage.setItem("userRole", role);
+
+    if (role === "teacher") {
+      navigate("/teacher/dashboard");
+    } else {
+      navigate("/student/dashboard");
+    }
+  };
+
   return (
     <main className="flex min-h-screen flex-col items-center bg-slate-50 pt-14">
       {/* Logo */}
@@ -32,6 +44,7 @@ function SignupPage() {
         {/* Student / Teacher Toggle */}
         <div className="flex rounded-2xl bg-slate-100 p-1">
           <button
+            type="button"
             onClick={() => setRole("student")}
             className={`flex-1 rounded-xl py-3 text-[16px] font-medium transition ${
               role === "student"
@@ -43,6 +56,7 @@ function SignupPage() {
           </button>
 
           <button
+            type="button"
             onClick={() => setRole("teacher")}
             className={`flex-1 rounded-xl py-3 text-[16px] font-medium transition ${
               role === "teacher"
@@ -82,7 +96,11 @@ function SignupPage() {
 
           <input
             type="email"
-            placeholder="aryan@college.edu"
+            placeholder={
+              role === "student"
+                ? "student@college.edu"
+                : "teacher@college.edu"
+            }
             className="h-[50px] w-full rounded-xl border border-gray-200 px-4 text-[15px] text-slate-700 placeholder:text-slate-400 focus:border-blue-600 focus:outline-none"
           />
         </div>
@@ -151,7 +169,8 @@ function SignupPage() {
 
         {/* Create Account Button */}
         <button
-          onClick={() => navigate("/student/dashboard")}
+          type="button"
+          onClick={handleSignup}
           className="mt-7 h-[52px] w-full rounded-xl bg-blue-600 text-[17px] font-semibold text-white transition hover:bg-blue-700"
         >
           Create {role === "student" ? "Student" : "Teacher"} Account
@@ -183,6 +202,7 @@ function SignupPage() {
         <div className="text-center text-sm text-slate-500">
           Already have an account?{" "}
           <button
+            type="button"
             onClick={() => navigate("/login")}
             className="font-semibold text-blue-600 hover:underline"
           >
