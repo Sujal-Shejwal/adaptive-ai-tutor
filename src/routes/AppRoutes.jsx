@@ -16,7 +16,8 @@ import TeacherDashboardPage
 
 import TeacherUploadNotesPage
   from "../pages/teacher/TeacherUploadNotesPage";
-
+  import TeacherProfilePage from "../pages/teacher/TeacherProfilePage";
+import TeacherSettingsPage from "../pages/teacher/TeacherSettingsPage";
 
 // =========================
 // STUDENT
@@ -98,6 +99,20 @@ function AppRoutes() {
         {/* ========================= */}
 
         <Route element={<TeacherLayout />}>
+
+
+
+        <Route
+    path="/teacher/settings"
+    element={<TeacherSettingsPage />}
+  />
+
+
+
+        <Route
+  path="/teacher/profile"
+  element={<TeacherProfilePage />}
+/>
 
           {/* Teacher Dashboard */}
           <Route
