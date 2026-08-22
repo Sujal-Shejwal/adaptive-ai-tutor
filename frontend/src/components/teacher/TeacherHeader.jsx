@@ -6,16 +6,38 @@ import {
   Settings,
   LogOut,
 } from "lucide-react";
+
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
-import { teacherProfile } from "../../data/teacher";
-
 export default function TeacherHeader() {
   const navigate = useNavigate();
+
   const [profileOpen, setProfileOpen] = useState(false);
 
+  // Get logged-in teacher information
+  const userName = localStorage.getItem("userName") || "Teacher";
+  const userRole = localStorage.getItem("userRole") || "teacher";
+
+  // Convert role into display format
+  const displayRole =
+    userRole.charAt(0).toUpperCase() + userRole.slice(1);
+
   const handleLogout = () => {
+    // Clear current authentication information
+    localStorage.removeItem("userRole");
+    localStorage.removeItem("userId");
+    localStorage.removeItem("userName");
+    localStorage.removeItem("userEmail");
+
+    // Remove old temporary session data if present
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+
+    // Close profile menu
+    setProfileOpen(false);
+
+    // Redirect to login
     navigate("/login");
   };
 
@@ -66,11 +88,11 @@ export default function TeacherHeader() {
 
             <div className="text-left">
               <p className="text-[12px] font-semibold leading-[14px] text-[#17233c]">
-                {teacherProfile.name}
+                {userName}
               </p>
 
               <p className="text-[10px] leading-[12px] text-gray-500">
-                Teacher
+                {displayRole}
               </p>
             </div>
 
@@ -84,7 +106,10 @@ export default function TeacherHeader() {
             <div className="absolute right-0 top-[46px] w-48 rounded-xl border border-gray-200 bg-white p-2 shadow-lg">
               <button
                 type="button"
-                onClick={() => navigate("/teacher/profile")}
+                onClick={() => {
+                  setProfileOpen(false);
+                  navigate("/teacher/profile");
+                }}
                 className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-gray-600 hover:bg-gray-50"
               >
                 <UserRound className="h-4 w-4" />
@@ -93,7 +118,10 @@ export default function TeacherHeader() {
 
               <button
                 type="button"
-                onClick={() => navigate("/teacher/settings")}
+                onClick={() => {
+                  setProfileOpen(false);
+                  navigate("/teacher/settings");
+                }}
                 className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-gray-600 hover:bg-gray-50"
               >
                 <Settings className="h-4 w-4" />

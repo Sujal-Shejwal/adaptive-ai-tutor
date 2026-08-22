@@ -7,17 +7,74 @@ function LoginPage() {
   const [role, setRole] = useState("student");
   const [showPassword, setShowPassword] = useState(false);
 
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+
   const navigate = useNavigate();
 
-  const handleLogin = () => {
-    // Temporary frontend role system.
-    // Later this will come from FastAPI authentication/JWT.
-    localStorage.setItem("userRole", role);
+  const handleLogin = async () => {
+    // Check required fields before calling the backend
+    if (!email.trim()) {
+      alert("Please enter your email");
+      return;
+    }
 
-    if (role === "teacher") {
-      navigate("/teacher/dashboard");
-    } else {
-      navigate("/student/dashboard");
+    if (!password) {
+      alert("Please enter your password");
+      return;
+    }
+
+    try {
+      const response = await fetch(
+        "http://localhost:8080/api/users/login",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            email: email.trim(),
+            password: password,
+          }),
+        }
+      );
+
+      // Backend returns JSON on success
+      // and plain text on failed login.
+      const responseText = await response.text();
+
+      // Handle failed login
+      if (!response.ok) {
+        alert(responseText || "Invalid email or password");
+        return;
+      }
+
+      // Parse successful JSON response
+      const data = JSON.parse(responseText);
+
+      // Make sure the selected role matches the account role
+      if (data.role?.toLowerCase() !== role) {
+        alert(`This account is registered as ${data.role}`);
+        return;
+      }
+
+      // Store logged-in user information
+      localStorage.setItem("userRole", role);
+      localStorage.setItem("userId", data.id);
+      localStorage.setItem("userName", data.name);
+      localStorage.setItem("userEmail", data.email);
+
+      alert("Login successful!");
+
+      // Navigate based on the selected role
+      if (role === "teacher") {
+        navigate("/teacher/dashboard");
+      } else {
+        navigate("/student/dashboard");
+      }
+    } catch (error) {
+      console.error("Login error:", error);
+      alert("Unable to connect to the server");
     }
   };
 
@@ -80,6 +137,8 @@ function LoginPage() {
                 ? "student@college.edu"
                 : "teacher@college.edu"
             }
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
             className="h-[50px] w-full rounded-xl border border-gray-200 px-4 text-[15px] text-slate-700 placeholder:text-slate-400 focus:border-blue-600 focus:outline-none"
           />
         </div>
@@ -108,6 +167,8 @@ function LoginPage() {
             <input
               type={showPassword ? "text" : "password"}
               placeholder="Enter your password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
               className="h-[50px] w-full rounded-xl border border-gray-200 pl-11 pr-11 text-[15px] text-slate-700 placeholder:text-slate-400 focus:border-blue-600 focus:outline-none"
             />
 
