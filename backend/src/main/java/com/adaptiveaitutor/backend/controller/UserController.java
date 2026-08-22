@@ -1,4 +1,5 @@
 package com.adaptiveaitutor.backend.controller;
+
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -7,6 +8,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.adaptiveaitutor.backend.dto.LoginResponse;
 import com.adaptiveaitutor.backend.entity.User;
+import com.adaptiveaitutor.backend.exception.EmailAlreadyExistsException;
 import com.adaptiveaitutor.backend.service.UserService;
 
 @RestController
@@ -34,9 +36,9 @@ public class UserController {
 
             return ResponseEntity.ok(response);
 
-        } catch (RuntimeException e) {
+        } catch (EmailAlreadyExistsException e) {
             return ResponseEntity.badRequest()
-                    .body("Email already registered");
+                    .body(e.getMessage());
         }
     }
 
