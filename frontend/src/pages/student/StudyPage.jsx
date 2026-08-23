@@ -12,10 +12,15 @@ import {
     useParams,
 } from "react-router-dom";
 
-import subjects from "../../data/subjects";
+import { useEffect, useState } from "react";
 
+
+// =========================
+// COLOR STYLES
+// =========================
 
 const colorStyles = {
+
     blue: {
         icon: "bg-blue-100 text-blue-600",
         progress: "bg-blue-600",
@@ -43,25 +48,184 @@ const colorStyles = {
         button: "bg-purple-500 hover:bg-purple-600",
         light: "bg-purple-50 text-purple-700",
     },
+
 };
 
 
+// =========================
+// STUDY PAGE
+// =========================
+
 function StudyPage() {
 
-    // Get subject ID from URL
+    // =========================
+    // GET SUBJECT ID FROM URL
+    // =========================
+
     const { subjectId } = useParams();
 
 
-    // Find matching subject
-    const subject = subjects.find(
-        (item) => item.id === subjectId
-    );
+    // =========================
+    // STATE
+    // =========================
+
+    const [subject, setSubject] = useState(null);
+
+    const [units, setUnits] = useState([]);
+
+    const [loading, setLoading] = useState(true);
+
+    const [error, setError] = useState(false);
 
 
-    // Subject not found
-    if (!subject) {
+    // =========================
+    // FETCH SUBJECT + UNITS
+    // =========================
+
+    useEffect(() => {
+
+        const fetchStudyData = async () => {
+
+            try {
+
+                setLoading(true);
+
+                setError(false);
+
+
+                // =========================
+                // GET ALL SUBJECTS
+                // =========================
+
+                const subjectResponse = await fetch(
+                    "http://localhost:8080/api/subjects"
+                );
+
+
+                if (!subjectResponse.ok) {
+
+                    throw new Error(
+                        "Failed to fetch subjects"
+                    );
+
+                }
+
+
+                const subjectsData =
+                    await subjectResponse.json();
+
+
+                // =========================
+                // FIND CURRENT SUBJECT
+                // =========================
+
+                const foundSubject =
+                    subjectsData.find(
+                        (item) =>
+                            String(item.id) ===
+                            String(subjectId)
+                    );
+
+
+                if (!foundSubject) {
+
+                    setError(true);
+
+                    return;
+
+                }
+
+
+                // =========================
+                // GET SUBJECT UNITS
+                // =========================
+
+                const unitsResponse = await fetch(
+                    `http://localhost:8080/api/units/subject/${subjectId}`
+                );
+
+
+                if (!unitsResponse.ok) {
+
+                    throw new Error(
+                        "Failed to fetch units"
+                    );
+
+                }
+
+
+                const unitsData =
+                    await unitsResponse.json();
+
+
+                // =========================
+                // SAVE DATA
+                // =========================
+
+                setSubject(foundSubject);
+
+                setUnits(unitsData);
+
+            }
+
+            catch (error) {
+
+                console.error(
+                    "Error loading study data:",
+                    error
+                );
+
+                setError(true);
+
+            }
+
+            finally {
+
+                setLoading(false);
+
+            }
+
+        };
+
+
+        fetchStudyData();
+
+    }, [subjectId]);
+
+
+    // =========================
+    // LOADING STATE
+    // =========================
+
+    if (loading) {
 
         return (
+
+            <div className="min-h-full bg-slate-50 px-6 pb-8 pt-20">
+
+                <div className="rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
+
+                    <p className="text-slate-500">
+                        Loading subject...
+                    </p>
+
+                </div>
+
+            </div>
+
+        );
+
+    }
+
+
+    // =========================
+    // SUBJECT NOT FOUND
+    // =========================
+
+    if (error || !subject) {
+
+        return (
+
             <div className="min-h-full bg-slate-50 px-6 pb-8 pt-20">
 
                 <div className="rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
@@ -70,63 +234,141 @@ function StudyPage() {
                         Subject Not Found
                     </h1>
 
+
                     <p className="mt-2 text-slate-500">
                         The subject you are trying to access does not exist.
                     </p>
+
 
                     <Link
                         to="/student/subjects"
                         className="mt-6 inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-blue-700"
                     >
+
                         <ArrowLeft size={16} />
+
                         Back to Subjects
+
                     </Link>
 
                 </div>
 
             </div>
+
         );
+
     }
 
 
-    const styles = colorStyles[subject.color];
+    // =========================
+    // COLOR
+    // =========================
 
+    const colorMap = {
+
+        DS: "blue",
+
+        DBMS: "green",
+
+        OS: "orange",
+
+        CN: "purple",
+
+        OOP: "blue",
+
+    };
+
+
+    const subjectColor =
+        colorMap[subject.code] || "blue";
+
+
+    const styles =
+        colorStyles[subjectColor];
+
+
+    // =========================
+    // CALCULATED DATA
+    // =========================
+
+    const subjectUnits =
+        units.length;
+
+
+    const subjectTopics =
+        units.reduce(
+            (total, unit) =>
+                total + (unit.topics || 0),
+            0
+        );
+
+
+    // Progress will be implemented later
+    const progress = 0;
+
+
+    // =========================
+    // PAGE
+    // =========================
 
     return (
+
         <div className="min-h-full bg-slate-50 px-6 pb-10 pt-20">
 
-            {/* Back Button */}
+
+            {/* ========================= */}
+            {/* BACK BUTTON */}
+            {/* ========================= */}
+
             <Link
                 to="/student/subjects"
                 className="mb-6 inline-flex items-center gap-2 text-sm font-medium text-slate-500 transition hover:text-blue-600"
             >
+
                 <ArrowLeft size={17} />
+
                 Back to Subjects
+
             </Link>
 
 
-            {/* Subject Header */}
+            {/* ========================= */}
+            {/* SUBJECT HEADER */}
+            {/* ========================= */}
+
             <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
 
                 <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
 
-                    {/* Subject Information */}
+
+                    {/* ========================= */}
+                    {/* SUBJECT INFORMATION */}
+                    {/* ========================= */}
+
                     <div className="flex items-center gap-4">
 
                         <div
                             className={`flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl text-lg font-bold ${styles.icon}`}
                         >
-                            {subject.shortName}
+
+                            {subject.code}
+
                         </div>
+
 
                         <div>
 
                             <h1 className="text-2xl font-bold text-slate-900">
+
                                 {subject.name}
+
                             </h1>
 
+
                             <p className="mt-1 text-sm text-slate-500">
-                                {subject.units} Units · {subject.topics} Topics
+
+                                {subjectUnits} Units · {subjectTopics} Topics
+
                             </p>
 
                         </div>
@@ -134,27 +376,36 @@ function StudyPage() {
                     </div>
 
 
-                    {/* Progress */}
+                    {/* ========================= */}
+                    {/* PROGRESS */}
+                    {/* ========================= */}
+
                     <div className="w-full lg:w-72">
 
                         <div className="mb-2 flex items-center justify-between">
 
                             <span className="text-sm font-medium text-slate-600">
+
                                 Overall Progress
+
                             </span>
 
+
                             <span className="text-sm font-bold text-slate-900">
-                                {subject.progress}%
+
+                                {progress}%
+
                             </span>
 
                         </div>
+
 
                         <div className="h-2.5 overflow-hidden rounded-full bg-slate-100">
 
                             <div
                                 className={`h-full rounded-full ${styles.progress}`}
                                 style={{
-                                    width: `${subject.progress}%`,
+                                    width: `${progress}%`,
                                 }}
                             />
 
@@ -167,17 +418,27 @@ function StudyPage() {
             </div>
 
 
-            {/* Learning Summary */}
+            {/* ========================= */}
+            {/* LEARNING SUMMARY */}
+            {/* ========================= */}
+
             <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-3">
 
-                {/* Units */}
+
+                {/* ========================= */}
+                {/* UNITS */}
+                {/* ========================= */}
+
                 <div className="rounded-xl border border-slate-200 bg-white p-5">
 
                     <div className="flex items-center gap-3">
 
                         <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-100 text-blue-600">
+
                             <BookOpen size={19} />
+
                         </div>
+
 
                         <div>
 
@@ -185,8 +446,11 @@ function StudyPage() {
                                 Units
                             </p>
 
+
                             <p className="text-lg font-semibold text-slate-900">
-                                {subject.units}
+
+                                {subjectUnits}
+
                             </p>
 
                         </div>
@@ -196,14 +460,20 @@ function StudyPage() {
                 </div>
 
 
-                {/* Topics */}
+                {/* ========================= */}
+                {/* TOPICS */}
+                {/* ========================= */}
+
                 <div className="rounded-xl border border-slate-200 bg-white p-5">
 
                     <div className="flex items-center gap-3">
 
                         <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-green-100 text-green-600">
+
                             <FileText size={19} />
+
                         </div>
+
 
                         <div>
 
@@ -211,8 +481,11 @@ function StudyPage() {
                                 Topics
                             </p>
 
+
                             <p className="text-lg font-semibold text-slate-900">
-                                {subject.topics}
+
+                                {subjectTopics}
+
                             </p>
 
                         </div>
@@ -222,14 +495,20 @@ function StudyPage() {
                 </div>
 
 
-                {/* Learning Status */}
+                {/* ========================= */}
+                {/* LEARNING STATUS */}
+                {/* ========================= */}
+
                 <div className="rounded-xl border border-slate-200 bg-white p-5">
 
                     <div className="flex items-center gap-3">
 
                         <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-purple-100 text-purple-600">
+
                             <Clock3 size={19} />
+
                         </div>
+
 
                         <div>
 
@@ -237,8 +516,11 @@ function StudyPage() {
                                 Learning Status
                             </p>
 
+
                             <p className="text-lg font-semibold text-slate-900">
-                                In Progress
+
+                                Not Started
+
                             </p>
 
                         </div>
@@ -250,35 +532,45 @@ function StudyPage() {
             </div>
 
 
-            {/* Course Units */}
+            {/* ========================= */}
+            {/* COURSE UNITS */}
+            {/* ========================= */}
+
             <div className="mt-8">
+
 
                 <div className="mb-4">
 
                     <h2 className="text-xl font-bold text-slate-900">
+
                         Course Units
+
                     </h2>
 
+
                     <p className="mt-1 text-sm text-slate-500">
+
                         Select a unit to continue learning.
+
                     </p>
 
                 </div>
 
 
+                {/* ========================= */}
+                {/* UNIT LIST */}
+                {/* ========================= */}
+
                 <div className="space-y-4">
 
-                    {subject.study.units.map((unit, index) => {
+                    {units.map((unit, index) => {
 
-                        const completed =
-                            index <
-                            Math.floor(
-                                subject.study.units.length *
-                                (subject.progress / 100)
-                            );
+                        // Progress is not implemented yet
+                        const completed = false;
 
 
                         return (
+
                             <div
                                 key={unit.id}
                                 className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:shadow-md"
@@ -286,8 +578,13 @@ function StudyPage() {
 
                                 <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
 
-                                    {/* Unit Information */}
+
+                                    {/* ========================= */}
+                                    {/* UNIT INFORMATION */}
+                                    {/* ========================= */}
+
                                     <div className="flex items-center gap-4">
+
 
                                         <div
                                             className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${
@@ -298,9 +595,13 @@ function StudyPage() {
                                         >
 
                                             {completed ? (
+
                                                 <CheckCircle2 size={21} />
+
                                             ) : (
+
                                                 <BookOpen size={21} />
+
                                             )}
 
                                         </div>
@@ -308,16 +609,25 @@ function StudyPage() {
 
                                         <div>
 
+
                                             <p className="text-xs font-medium text-slate-400">
-                                                Unit {unit.id}
+
+                                                Unit {unit.unitNumber || index + 1}
+
                                             </p>
 
+
                                             <h3 className="mt-1 font-semibold text-slate-900">
+
                                                 {unit.title}
+
                                             </h3>
 
+
                                             <p className="mt-1 text-sm text-slate-500">
+
                                                 {unit.topics} Topics
+
                                             </p>
 
                                         </div>
@@ -325,31 +635,73 @@ function StudyPage() {
                                     </div>
 
 
-                                    {/* Study Button */}
-                                    <button
+                                    {/* ========================= */}
+                                    {/* START LEARNING BUTTON */}
+                                    {/* ========================= */}
+
+                                    <Link
+                                        to={`/student/unit/${unit.id}`}
                                         className={`inline-flex items-center justify-center gap-2 rounded-lg px-5 py-2.5 text-sm font-medium text-white transition ${styles.button}`}
                                     >
 
                                         <PlayCircle size={17} />
 
+
                                         {completed
                                             ? "Review"
-                                            : "Start Learning"}
+                                            : "Start Learning"
+                                        }
 
-                                    </button>
+                                    </Link>
 
                                 </div>
 
                             </div>
+
                         );
+
                     })}
+
+
+                    {/* ========================= */}
+                    {/* NO UNITS */}
+                    {/* ========================= */}
+
+                    {units.length === 0 && (
+
+                        <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm">
+
+                            <BookOpen
+                                size={32}
+                                className="mx-auto text-slate-400"
+                            />
+
+
+                            <p className="mt-3 font-medium text-slate-700">
+
+                                No units available
+
+                            </p>
+
+
+                            <p className="mt-1 text-sm text-slate-500">
+
+                                Units for this subject have not been added yet.
+
+                            </p>
+
+                        </div>
+
+                    )}
 
                 </div>
 
             </div>
 
         </div>
+
     );
+
 }
 
 

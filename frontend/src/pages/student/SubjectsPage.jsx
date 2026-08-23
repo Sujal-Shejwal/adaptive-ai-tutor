@@ -6,8 +6,7 @@ import {
 } from "lucide-react";
 
 import { Link } from "react-router-dom";
-
-import subjects from "../../data/subjects";
+import { useEffect, useState } from "react";
 
 
 const colorStyles = {
@@ -43,15 +42,167 @@ const colorStyles = {
 
 function SubjectsPage() {
 
+    const [subjects, setSubjects] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState("");
+
+
+    useEffect(() => {
+
+        const fetchSubjects = async () => {
+
+            try {
+
+                setLoading(true);
+                setError("");
+
+
+                // ==========================================
+                // 1. GET ALL SUBJECTS
+                // ==========================================
+
+                const subjectsResponse = await fetch(
+                    "http://localhost:8080/api/subjects"
+                );
+
+
+                if (!subjectsResponse.ok) {
+                    throw new Error("Failed to fetch subjects.");
+                }
+
+
+                const subjectsData = await subjectsResponse.json();
+
+
+                // ==========================================
+                // 2. GET UNITS FOR EACH SUBJECT
+                // ==========================================
+
+                const formattedSubjects = await Promise.all(
+
+                    subjectsData.map(async (subject, index) => {
+
+                        const colors = [
+                            "blue",
+                            "green",
+                            "orange",
+                            "purple",
+                        ];
+
+
+                        let units = [];
+
+
+                        try {
+
+                            const unitsResponse = await fetch(
+                                `http://localhost:8080/api/units/subject/${subject.id}`
+                            );
+
+
+                            if (unitsResponse.ok) {
+
+                                units = await unitsResponse.json();
+
+                            }
+
+                        } catch (unitError) {
+
+                            console.error(
+                                `Error fetching units for subject ${subject.id}:`,
+                                unitError
+                            );
+
+                        }
+
+
+                        // ==========================================
+                        // 3. CALCULATE TOTAL TOPICS
+                        // ==========================================
+
+                        const totalTopics = units.reduce(
+                            (total, unit) => total + (unit.topics || 0),
+                            0
+                        );
+
+
+                        return {
+
+                            id: subject.id,
+
+                            name: subject.name,
+
+                            code: subject.code,
+
+                            description: subject.description,
+
+                            shortName: subject.code,
+
+                            color: colors[index % colors.length],
+
+                            units: units.length,
+
+                            topics: totalTopics,
+
+                            // Progress will be connected later.
+                            progress: 0,
+
+                        };
+
+                    })
+
+                );
+
+
+                // ==========================================
+                // 4. SAVE DATA
+                // ==========================================
+
+                setSubjects(formattedSubjects);
+
+
+            } catch (error) {
+
+                console.error(
+                    "Error fetching subjects:",
+                    error
+                );
+
+
+                setError(
+                    "Unable to load subjects. Please try again."
+                );
+
+
+            } finally {
+
+                setLoading(false);
+
+            }
+
+        };
+
+
+        fetchSubjects();
+
+    }, []);
+
+
     return (
+
         <div className="min-h-full bg-slate-50 px-6 pb-8 pt-20">
 
-            {/* Page Header */}
+
+            {/* ========================================== */}
+            {/* PAGE HEADER */}
+            {/* ========================================== */}
+
             <div className="mb-8">
 
                 <h1 className="text-3xl font-bold text-slate-900">
                     My Subjects
                 </h1>
+
 
                 <p className="mt-2 text-slate-500">
                     Select a subject to view units, notes, and start learning.
@@ -60,125 +211,232 @@ function SubjectsPage() {
             </div>
 
 
-            {/* Subject Cards */}
-            <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+            {/* ========================================== */}
+            {/* LOADING STATE */}
+            {/* ========================================== */}
 
-                {subjects.map((subject) => {
+            {loading && (
 
-                    const styles = colorStyles[subject.color];
+                <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm">
 
-                    return (
-                        <div
-                            key={subject.id}
-                            className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition hover:shadow-md"
-                        >
+                    <p className="text-sm text-slate-500">
+                        Loading subjects...
+                    </p>
 
-                            {/* Card Header */}
-                            <div className="flex items-start gap-4">
+                </div>
+
+            )}
+
+
+            {/* ========================================== */}
+            {/* ERROR STATE */}
+            {/* ========================================== */}
+
+            {!loading && error && (
+
+                <div className="rounded-2xl border border-red-200 bg-red-50 p-8 text-center">
+
+                    <p className="text-sm text-red-600">
+                        {error}
+                    </p>
+
+                </div>
+
+            )}
+
+
+            {/* ========================================== */}
+            {/* EMPTY STATE */}
+            {/* ========================================== */}
+
+            {!loading &&
+                !error &&
+                subjects.length === 0 && (
+
+                    <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm">
+
+                        <p className="text-sm text-slate-500">
+                            No subjects are available yet.
+                        </p>
+
+                    </div>
+
+                )}
+
+
+            {/* ========================================== */}
+            {/* SUBJECT CARDS */}
+            {/* ========================================== */}
+
+            {!loading &&
+                !error &&
+                subjects.length > 0 && (
+
+                    <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+
+                        {subjects.map((subject) => {
+
+                            const styles =
+                                colorStyles[subject.color];
+
+
+                            return (
 
                                 <div
-                                    className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl text-sm font-bold ${styles.icon}`}
+                                    key={subject.id}
+                                    className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition hover:shadow-md"
                                 >
-                                    {subject.shortName}
-                                </div>
 
 
-                                <div className="flex-1">
+                                    {/* ========================================== */}
+                                    {/* CARD HEADER */}
+                                    {/* ========================================== */}
 
-                                    <h2 className="text-lg font-semibold text-slate-900">
-                                        {subject.name}
-                                    </h2>
+                                    <div className="flex items-start gap-4">
 
-                                    <p className="mt-1 text-sm text-slate-500">
-                                        {subject.units} Units · {subject.topics} Topics
+
+                                        <div
+                                            className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl text-sm font-bold ${styles.icon}`}
+                                        >
+                                            {subject.shortName}
+                                        </div>
+
+
+                                        <div className="flex-1">
+
+
+                                            <h2 className="text-lg font-semibold text-slate-900">
+                                                {subject.name}
+                                            </h2>
+
+
+                                            <p className="mt-1 text-sm text-slate-500">
+                                                {subject.units} Units · {subject.topics} Topics
+                                            </p>
+
+
+                                        </div>
+
+                                    </div>
+
+
+                                    {/* ========================================== */}
+                                    {/* DESCRIPTION */}
+                                    {/* ========================================== */}
+
+                                    <p className="mt-5 text-sm leading-6 text-slate-500">
+                                        {subject.description}
                                     </p>
 
+
+                                    {/* ========================================== */}
+                                    {/* PROGRESS */}
+                                    {/* ========================================== */}
+
+                                    <div className="mt-6">
+
+
+                                        <div className="mb-2 flex items-center justify-between">
+
+
+                                            <span className="text-sm font-medium text-slate-600">
+                                                Progress
+                                            </span>
+
+
+                                            <span className="text-sm font-semibold text-slate-900">
+                                                {subject.progress}%
+                                            </span>
+
+
+                                        </div>
+
+
+                                        <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100">
+
+
+                                            <div
+                                                className={`h-full rounded-full ${styles.progress}`}
+                                                style={{
+                                                    width: `${subject.progress}%`,
+                                                }}
+                                            />
+
+
+                                        </div>
+
+
+                                    </div>
+
+
+                                    {/* ========================================== */}
+                                    {/* ACTIONS */}
+                                    {/* ========================================== */}
+
+                                    <div className="mt-6 flex gap-3">
+
+
+                                        {/* ASK AI */}
+
+                                        <Link
+                                            to={`/student/chat/${subject.id}`}
+                                            className={`flex flex-1 items-center justify-center gap-2 rounded-lg border px-4 py-2.5 text-sm font-medium transition ${styles.button}`}
+                                        >
+
+                                            <MessageSquare size={17} />
+
+                                            Ask AI
+
+                                        </Link>
+
+
+                                        {/* QUIZ */}
+
+                                        <Link
+                                            to={`/student/quiz/${subject.id}`}
+                                            className="flex flex-1 items-center justify-center gap-2 rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+                                        >
+
+                                            <ClipboardCheck size={17} />
+
+                                            Quiz
+
+                                        </Link>
+
+
+                                        {/* STUDY */}
+
+                                        <Link
+                                            to={`/student/study/${subject.id}`}
+                                            className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium text-white transition ${styles.study}`}
+                                        >
+
+                                            <BookOpen size={17} />
+
+                                            Study
+
+                                            <ArrowRight size={16} />
+
+                                        </Link>
+
+
+                                    </div>
+
+
                                 </div>
 
-                            </div>
+                            );
 
+                        })}
 
-                            {/* Description */}
-                            <p className="mt-5 text-sm leading-6 text-slate-500">
-                                {subject.description}
-                            </p>
+                    </div>
 
-
-                            {/* Progress */}
-                            <div className="mt-6">
-
-                                <div className="mb-2 flex items-center justify-between">
-
-                                    <span className="text-sm font-medium text-slate-600">
-                                        Progress
-                                    </span>
-
-                                    <span className="text-sm font-semibold text-slate-900">
-                                        {subject.progress}%
-                                    </span>
-
-                                </div>
-
-
-                                <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100">
-
-                                    <div
-                                        className={`h-full rounded-full ${styles.progress}`}
-                                        style={{
-                                            width: `${subject.progress}%`,
-                                        }}
-                                    />
-
-                                </div>
-
-                            </div>
-
-
-                            {/* Actions */}
-                            <div className="mt-6 flex gap-3">
-
-                                {/* ASK AI */}
-                                <Link
-                                    to={`/student/chat/${subject.id}`}
-                                    className={`flex flex-1 items-center justify-center gap-2 rounded-lg border px-4 py-2.5 text-sm font-medium transition ${styles.button}`}
-                                >
-                                    <MessageSquare size={17} />
-                                    Ask AI
-                                </Link>
-
-
-                                {/* QUIZ */}
-                                <Link
-                                    to={`/student/quiz/${subject.id}`}
-                                    className="flex flex-1 items-center justify-center gap-2 rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
-                                >
-                                    <ClipboardCheck size={17} />
-                                    Quiz
-                                </Link>
-
-
-                                {/* STUDY */}
-                                <Link
-                                    to={`/student/study/${subject.id}`}
-                                    className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium text-white transition ${styles.study}`}
-                                >
-                                    <BookOpen size={17} />
-
-                                    Study
-
-                                    <ArrowRight size={16} />
-                                </Link>
-
-                            </div>
-
-                        </div>
-                    );
-                })}
-
-            </div>
+                )}
 
         </div>
+
     );
+
 }
 
 

@@ -5,6 +5,7 @@ import {
   Navigate,
 } from "react-router-dom";
 
+
 // =========================
 // TEACHER
 // =========================
@@ -15,6 +16,9 @@ import TeacherLayout
 import TeacherDashboardPage
   from "../pages/teacher/TeacherDashboardPage";
 
+import TeacherSubjectsPage
+  from "../pages/teacher/TeacherSubjectsPage";
+
 import TeacherUploadNotesPage
   from "../pages/teacher/TeacherUploadNotesPage";
 
@@ -23,6 +27,7 @@ import TeacherProfilePage
 
 import TeacherSettingsPage
   from "../pages/teacher/TeacherSettingsPage";
+
 
 // =========================
 // STUDENT
@@ -40,6 +45,12 @@ import SubjectsPage
 import StudyPage
   from "../pages/student/StudyPage";
 
+import UnitLearningPage
+  from "../pages/student/UnitLearningPage";
+
+import TopicLearningPage
+  from "../pages/student/TopicLearningPage";
+
 import AIChatPage
   from "../pages/student/AIChatPage";
 
@@ -54,6 +65,7 @@ import ProfilePage
 
 import SettingsPage
   from "../pages/student/SettingsPage";
+
 
 // =========================
 // PUBLIC
@@ -74,23 +86,54 @@ import SignupPage
 // =========================
 
 function ProtectedRoute({ children, allowedRole }) {
-  const userRole = localStorage.getItem("userRole");
+
+  const userRole =
+    localStorage.getItem("userRole");
+
 
   // User is not logged in
   if (!userRole) {
-    return <Navigate to="/login" replace />;
+
+    return (
+      <Navigate
+        to="/login"
+        replace
+      />
+    );
+
   }
 
-  // User is logged in but has the wrong role
-  if (allowedRole && userRole !== allowedRole) {
+
+  // User has wrong role
+  if (
+    allowedRole &&
+    userRole !== allowedRole
+  ) {
+
     if (userRole === "teacher") {
-      return <Navigate to="/teacher/dashboard" replace />;
+
+      return (
+        <Navigate
+          to="/teacher/dashboard"
+          replace
+        />
+      );
+
     }
 
-    return <Navigate to="/student/dashboard" replace />;
+
+    return (
+      <Navigate
+        to="/student/dashboard"
+        replace
+      />
+    );
+
   }
 
+
   return children;
+
 }
 
 
@@ -99,19 +142,40 @@ function ProtectedRoute({ children, allowedRole }) {
 // =========================
 
 function AuthRoute({ children }) {
-  const userRole = localStorage.getItem("userRole");
 
-  // User is already logged in
+  const userRole =
+    localStorage.getItem("userRole");
+
+
+  // Already logged in as teacher
   if (userRole === "teacher") {
-    return <Navigate to="/teacher/dashboard" replace />;
+
+    return (
+      <Navigate
+        to="/teacher/dashboard"
+        replace
+      />
+    );
+
   }
 
+
+  // Already logged in as student
   if (userRole === "student") {
-    return <Navigate to="/student/dashboard" replace />;
+
+    return (
+      <Navigate
+        to="/student/dashboard"
+        replace
+      />
+    );
+
   }
+
 
   // User is not logged in
   return children;
+
 }
 
 
@@ -120,10 +184,13 @@ function AuthRoute({ children }) {
 // =========================
 
 function AppRoutes() {
+
   return (
+
     <BrowserRouter>
 
       <Routes>
+
 
         {/* ========================= */}
         {/* PUBLIC PAGES */}
@@ -131,26 +198,44 @@ function AppRoutes() {
 
         <Route
           path="/"
-          element={<LandingPage />}
-        />
-
-        {/* Login only for logged-out users */}
-        <Route
-          path="/login"
           element={
-            <AuthRoute>
-              <LoginPage />
-            </AuthRoute>
+            <LandingPage />
           }
         />
 
-        {/* Signup only for logged-out users */}
+
+        {/* ========================= */}
+        {/* LOGIN */}
+        {/* ========================= */}
+
+        <Route
+          path="/login"
+          element={
+
+            <AuthRoute>
+
+              <LoginPage />
+
+            </AuthRoute>
+
+          }
+        />
+
+
+        {/* ========================= */}
+        {/* SIGNUP */}
+        {/* ========================= */}
+
         <Route
           path="/signup"
           element={
+
             <AuthRoute>
+
               <SignupPage />
+
             </AuthRoute>
+
           }
         />
 
@@ -160,36 +245,81 @@ function AppRoutes() {
         {/* ========================= */}
 
         <Route
+
           element={
-            <ProtectedRoute allowedRole="teacher">
+
+            <ProtectedRoute
+              allowedRole="teacher"
+            >
+
               <TeacherLayout />
+
             </ProtectedRoute>
+
           }
+
         >
 
-          {/* Teacher Settings */}
-          <Route
-            path="/teacher/settings"
-            element={<TeacherSettingsPage />}
-          />
 
-          {/* Teacher Profile */}
-          <Route
-            path="/teacher/profile"
-            element={<TeacherProfilePage />}
-          />
+          {/* ========================= */}
+          {/* TEACHER DASHBOARD */}
+          {/* ========================= */}
 
-          {/* Teacher Dashboard */}
           <Route
             path="/teacher/dashboard"
-            element={<TeacherDashboardPage />}
+            element={
+              <TeacherDashboardPage />
+            }
           />
 
-          {/* Teacher Upload Notes */}
+
+          {/* ========================= */}
+          {/* TEACHER SUBJECTS */}
+          {/* ========================= */}
+
+          <Route
+            path="/teacher/subjects"
+            element={
+              <TeacherSubjectsPage />
+            }
+          />
+
+
+          {/* ========================= */}
+          {/* TEACHER UPLOAD NOTES */}
+          {/* ========================= */}
+
           <Route
             path="/teacher/upload-notes"
-            element={<TeacherUploadNotesPage />}
+            element={
+              <TeacherUploadNotesPage />
+            }
           />
+
+
+          {/* ========================= */}
+          {/* TEACHER PROFILE */}
+          {/* ========================= */}
+
+          <Route
+            path="/teacher/profile"
+            element={
+              <TeacherProfilePage />
+            }
+          />
+
+
+          {/* ========================= */}
+          {/* TEACHER SETTINGS */}
+          {/* ========================= */}
+
+          <Route
+            path="/teacher/settings"
+            element={
+              <TeacherSettingsPage />
+            }
+          />
+
 
         </Route>
 
@@ -201,27 +331,19 @@ function AppRoutes() {
         <Route
           path="/student/dashboard"
           element={
-            <ProtectedRoute allowedRole="student">
+
+            <ProtectedRoute
+              allowedRole="student"
+            >
+
               <DashboardLayout>
+
                 <DashboardPage />
+
               </DashboardLayout>
+
             </ProtectedRoute>
-          }
-        />
 
-
-        {/* ========================= */}
-        {/* STUDENT SETTINGS */}
-        {/* ========================= */}
-
-        <Route
-          path="/student/settings"
-          element={
-            <ProtectedRoute allowedRole="student">
-              <DashboardLayout>
-                <SettingsPage />
-              </DashboardLayout>
-            </ProtectedRoute>
           }
         />
 
@@ -233,11 +355,19 @@ function AppRoutes() {
         <Route
           path="/student/subjects"
           element={
-            <ProtectedRoute allowedRole="student">
+
+            <ProtectedRoute
+              allowedRole="student"
+            >
+
               <DashboardLayout>
+
                 <SubjectsPage />
+
               </DashboardLayout>
+
             </ProtectedRoute>
+
           }
         />
 
@@ -249,11 +379,67 @@ function AppRoutes() {
         <Route
           path="/student/study/:subjectId"
           element={
-            <ProtectedRoute allowedRole="student">
+
+            <ProtectedRoute
+              allowedRole="student"
+            >
+
               <DashboardLayout>
+
                 <StudyPage />
+
               </DashboardLayout>
+
             </ProtectedRoute>
+
+          }
+        />
+
+
+        {/* ========================= */}
+        {/* STUDENT UNIT LEARNING */}
+        {/* ========================= */}
+
+        <Route
+          path="/student/unit/:unitId"
+          element={
+
+            <ProtectedRoute
+              allowedRole="student"
+            >
+
+              <DashboardLayout>
+
+                <UnitLearningPage />
+
+              </DashboardLayout>
+
+            </ProtectedRoute>
+
+          }
+        />
+
+
+        {/* ========================= */}
+        {/* STUDENT TOPIC LEARNING */}
+        {/* ========================= */}
+
+        <Route
+          path="/student/topic/:topicId"
+          element={
+
+            <ProtectedRoute
+              allowedRole="student"
+            >
+
+              <DashboardLayout>
+
+                <TopicLearningPage />
+
+              </DashboardLayout>
+
+            </ProtectedRoute>
+
           }
         />
 
@@ -265,11 +451,19 @@ function AppRoutes() {
         <Route
           path="/student/chat/:subjectId"
           element={
-            <ProtectedRoute allowedRole="student">
+
+            <ProtectedRoute
+              allowedRole="student"
+            >
+
               <DashboardLayout>
+
                 <AIChatPage />
+
               </DashboardLayout>
+
             </ProtectedRoute>
+
           }
         />
 
@@ -281,27 +475,19 @@ function AppRoutes() {
         <Route
           path="/student/quiz/:subjectId"
           element={
-            <ProtectedRoute allowedRole="student">
+
+            <ProtectedRoute
+              allowedRole="student"
+            >
+
               <DashboardLayout>
+
                 <QuizPage />
+
               </DashboardLayout>
+
             </ProtectedRoute>
-          }
-        />
 
-
-        {/* ========================= */}
-        {/* STUDENT PROFILE */}
-        {/* ========================= */}
-
-        <Route
-          path="/student/profile"
-          element={
-            <ProtectedRoute allowedRole="student">
-              <DashboardLayout>
-                <ProfilePage />
-              </DashboardLayout>
-            </ProtectedRoute>
           }
         />
 
@@ -313,18 +499,77 @@ function AppRoutes() {
         <Route
           path="/student/progress"
           element={
-            <ProtectedRoute allowedRole="student">
+
+            <ProtectedRoute
+              allowedRole="student"
+            >
+
               <DashboardLayout>
+
                 <ProgressPage />
+
               </DashboardLayout>
+
             </ProtectedRoute>
+
           }
         />
+
+
+        {/* ========================= */}
+        {/* STUDENT PROFILE */}
+        {/* ========================= */}
+
+        <Route
+          path="/student/profile"
+          element={
+
+            <ProtectedRoute
+              allowedRole="student"
+            >
+
+              <DashboardLayout>
+
+                <ProfilePage />
+
+              </DashboardLayout>
+
+            </ProtectedRoute>
+
+          }
+        />
+
+
+        {/* ========================= */}
+        {/* STUDENT SETTINGS */}
+        {/* ========================= */}
+
+        <Route
+          path="/student/settings"
+          element={
+
+            <ProtectedRoute
+              allowedRole="student"
+            >
+
+              <DashboardLayout>
+
+                <SettingsPage />
+
+              </DashboardLayout>
+
+            </ProtectedRoute>
+
+          }
+        />
+
 
       </Routes>
 
     </BrowserRouter>
+
   );
+
 }
 
 
