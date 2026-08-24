@@ -1,16 +1,22 @@
 import {
     BookOpen,
     Plus,
-    Trash2,
     Loader2,
 } from "lucide-react";
 
 import { useEffect, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 
 
-function TeacherSubjectsPage() {
+function TeacherUnitsPage() {
 
-    const [subjects, setSubjects] = useState([]);
+    const { subjectId } = useParams();
+
+    const navigate = useNavigate();
+
+    const [units, setUnits] = useState([]);
+
+    const [subject, setSubject] = useState(null);
 
     const [loading, setLoading] = useState(true);
 
@@ -21,17 +27,52 @@ function TeacherSubjectsPage() {
     const [creating, setCreating] = useState(false);
 
     const [formData, setFormData] = useState({
-        name: "",
-        code: "",
-        description: "",
+        title: "",
+        unitNumber: "",
+        topics: "",
     });
 
 
     // =========================
-    // FETCH SUBJECTS
+    // FETCH SUBJECT
     // =========================
 
-    const fetchSubjects = async () => {
+    const fetchSubject = async () => {
+
+        try {
+
+            const response = await fetch(
+                `http://localhost:8080/api/subjects/${subjectId}`
+            );
+
+            if (!response.ok) {
+                throw new Error("Failed to fetch subject.");
+            }
+
+            const data = await response.json();
+
+            setSubject(data);
+
+        } catch (error) {
+
+            console.error(
+                "Error fetching subject:",
+                error
+            );
+
+            setError(
+                "Unable to load subject."
+            );
+
+        }
+    };
+
+
+    // =========================
+    // FETCH UNITS
+    // =========================
+
+    const fetchUnits = async () => {
 
         try {
 
@@ -39,26 +80,26 @@ function TeacherSubjectsPage() {
             setError("");
 
             const response = await fetch(
-                "http://localhost:8080/api/subjects"
+                `http://localhost:8080/api/units/subject/${subjectId}`
             );
 
             if (!response.ok) {
-                throw new Error("Failed to fetch subjects.");
+                throw new Error("Failed to fetch units.");
             }
 
             const data = await response.json();
 
-            setSubjects(data);
+            setUnits(data);
 
         } catch (error) {
 
             console.error(
-                "Error fetching subjects:",
+                "Error fetching units:",
                 error
             );
 
             setError(
-                "Unable to load subjects. Please try again."
+                "Unable to load units. Please try again."
             );
 
         } finally {
@@ -71,9 +112,10 @@ function TeacherSubjectsPage() {
 
     useEffect(() => {
 
-        fetchSubjects();
+        fetchSubject();
+        fetchUnits();
 
-    }, []);
+    }, [subjectId]);
 
 
     // =========================
@@ -96,7 +138,7 @@ function TeacherSubjectsPage() {
 
 
     // =========================
-    // CREATE SUBJECT
+    // CREATE UNIT
     // =========================
 
     const handleSubmit = async (event) => {
@@ -106,11 +148,10 @@ function TeacherSubjectsPage() {
         setCreating(true);
         setError("");
 
-
         try {
 
             const response = await fetch(
-                "http://localhost:8080/api/subjects",
+                "http://localhost:8080/api/units",
                 {
                     method: "POST",
 
@@ -118,7 +159,14 @@ function TeacherSubjectsPage() {
                         "Content-Type": "application/json",
                     },
 
-                    body: JSON.stringify(formData),
+                    body: JSON.stringify({
+                        title: formData.title,
+                        unitNumber: Number(formData.unitNumber),
+                        topics: Number(formData.topics),
+                        subject: {
+                            id: Number(subjectId),
+                        },
+                    }),
                 }
             );
 
@@ -126,28 +174,26 @@ function TeacherSubjectsPage() {
             if (!response.ok) {
 
                 throw new Error(
-                    "Failed to create subject."
+                    "Failed to create unit."
                 );
 
             }
 
 
-            const createdSubject =
+            const createdUnit =
                 await response.json();
 
 
-            // Add new subject immediately
-            setSubjects((previous) => [
+            setUnits((previous) => [
                 ...previous,
-                createdSubject,
+                createdUnit,
             ]);
 
 
-            // Reset form
             setFormData({
-                name: "",
-                code: "",
-                description: "",
+                title: "",
+                unitNumber: "",
+                topics: "",
             });
 
 
@@ -157,12 +203,12 @@ function TeacherSubjectsPage() {
         } catch (error) {
 
             console.error(
-                "Error creating subject:",
+                "Error creating unit:",
                 error
             );
 
             setError(
-                "Unable to create subject. Please try again."
+                "Unable to create unit. Please try again."
             );
 
         } finally {
@@ -187,12 +233,25 @@ function TeacherSubjectsPage() {
 
                 <div>
 
+                    <button
+                        type="button"
+                        onClick={() =>
+                            navigate("/teacher/subjects")
+                        }
+                        className="mb-3 text-sm font-medium text-blue-600 hover:text-blue-700"
+                    >
+                        ← Back to Subjects
+                    </button>
+
                     <h1 className="text-3xl font-bold text-slate-900">
-                        Manage Subjects
+                        Manage Units
                     </h1>
 
                     <p className="mt-2 text-slate-500">
-                        Create and manage subjects for students.
+                        {subject
+                            ? `Manage units for ${subject.name}.`
+                            : "Create and manage units for this subject."
+                        }
                     </p>
 
                 </div>
@@ -205,7 +264,7 @@ function TeacherSubjectsPage() {
 
                     <Plus size={18} />
 
-                    Add Subject
+                    Add Unit
 
                 </button>
 
@@ -240,11 +299,11 @@ function TeacherSubjectsPage() {
                     <div className="mb-6">
 
                         <h2 className="text-xl font-semibold text-slate-900">
-                            Create New Subject
+                            Create New Unit
                         </h2>
 
                         <p className="mt-1 text-sm text-slate-500">
-                            Add a subject that students can learn.
+                            Add a unit to this subject.
                         </p>
 
                     </div>
@@ -255,21 +314,20 @@ function TeacherSubjectsPage() {
                         className="space-y-5"
                     >
 
-
-                        {/* NAME */}
+                        {/* UNIT TITLE */}
 
                         <div>
 
                             <label className="mb-2 block text-sm font-medium text-slate-700">
-                                Subject Name
+                                Unit Title
                             </label>
 
                             <input
                                 type="text"
-                                name="name"
-                                value={formData.name}
+                                name="title"
+                                value={formData.title}
                                 onChange={handleChange}
-                                placeholder="e.g. Data Structures"
+                                placeholder="e.g. Introduction to Data Structures"
                                 required
                                 className="w-full rounded-lg border border-slate-300 px-4 py-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                             />
@@ -277,43 +335,45 @@ function TeacherSubjectsPage() {
                         </div>
 
 
-                        {/* CODE */}
+                        {/* UNIT NUMBER */}
 
                         <div>
 
                             <label className="mb-2 block text-sm font-medium text-slate-700">
-                                Subject Code
+                                Unit Number
                             </label>
 
                             <input
-                                type="text"
-                                name="code"
-                                value={formData.code}
+                                type="number"
+                                name="unitNumber"
+                                value={formData.unitNumber}
                                 onChange={handleChange}
-                                placeholder="e.g. DS"
+                                placeholder="e.g. 1"
+                                min="1"
                                 required
-                                className="w-full rounded-lg border border-slate-300 px-4 py-3 text-sm uppercase outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                                className="w-full rounded-lg border border-slate-300 px-4 py-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                             />
 
                         </div>
 
 
-                        {/* DESCRIPTION */}
+                        {/* TOPICS */}
 
                         <div>
 
                             <label className="mb-2 block text-sm font-medium text-slate-700">
-                                Description
+                                Number of Topics
                             </label>
 
-                            <textarea
-                                name="description"
-                                value={formData.description}
+                            <input
+                                type="number"
+                                name="topics"
+                                value={formData.topics}
                                 onChange={handleChange}
-                                placeholder="Describe what students will learn..."
-                                rows="4"
+                                placeholder="e.g. 5"
+                                min="0"
                                 required
-                                className="w-full resize-none rounded-lg border border-slate-300 px-4 py-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                                className="w-full rounded-lg border border-slate-300 px-4 py-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                             />
 
                         </div>
@@ -330,17 +390,15 @@ function TeacherSubjectsPage() {
                                     setShowForm(false);
 
                                     setFormData({
-                                        name: "",
-                                        code: "",
-                                        description: "",
+                                        title: "",
+                                        unitNumber: "",
+                                        topics: "",
                                     });
 
                                 }}
                                 className="rounded-lg border border-slate-300 px-5 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
                             >
-
                                 Cancel
-
                             </button>
 
 
@@ -359,7 +417,8 @@ function TeacherSubjectsPage() {
 
                                 {creating
                                     ? "Creating..."
-                                    : "Create Subject"}
+                                    : "Create Unit"
+                                }
 
                             </button>
 
@@ -373,7 +432,7 @@ function TeacherSubjectsPage() {
 
 
             {/* ========================= */}
-            {/* SUBJECT LIST */}
+            {/* UNITS */}
             {/* ========================= */}
 
             <div>
@@ -381,11 +440,11 @@ function TeacherSubjectsPage() {
                 <div className="mb-5">
 
                     <h2 className="text-xl font-bold text-slate-900">
-                        Subjects
+                        Units
                     </h2>
 
                     <p className="mt-1 text-sm text-slate-500">
-                        Subjects currently available on the platform.
+                        Units currently available for this subject.
                     </p>
 
                 </div>
@@ -403,7 +462,7 @@ function TeacherSubjectsPage() {
                         />
 
                         <p className="mt-3 text-sm text-slate-500">
-                            Loading subjects...
+                            Loading units...
                         </p>
 
                     </div>
@@ -414,7 +473,7 @@ function TeacherSubjectsPage() {
                 {/* EMPTY */}
 
                 {!loading &&
-                    subjects.length === 0 && (
+                    units.length === 0 && (
 
                         <div className="rounded-2xl border border-slate-200 bg-white p-10 text-center shadow-sm">
 
@@ -424,11 +483,11 @@ function TeacherSubjectsPage() {
                             />
 
                             <h3 className="mt-4 text-base font-semibold text-slate-900">
-                                No subjects yet
+                                No units yet
                             </h3>
 
                             <p className="mt-2 text-sm text-slate-500">
-                                Create your first subject to get started.
+                                Create the first unit for this subject.
                             </p>
 
                         </div>
@@ -436,17 +495,17 @@ function TeacherSubjectsPage() {
                     )}
 
 
-                {/* SUBJECTS */}
+                {/* UNIT LIST */}
 
                 {!loading &&
-                    subjects.length > 0 && (
+                    units.length > 0 && (
 
                         <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
 
-                            {subjects.map((subject) => (
+                            {units.map((unit) => (
 
                                 <div
-                                    key={subject.id}
+                                    key={unit.id}
                                     className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition hover:shadow-md"
                                 >
 
@@ -463,57 +522,38 @@ function TeacherSubjectsPage() {
 
                                             <div>
 
-                                                <h3 className="text-lg font-semibold text-slate-900">
-                                                    {subject.name}
-                                                </h3>
-
-                                                <p className="mt-1 text-sm font-medium text-blue-600">
-                                                    {subject.code}
+                                                <p className="text-sm font-medium text-blue-600">
+                                                    Unit {unit.unitNumber}
                                                 </p>
+
+                                                <h3 className="mt-1 text-lg font-semibold text-slate-900">
+                                                    {unit.title}
+                                                </h3>
 
                                             </div>
 
                                         </div>
 
-
-                                        <button
-                                            type="button"
-                                            className="rounded-lg p-2 text-slate-400 transition hover:bg-red-50 hover:text-red-600"
-                                            title="Delete subject"
-                                        >
-
-                                            <Trash2 size={18} />
-
-                                        </button>
-
                                     </div>
 
 
-                                    <p className="mt-5 text-sm leading-6 text-slate-500">
-                                        {subject.description}
-                                    </p>
-
-
-                                    <div className="mt-5 flex items-center justify-between border-t border-slate-100 pt-4">
+                                    <div className="mt-5 border-t border-slate-100 pt-4 flex items-center justify-between">
 
                                         <span className="text-sm text-slate-500">
-                                            Subject ID: {subject.id}
+                                            Topics: {unit.topics}
                                         </span>
 
-
-                                        {/* MANAGE UNITS */}
 
                                         <button
                                             type="button"
                                             onClick={() =>
-                                                window.location.href =
-                                                    `/teacher/units/${subject.id}`
+                                                navigate(
+                                                    `/teacher/topics/${unit.id}`
+                                                )
                                             }
                                             className="text-sm font-medium text-slate-700 transition hover:text-blue-600"
                                         >
-
-                                            Manage Units →
-
+                                            Manage Topics →
                                         </button>
 
                                     </div>
@@ -535,4 +575,4 @@ function TeacherSubjectsPage() {
 }
 
 
-export default TeacherSubjectsPage;
+export default TeacherUnitsPage;

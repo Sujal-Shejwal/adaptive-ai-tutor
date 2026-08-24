@@ -4,6 +4,7 @@ import {
   Route,
   Navigate,
 } from "react-router-dom";
+import StudentSubjectsPage from "../pages/student/StudentSubjectsPage";
 
 
 // =========================
@@ -18,6 +19,12 @@ import TeacherDashboardPage
 
 import TeacherSubjectsPage
   from "../pages/teacher/TeacherSubjectsPage";
+
+import TeacherUnitsPage
+  from "../pages/teacher/TeacherUnitsPage";
+
+import TeacherTopicsPage
+  from "../pages/teacher/TeacherTopicsPage";
 
 import TeacherUploadNotesPage
   from "../pages/teacher/TeacherUploadNotesPage";
@@ -92,6 +99,7 @@ function ProtectedRoute({ children, allowedRole }) {
 
 
   // User is not logged in
+
   if (!userRole) {
 
     return (
@@ -105,6 +113,7 @@ function ProtectedRoute({ children, allowedRole }) {
 
 
   // User has wrong role
+
   if (
     allowedRole &&
     userRole !== allowedRole
@@ -148,6 +157,7 @@ function AuthRoute({ children }) {
 
 
   // Already logged in as teacher
+
   if (userRole === "teacher") {
 
     return (
@@ -161,6 +171,7 @@ function AuthRoute({ children }) {
 
 
   // Already logged in as student
+
   if (userRole === "student") {
 
     return (
@@ -174,6 +185,7 @@ function AuthRoute({ children }) {
 
 
   // User is not logged in
+
   return children;
 
 }
@@ -281,6 +293,30 @@ function AppRoutes() {
             path="/teacher/subjects"
             element={
               <TeacherSubjectsPage />
+            }
+          />
+
+
+          {/* ========================= */}
+          {/* TEACHER UNITS */}
+          {/* ========================= */}
+
+          <Route
+            path="/teacher/units/:subjectId"
+            element={
+              <TeacherUnitsPage />
+            }
+          />
+
+
+          {/* ========================= */}
+          {/* TEACHER TOPICS */}
+          {/* ========================= */}
+
+          <Route
+            path="/teacher/topics/:unitId"
+            element={
+              <TeacherTopicsPage />
             }
           />
 
@@ -442,6 +478,13 @@ function AppRoutes() {
 
           }
         />
+
+
+
+        <Route
+    path="/student/subjects"
+    element={<StudentSubjectsPage />}
+/>
 
 
         {/* ========================= */}

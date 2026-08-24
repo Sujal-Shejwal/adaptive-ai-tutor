@@ -5,6 +5,7 @@ import {
   Settings,
   LogOut,
   GraduationCap,
+  BookOpen,
 } from "lucide-react";
 import { NavLink, useNavigate } from "react-router-dom";
 
@@ -13,6 +14,11 @@ const navigationItems = [
     label: "Dashboard",
     path: "/teacher/dashboard",
     icon: LayoutDashboard,
+  },
+  {
+    label: "Subjects",
+    path: "/teacher/subjects",
+    icon: BookOpen,
   },
   {
     label: "Upload Notes",
