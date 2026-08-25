@@ -10,4 +10,5 @@ public interface TopicRepository extends JpaRepository<Topic, Long> {
 
     List<Topic> findByUnitId(Long unitId);
 
+    long countByUnitSubjectId(Long subjectId);
 }

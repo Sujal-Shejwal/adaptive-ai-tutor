@@ -1,5 +1,7 @@
 package com.adaptiveaitutor.backend.entity;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -20,6 +22,9 @@ public class User {
     @Column(nullable = false, unique = true)
     private String email;
 
+    // Password can be received from request,
+    // but will not be returned in JSON response.
+    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
     @Column(nullable = false)
     private String password;
 

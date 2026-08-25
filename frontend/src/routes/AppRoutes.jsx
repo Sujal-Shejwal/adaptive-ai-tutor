@@ -4,15 +4,12 @@ import {
   Route,
   Navigate,
 } from "react-router-dom";
-import StudentSubjectsPage from "../pages/student/StudentSubjectsPage";
-
 
 // =========================
 // TEACHER
 // =========================
 
-import TeacherLayout
-  from "../components/teacher/TeacherLayout";
+import TeacherLayout from "../components/teacher/TeacherLayout";
 
 import TeacherDashboardPage
   from "../pages/teacher/TeacherDashboardPage";
@@ -478,13 +475,6 @@ function AppRoutes() {
 
           }
         />
-
-
-
-        <Route
-    path="/student/subjects"
-    element={<StudentSubjectsPage />}
-/>
 
 
         {/* ========================= */}

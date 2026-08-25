@@ -20,11 +20,45 @@ const TopicLearningPage = () => {
 
   const [topic, setTopic] = useState(null);
   const [notes, setNotes] = useState([]);
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   // =====================================================
-  // LOAD TOPIC + NOTES
+  // TOPIC PROGRESS STATE
+  // =====================================================
+
+  const [completed, setCompleted] = useState(false);
+  const [progressLoading, setProgressLoading] = useState(false);
+
+  // =====================================================
+  // GET LOGGED-IN USER ID
+  // =====================================================
+
+  const getUserId = () => {
+    try {
+      // LoginPage stores the user ID like this:
+      // localStorage.setItem("userId", data.id);
+
+      const userId = localStorage.getItem("userId");
+
+      if (userId) {
+        return userId;
+      }
+
+      // Fallback in case an older login session
+      // stored the complete user object.
+      const user = JSON.parse(localStorage.getItem("user"));
+
+      return user?.id || null;
+    } catch (error) {
+      console.error("Unable to read logged-in user:", error);
+      return null;
+    }
+  };
+
+  // =====================================================
+  // LOAD TOPIC + NOTES + PROGRESS
   // =====================================================
 
   useEffect(() => {
@@ -67,6 +101,30 @@ const TopicLearningPage = () => {
       const notesData = await notesResponse.json();
 
       setNotes(notesData);
+
+      // -------------------------------------------------
+      // GET TOPIC PROGRESS
+      // -------------------------------------------------
+
+      const userId = getUserId();
+
+      if (userId) {
+        const progressResponse = await fetch(
+          `${API_URL}/api/progress/user/${userId}/topic/${topicId}`
+        );
+
+        if (progressResponse.ok) {
+          const progressData = await progressResponse.json();
+
+          setCompleted(progressData.completed === true);
+        } else if (progressResponse.status === 404) {
+          // No progress record yet
+          setCompleted(false);
+        }
+      } else {
+        console.warn("No logged-in user ID found.");
+        setCompleted(false);
+      }
     } catch (err) {
       console.error("Topic loading error:", err);
 
@@ -93,11 +151,62 @@ const TopicLearningPage = () => {
   };
 
   // =====================================================
-  // MARK COMPLETE
+  // MARK TOPIC COMPLETE
   // =====================================================
 
-  const handleMarkComplete = () => {
-    alert("Topic marked as complete!");
+  const handleMarkComplete = async () => {
+    try {
+      const userId = getUserId();
+
+      // Make sure user ID exists
+      if (!userId) {
+        alert("User session not found. Please login again.");
+        return;
+      }
+
+      setProgressLoading(true);
+
+      console.log("Marking topic complete...");
+      console.log("User ID:", userId);
+      console.log("Topic ID:", topicId);
+
+      const response = await fetch(
+        `${API_URL}/api/progress/user/${userId}/topic/${topicId}/complete`,
+        {
+          method: "POST",
+        }
+      );
+
+      if (!response.ok) {
+        const errorText = await response.text();
+
+        console.error(
+          "Progress API error:",
+          response.status,
+          errorText
+        );
+
+        throw new Error(
+          errorText || "Unable to mark topic as complete"
+        );
+      }
+
+      const progressData = await response.json();
+
+      console.log("Topic progress saved:", progressData);
+
+      // Update UI immediately
+      setCompleted(true);
+    } catch (error) {
+      console.error("Progress error:", error);
+
+      alert(
+        error.message ||
+          "Something went wrong while saving progress."
+      );
+    } finally {
+      setProgressLoading(false);
+    }
   };
 
   // =====================================================
@@ -381,18 +490,47 @@ const TopicLearningPage = () => {
           </h3>
 
           <p className="mt-1 text-xs text-slate-400">
-            Complete this topic after studying the learning material.
+            {completed
+              ? "You have completed this topic."
+              : "Complete this topic after studying the learning material."}
           </p>
 
         </div>
 
         <button
           onClick={handleMarkComplete}
-          className="flex flex-shrink-0 items-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-xs font-semibold text-white transition hover:bg-blue-700"
+          disabled={completed || progressLoading}
+          className={`flex flex-shrink-0 items-center gap-2 rounded-lg px-4 py-2.5 text-xs font-semibold text-white transition ${
+            completed
+              ? "cursor-default bg-emerald-600"
+              : "bg-blue-600 hover:bg-blue-700"
+          } ${
+            progressLoading
+              ? "cursor-wait opacity-70"
+              : ""
+          }`}
         >
-          <CheckCircle2 className="h-4 w-4" />
 
-          Mark Complete
+          {progressLoading ? (
+            <>
+              <Loader2 className="h-4 w-4 animate-spin" />
+
+              Saving...
+            </>
+          ) : completed ? (
+            <>
+              <CheckCircle2 className="h-4 w-4" />
+
+              Completed
+            </>
+          ) : (
+            <>
+              <CheckCircle2 className="h-4 w-4" />
+
+              Mark Complete
+            </>
+          )}
+
         </button>
 
       </section>

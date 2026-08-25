@@ -1,87 +1,340 @@
 import {
-    MessageSquare,
-    ClipboardCheck,
+    CheckCircle2,
+    BookOpen,
+    List,
     TrendingUp,
-    BarChart3,
 } from "lucide-react";
 
+import { useCallback, useEffect, useState } from "react";
+
+
 const StatisticsCards = () => {
-    const statistics = [
+
+    const [statistics, setStatistics] = useState({
+        completedTopics: 0,
+        learningMaterials: 0,
+        totalTopics: 0,
+        overallProgress: 0,
+    });
+
+    const [loading, setLoading] = useState(true);
+
+
+    // =========================================================
+    // GET LOGGED-IN USER ID
+    // =========================================================
+
+    const userId =
+        localStorage.getItem("userId") || "13";
+
+
+    // =========================================================
+    // FETCH DASHBOARD STATISTICS
+    // =========================================================
+
+    const fetchStatistics = useCallback(async () => {
+
+        try {
+
+            const response = await fetch(
+                `http://localhost:8080/api/dashboard/user/${userId}/statistics`
+            );
+
+
+            if (!response.ok) {
+
+                throw new Error(
+                    "Failed to fetch dashboard statistics."
+                );
+
+            }
+
+
+            const data = await response.json();
+
+
+            setStatistics({
+                completedTopics:
+                    data.completedTopics ?? 0,
+
+                learningMaterials:
+                    data.learningMaterials ?? 0,
+
+                totalTopics:
+                    data.totalTopics ?? 0,
+
+                overallProgress:
+                    data.overallProgress ?? 0,
+            });
+
+        } catch (error) {
+
+            console.error(
+                "Dashboard statistics error:",
+                error
+            );
+
+        } finally {
+
+            setLoading(false);
+
+        }
+
+    }, [userId]);
+
+
+    // =========================================================
+    // INITIAL LOAD
+    // =========================================================
+
+    useEffect(() => {
+
+        fetchStatistics();
+
+    }, [fetchStatistics]);
+
+
+    // =========================================================
+    // REFRESH WHEN RETURNING TO DASHBOARD
+    // =========================================================
+
+    useEffect(() => {
+
+        const handleFocus = () => {
+
+            fetchStatistics();
+
+        };
+
+
+        window.addEventListener(
+            "focus",
+            handleFocus
+        );
+
+
+        return () => {
+
+            window.removeEventListener(
+                "focus",
+                handleFocus
+            );
+
+        };
+
+    }, [fetchStatistics]);
+
+
+    // =========================================================
+    // AUTO REFRESH EVERY 5 SECONDS
+    // =========================================================
+
+    useEffect(() => {
+
+        const interval =
+            setInterval(() => {
+
+                fetchStatistics();
+
+            }, 5000);
+
+
+        return () => {
+
+            clearInterval(interval);
+
+        };
+
+    }, [fetchStatistics]);
+
+
+    // =========================================================
+    // STATISTICS DATA
+    // =========================================================
+
+    const cards = [
+
         {
-            icon: MessageSquare,
-            value: "347",
-            label: "Questions Asked",
-            change: "+12 this week",
-            iconBg: "bg-blue-100",
-            iconColor: "text-blue-600",
-            changeColor: "text-blue-600",
+            icon: CheckCircle2,
+
+            value:
+                statistics.completedTopics,
+
+            label:
+                "Topics Completed",
+
+            description:
+                "Based on your progress",
+
+            iconBg:
+                "bg-blue-100",
+
+            iconColor:
+                "text-blue-600",
+
+            descriptionColor:
+                "text-blue-600",
         },
+
+
         {
-            icon: ClipboardCheck,
-            value: "28",
-            label: "Quizzes Completed",
-            change: "+3 this week",
-            iconBg: "bg-emerald-100",
-            iconColor: "text-emerald-500",
-            changeColor: "text-emerald-500",
+            icon: BookOpen,
+
+            value:
+                statistics.learningMaterials,
+
+            label:
+                "Learning Materials",
+
+            description:
+                "Available in your courses",
+
+            iconBg:
+                "bg-emerald-100",
+
+            iconColor:
+                "text-emerald-500",
+
+            descriptionColor:
+                "text-emerald-500",
         },
+
+
+        {
+            icon: List,
+
+            value:
+                statistics.totalTopics,
+
+            label:
+                "Total Topics",
+
+            description:
+                "Across all subjects",
+
+            iconBg:
+                "bg-amber-100",
+
+            iconColor:
+                "text-amber-500",
+
+            descriptionColor:
+                "text-amber-500",
+        },
+
+
         {
             icon: TrendingUp,
-            value: "14 days",
-            label: "Learning Streak",
-            change: "Personal best!",
-            iconBg: "bg-amber-100",
-            iconColor: "text-amber-500",
-            changeColor: "text-amber-500",
+
+            value:
+                `${statistics.overallProgress}%`,
+
+            label:
+                "Overall Progress",
+
+            description:
+                "Course completion",
+
+            iconBg:
+                "bg-violet-100",
+
+            iconColor:
+                "text-violet-500",
+
+            descriptionColor:
+                "text-violet-500",
         },
-        {
-            icon: BarChart3,
-            value: "76%",
-            label: "Avg Quiz Score",
-            change: "+4% from last",
-            iconBg: "bg-violet-100",
-            iconColor: "text-violet-500",
-            changeColor: "text-violet-500",
-        },
+
     ];
 
+
+    // =========================================================
+    // RENDER
+    // =========================================================
+
     return (
+
         <section>
+
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-                {statistics.map((stat) => {
-                    const Icon = stat.icon;
+
+                {cards.map((card) => {
+
+                    const Icon = card.icon;
+
 
                     return (
+
                         <div
-                            key={stat.label}
+                            key={card.label}
                             className="rounded-2xl border border-gray-200 bg-white p-5"
                         >
+
+                            {/* =================================================
+                                ICON
+                            ================================================= */}
+
                             <div
-                                className={`flex h-10 w-10 items-center justify-center rounded-xl ${stat.iconBg}`}
+                                className={`flex h-10 w-10 items-center justify-center rounded-xl ${card.iconBg}`}
                             >
+
                                 <Icon
                                     size={19}
-                                    className={stat.iconColor}
+                                    className={card.iconColor}
                                 />
+
                             </div>
 
+
+                            {/* =================================================
+                                VALUE
+                            ================================================= */}
+
                             <p className="mt-4 text-2xl font-bold text-gray-900">
-                                {stat.value}
+
+                                {loading
+                                    ? "..."
+                                    : card.value}
+
                             </p>
+
+
+                            {/* =================================================
+                                LABEL
+                            ================================================= */}
 
                             <p className="mt-1 text-sm text-gray-500">
-                                {stat.label}
+
+                                {card.label}
+
                             </p>
 
-                            <p className={`mt-1 text-xs ${stat.changeColor}`}>
-                                {stat.change}
+
+                            {/* =================================================
+                                DESCRIPTION
+                            ================================================= */}
+
+                            <p
+                                className={`mt-1 text-xs ${card.descriptionColor}`}
+                            >
+
+                                {card.description}
+
                             </p>
+
                         </div>
+
                     );
+
                 })}
+
             </div>
+
         </section>
+
     );
+
 };
+
 
 export default StatisticsCards;
