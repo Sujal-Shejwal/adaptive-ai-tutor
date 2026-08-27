@@ -4,6 +4,8 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -17,12 +19,16 @@ import com.adaptiveaitutor.backend.service.QuizService;
 
 @RestController
 @RequestMapping("/api/quizzes")
+@CrossOrigin(origins = "http://localhost:5173")
 public class QuizController {
 
     private final QuizService quizService;
 
-    public QuizController(QuizService quizService) {
-        this.quizService = quizService;
+    public QuizController(
+            QuizService quizService) {
+
+        this.quizService =
+                quizService;
     }
 
     // =====================================================
@@ -33,24 +39,28 @@ public class QuizController {
     public ResponseEntity<QuizResponse> createQuiz(
             @RequestBody CreateQuizRequest request) {
 
-        Quiz quiz = quizService.createQuiz(
-                request.getTitle(),
-                request.getDuration(),
-                request.getSubjectId(),
-                request.getTeacherId(),
-                request.getDeadlineHours()
-        );
+        Quiz quiz =
+                quizService.createQuiz(
+                        request.getTitle(),
+                        request.getDuration(),
+                        request.getSubjectId(),
+                        request.getTeacherId(),
+                        request.getDeadlineHours()
+                );
 
-        QuizResponse response = new QuizResponse(
-                quiz.getId(),
-                quiz.getTitle(),
-                quiz.getDuration(),
-                quiz.getSubject().getId(),
-                quiz.getCreatedAt(),
-                quiz.getDueAt()
-        );
+        QuizResponse response =
+                new QuizResponse(
+                        quiz.getId(),
+                        quiz.getTitle(),
+                        quiz.getDuration(),
+                        quiz.getSubject().getId(),
+                        quiz.getCreatedAt(),
+                        quiz.getDueAt()
+                );
 
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(
+                response
+        );
     }
 
     // =====================================================
@@ -58,26 +68,32 @@ public class QuizController {
     // =====================================================
 
     @GetMapping
-    public ResponseEntity<List<QuizResponse>> getAllQuizzes() {
+    public ResponseEntity<List<QuizResponse>>
+            getAllQuizzes() {
 
         List<Quiz> quizzes =
                 quizService.getAllQuizzes();
 
         List<QuizResponse> response =
                 quizzes.stream()
-                        .map(quiz ->
-                                new QuizResponse(
-                                        quiz.getId(),
-                                        quiz.getTitle(),
-                                        quiz.getDuration(),
-                                        quiz.getSubject().getId(),
-                                        quiz.getCreatedAt(),
-                                        quiz.getDueAt()
-                                )
+                        .map(
+                                quiz ->
+                                        new QuizResponse(
+                                                quiz.getId(),
+                                                quiz.getTitle(),
+                                                quiz.getDuration(),
+                                                quiz.getSubject().getId(),
+                                                quiz.getCreatedAt(),
+                                                quiz.getDueAt()
+                                        )
                         )
-                        .collect(Collectors.toList());
+                        .collect(
+                                Collectors.toList()
+                        );
 
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(
+                response
+        );
     }
 
     // =====================================================
@@ -85,13 +101,16 @@ public class QuizController {
     // =====================================================
 
     @GetMapping("/{quizId}")
-    public ResponseEntity<QuizResponse> getQuiz(
-            @PathVariable Long quizId) {
+    public ResponseEntity<QuizResponse>
+            getQuiz(
+                    @PathVariable Long quizId) {
 
         try {
 
             Quiz quiz =
-                    quizService.getQuiz(quizId);
+                    quizService.getQuiz(
+                            quizId
+                    );
 
             QuizResponse response =
                     new QuizResponse(
@@ -103,9 +122,11 @@ public class QuizController {
                             quiz.getDueAt()
                     );
 
-            return ResponseEntity.ok(response);
+            return ResponseEntity.ok(
+                    response
+            );
 
-        } catch (RuntimeException e) {
+        } catch (RuntimeException exception) {
 
             return ResponseEntity
                     .notFound()
@@ -129,19 +150,24 @@ public class QuizController {
 
         List<QuizResponse> response =
                 quizzes.stream()
-                        .map(quiz ->
-                                new QuizResponse(
-                                        quiz.getId(),
-                                        quiz.getTitle(),
-                                        quiz.getDuration(),
-                                        quiz.getSubject().getId(),
-                                        quiz.getCreatedAt(),
-                                        quiz.getDueAt()
-                                )
+                        .map(
+                                quiz ->
+                                        new QuizResponse(
+                                                quiz.getId(),
+                                                quiz.getTitle(),
+                                                quiz.getDuration(),
+                                                quiz.getSubject().getId(),
+                                                quiz.getCreatedAt(),
+                                                quiz.getDueAt()
+                                        )
                         )
-                        .collect(Collectors.toList());
+                        .collect(
+                                Collectors.toList()
+                        );
 
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(
+                response
+        );
     }
 
     // =====================================================
@@ -160,19 +186,24 @@ public class QuizController {
 
         List<QuizResponse> response =
                 quizzes.stream()
-                        .map(quiz ->
-                                new QuizResponse(
-                                        quiz.getId(),
-                                        quiz.getTitle(),
-                                        quiz.getDuration(),
-                                        quiz.getSubject().getId(),
-                                        quiz.getCreatedAt(),
-                                        quiz.getDueAt()
-                                )
+                        .map(
+                                quiz ->
+                                        new QuizResponse(
+                                                quiz.getId(),
+                                                quiz.getTitle(),
+                                                quiz.getDuration(),
+                                                quiz.getSubject().getId(),
+                                                quiz.getCreatedAt(),
+                                                quiz.getDueAt()
+                                        )
                         )
-                        .collect(Collectors.toList());
+                        .collect(
+                                Collectors.toList()
+                        );
 
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(
+                response
+        );
     }
 
     // =====================================================
@@ -180,9 +211,10 @@ public class QuizController {
     // =====================================================
 
     @PostMapping("/{quizId}/questions")
-    public ResponseEntity<QuizQuestionResponse> addQuestion(
-            @PathVariable Long quizId,
-            @RequestBody AddQuestionRequest request) {
+    public ResponseEntity<QuizQuestionResponse>
+            addQuestion(
+                    @PathVariable Long quizId,
+                    @RequestBody AddQuestionRequest request) {
 
         QuizQuestion question =
                 quizService.addQuestion(
@@ -206,7 +238,9 @@ public class QuizController {
                         question.getCorrectAnswer()
                 );
 
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(
+                response
+        );
     }
 
     // =====================================================
@@ -219,24 +253,67 @@ public class QuizController {
                     @PathVariable Long quizId) {
 
         List<QuizQuestion> questions =
-                quizService.getQuestions(quizId);
+                quizService.getQuestions(
+                        quizId
+                );
 
         List<QuizQuestionResponse> response =
                 questions.stream()
-                        .map(question ->
-                                new QuizQuestionResponse(
-                                        question.getId(),
-                                        question.getQuestion(),
-                                        question.getOption1(),
-                                        question.getOption2(),
-                                        question.getOption3(),
-                                        question.getOption4(),
-                                        question.getCorrectAnswer()
-                                )
+                        .map(
+                                question ->
+                                        new QuizQuestionResponse(
+                                                question.getId(),
+                                                question.getQuestion(),
+                                                question.getOption1(),
+                                                question.getOption2(),
+                                                question.getOption3(),
+                                                question.getOption4(),
+                                                question.getCorrectAnswer()
+                                        )
                         )
-                        .collect(Collectors.toList());
+                        .collect(
+                                Collectors.toList()
+                        );
 
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(
+                response
+        );
+    }
+
+    // =====================================================
+    // DELETE QUIZ
+    // =====================================================
+
+    @DeleteMapping("/{quizId}")
+    public ResponseEntity<?> deleteQuiz(
+            @PathVariable Long quizId) {
+
+        try {
+
+            boolean deleted =
+                    quizService.deleteQuiz(
+                            quizId
+                    );
+
+            if (!deleted) {
+
+                return ResponseEntity
+                        .notFound()
+                        .build();
+            }
+
+            return ResponseEntity
+                    .noContent()
+                    .build();
+
+        } catch (RuntimeException exception) {
+
+            return ResponseEntity
+                    .badRequest()
+                    .body(
+                            exception.getMessage()
+                    );
+        }
     }
 
     // =====================================================
@@ -255,12 +332,18 @@ public class QuizController {
 
         private Integer deadlineHours;
 
+        public CreateQuizRequest() {
+        }
+
         public String getTitle() {
             return title;
         }
 
-        public void setTitle(String title) {
-            this.title = title;
+        public void setTitle(
+                String title) {
+
+            this.title =
+                    title;
         }
 
         public Integer getDuration() {
@@ -270,7 +353,8 @@ public class QuizController {
         public void setDuration(
                 Integer duration) {
 
-            this.duration = duration;
+            this.duration =
+                    duration;
         }
 
         public Long getSubjectId() {
@@ -280,7 +364,8 @@ public class QuizController {
         public void setSubjectId(
                 Long subjectId) {
 
-            this.subjectId = subjectId;
+            this.subjectId =
+                    subjectId;
         }
 
         public Long getTeacherId() {
@@ -290,7 +375,8 @@ public class QuizController {
         public void setTeacherId(
                 Long teacherId) {
 
-            this.teacherId = teacherId;
+            this.teacherId =
+                    teacherId;
         }
 
         public Integer getDeadlineHours() {
@@ -323,6 +409,9 @@ public class QuizController {
 
         private Integer correctAnswer;
 
+        public AddQuestionRequest() {
+        }
+
         public String getQuestion() {
             return question;
         }
@@ -330,7 +419,8 @@ public class QuizController {
         public void setQuestion(
                 String question) {
 
-            this.question = question;
+            this.question =
+                    question;
         }
 
         public String getOption1() {
@@ -340,7 +430,8 @@ public class QuizController {
         public void setOption1(
                 String option1) {
 
-            this.option1 = option1;
+            this.option1 =
+                    option1;
         }
 
         public String getOption2() {
@@ -350,7 +441,8 @@ public class QuizController {
         public void setOption2(
                 String option2) {
 
-            this.option2 = option2;
+            this.option2 =
+                    option2;
         }
 
         public String getOption3() {
@@ -360,7 +452,8 @@ public class QuizController {
         public void setOption3(
                 String option3) {
 
-            this.option3 = option3;
+            this.option3 =
+                    option3;
         }
 
         public String getOption4() {
@@ -370,7 +463,8 @@ public class QuizController {
         public void setOption4(
                 String option4) {
 
-            this.option4 = option4;
+            this.option4 =
+                    option4;
         }
 
         public Integer getCorrectAnswer() {

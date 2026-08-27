@@ -77,6 +77,12 @@ function StudyPage() {
 
     const [error, setError] = useState(false);
 
+    const [progress, setProgress] = useState(0);
+
+    const [unitProgress, setUnitProgress] = useState({});
+
+    const [progressLoading, setProgressLoading] = useState(true);
+
 
     // =========================
     // FETCH SUBJECT + UNITS
@@ -89,106 +95,120 @@ function StudyPage() {
             try {
 
                 setLoading(true);
-
+                setProgressLoading(true);
                 setError(false);
-
-
-                // =========================
-                // GET ALL SUBJECTS
-                // =========================
 
                 const subjectResponse = await fetch(
                     "http://localhost:8080/api/subjects"
                 );
 
-
                 if (!subjectResponse.ok) {
-
-                    throw new Error(
-                        "Failed to fetch subjects"
-                    );
-
+                    throw new Error("Failed to fetch subjects");
                 }
 
+                const subjectsData = await subjectResponse.json();
 
-                const subjectsData =
-                    await subjectResponse.json();
-
-
-                // =========================
-                // FIND CURRENT SUBJECT
-                // =========================
-
-                const foundSubject =
-                    subjectsData.find(
-                        (item) =>
-                            String(item.id) ===
-                            String(subjectId)
-                    );
-
+                const foundSubject = subjectsData.find(
+                    (item) =>
+                        String(item.id) === String(subjectId)
+                );
 
                 if (!foundSubject) {
-
                     setError(true);
-
                     return;
-
                 }
-
-
-                // =========================
-                // GET SUBJECT UNITS
-                // =========================
 
                 const unitsResponse = await fetch(
                     `http://localhost:8080/api/units/subject/${subjectId}`
                 );
 
-
                 if (!unitsResponse.ok) {
-
-                    throw new Error(
-                        "Failed to fetch units"
-                    );
-
+                    throw new Error("Failed to fetch units");
                 }
 
-
-                const unitsData =
-                    await unitsResponse.json();
-
-
-                // =========================
-                // SAVE DATA
-                // =========================
+                const unitsData = await unitsResponse.json();
 
                 setSubject(foundSubject);
+                setUnits(Array.isArray(unitsData) ? unitsData : []);
 
-                setUnits(unitsData);
+                const userId = localStorage.getItem("userId");
 
-            }
+                if (!userId) {
+                    setProgress(0);
+                    setUnitProgress({});
+                    return;
+                }
 
-            catch (error) {
+                const subjectProgressResponse = await fetch(
+                    `http://localhost:8080/api/progress/user/${userId}/subjects`
+                );
+
+                if (subjectProgressResponse.ok) {
+                    const subjectProgressData =
+                        await subjectProgressResponse.json();
+
+                    setProgress(
+                        Number(
+                            subjectProgressData?.[foundSubject.id] ?? 0
+                        )
+                    );
+                } else {
+                    setProgress(0);
+                }
+
+                const unitProgressEntries = await Promise.all(
+                    (Array.isArray(unitsData) ? unitsData : []).map(
+                        async (unit) => {
+                            try {
+                                const response = await fetch(
+                                    `http://localhost:8080/api/progress/user/${userId}/unit/${unit.id}`
+                                );
+
+                                if (!response.ok) {
+                                    return [unit.id, 0];
+                                }
+
+                                const value = await response.json();
+
+                                return [unit.id, Number(value) || 0];
+                            } catch (unitError) {
+                                console.error(
+                                    `Error loading progress for unit ${unit.id}:`,
+                                    unitError
+                                );
+                                return [unit.id, 0];
+                            }
+                        }
+                    )
+                );
+
+                setUnitProgress(
+                    Object.fromEntries(unitProgressEntries)
+                );
+
+            } catch (loadError) {
 
                 console.error(
                     "Error loading study data:",
-                    error
+                    loadError
                 );
 
                 setError(true);
 
-            }
-
-            finally {
+            } finally {
 
                 setLoading(false);
-
+                setProgressLoading(false);
             }
-
         };
 
-
-        fetchStudyData();
+        if (subjectId) {
+            fetchStudyData();
+        } else {
+            setLoading(false);
+            setProgressLoading(false);
+            setError(true);
+        }
 
     }, [subjectId]);
 
@@ -303,8 +323,7 @@ function StudyPage() {
         );
 
 
-    // Progress will be implemented later
-    const progress = 0;
+
 
 
     // =========================
@@ -519,7 +538,11 @@ function StudyPage() {
 
                             <p className="text-lg font-semibold text-slate-900">
 
-                                Not Started
+                                {progress === 0
+                                    ? "Not Started"
+                                    : progress >= 100
+                                        ? "Completed"
+                                        : "In Progress"}
 
                             </p>
 
@@ -565,8 +588,20 @@ function StudyPage() {
 
                     {units.map((unit, index) => {
 
-                        // Progress is not implemented yet
-                        const completed = false;
+                        const unitProgressValue =
+                            Number(
+                                unitProgress?.[unit.id] ?? 0
+                            );
+
+                        const completed =
+                            unitProgressValue >= 100;
+
+                        const unitStatus =
+                            completed
+                                ? "Completed"
+                                : unitProgressValue > 0
+                                    ? "In Progress"
+                                    : "Not Started";
 
 
                         return (
@@ -626,7 +661,28 @@ function StudyPage() {
 
                                             <p className="mt-1 text-sm text-slate-500">
 
-                                                {unit.topics} Topics
+                                                {unit.topics} Topics · {progressLoading
+                                                    ? "Loading..."
+                                                    : `${unitProgressValue}% complete`}
+
+                                            </p>
+
+                                            <div className="mt-3 h-2 w-full max-w-xs overflow-hidden rounded-full bg-slate-100">
+
+                                                <div
+                                                    className={`h-full rounded-full ${styles.progress} transition-all duration-500`}
+                                                    style={{
+                                                        width: `${progressLoading ? 0 : unitProgressValue}%`,
+                                                    }}
+                                                />
+
+                                            </div>
+
+                                            <p className="mt-2 text-xs font-medium text-slate-500">
+
+                                                {progressLoading
+                                                    ? "Loading..."
+                                                    : unitStatus}
 
                                             </p>
 

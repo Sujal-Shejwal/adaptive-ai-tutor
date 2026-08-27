@@ -20,8 +20,11 @@ import com.adaptiveaitutor.backend.repository.UserRepository;
 public class TopicProgressService {
 
     private final TopicProgressRepository topicProgressRepository;
+
     private final UserRepository userRepository;
+
     private final TopicRepository topicRepository;
+
     private final SubjectRepository subjectRepository;
 
     public TopicProgressService(
@@ -30,10 +33,17 @@ public class TopicProgressService {
             TopicRepository topicRepository,
             SubjectRepository subjectRepository) {
 
-        this.topicProgressRepository = topicProgressRepository;
-        this.userRepository = userRepository;
-        this.topicRepository = topicRepository;
-        this.subjectRepository = subjectRepository;
+        this.topicProgressRepository =
+                topicProgressRepository;
+
+        this.userRepository =
+                userRepository;
+
+        this.topicRepository =
+                topicRepository;
+
+        this.subjectRepository =
+                subjectRepository;
     }
 
     // =====================================================
@@ -59,30 +69,37 @@ public class TopicProgressService {
             Long userId,
             Long topicId) {
 
-        User user = userRepository
-                .findById(userId)
-                .orElseThrow(() ->
-                        new RuntimeException(
-                                "User not found"
-                        )
-                );
-
-        Topic topic = topicRepository
-                .findById(topicId)
-                .orElseThrow(() ->
-                        new RuntimeException(
-                                "Topic not found"
-                        )
-                );
-
-        Optional<TopicProgress> existingProgress =
-                topicProgressRepository
-                        .findByUserIdAndTopicId(
-                                userId,
-                                topicId
+        User user =
+                userRepository
+                        .findById(userId)
+                        .orElseThrow(
+                                () ->
+                                        new RuntimeException(
+                                                "User not found"
+                                        )
                         );
 
-        if (existingProgress.isPresent()) {
+        Topic topic =
+                topicRepository
+                        .findById(topicId)
+                        .orElseThrow(
+                                () ->
+                                        new RuntimeException(
+                                                "Topic not found"
+                                        )
+                        );
+
+        Optional<TopicProgress>
+                existingProgress =
+                        topicProgressRepository
+                                .findByUserIdAndTopicId(
+                                        userId,
+                                        topicId
+                                );
+
+        if (
+                existingProgress.isPresent()
+        ) {
 
             TopicProgress progress =
                     existingProgress.get();
@@ -113,13 +130,17 @@ public class TopicProgressService {
     public Map<Long, Integer> getSubjectProgress(
             Long userId) {
 
-        Map<Long, Integer> subjectProgress =
-                new HashMap<>();
+        Map<Long, Integer>
+                subjectProgress =
+                        new HashMap<>();
 
         List<Subject> subjects =
                 subjectRepository.findAll();
 
-        for (Subject subject : subjects) {
+        for (
+                Subject subject :
+                subjects
+        ) {
 
             Long subjectId =
                     subject.getId();
@@ -130,12 +151,13 @@ public class TopicProgressService {
                                     subjectId
                             );
 
-            List<TopicProgress> progressList =
-                    topicProgressRepository
-                            .findByUserIdAndTopicUnitSubjectId(
-                                    userId,
-                                    subjectId
-                            );
+            List<TopicProgress>
+                    progressList =
+                            topicProgressRepository
+                                    .findByUserIdAndTopicUnitSubjectId(
+                                            userId,
+                                            subjectId
+                                    );
 
             long completedTopics =
                     progressList
@@ -145,16 +167,11 @@ public class TopicProgressService {
                             )
                             .count();
 
-            int percentage = 0;
-
-            if (totalTopics > 0) {
-
-                percentage =
-                        (int) Math.round(
-                                (completedTopics * 100.0)
-                                        / totalTopics
-                        );
-            }
+            int percentage =
+                    calculatePercentage(
+                            completedTopics,
+                            totalTopics
+                    );
 
             subjectProgress.put(
                     subjectId,
@@ -163,6 +180,78 @@ public class TopicProgressService {
         }
 
         return subjectProgress;
+    }
+
+    // =====================================================
+    // GET UNIT PROGRESS
+    // =====================================================
+
+    public int getUnitProgress(
+            Long userId,
+            Long unitId) {
+
+        // -------------------------------------------------
+        // VERIFY UNIT EXISTS THROUGH ITS TOPICS
+        // -------------------------------------------------
+
+        List<Topic> topics =
+                topicRepository
+                        .findByUnitId(
+                                unitId
+                        );
+
+        if (
+                topics.isEmpty()
+        ) {
+
+            return 0;
+        }
+
+        // -------------------------------------------------
+        // GET USER PROGRESS
+        // -------------------------------------------------
+
+        List<TopicProgress>
+                userProgress =
+                        topicProgressRepository
+                                .findByUserId(
+                                        userId
+                                );
+
+        // -------------------------------------------------
+        // COLLECT TOPIC IDS
+        // -------------------------------------------------
+
+        long completedTopics =
+                topics
+                        .stream()
+                        .filter(
+                                topic ->
+                                        userProgress
+                                                .stream()
+                                                .anyMatch(
+                                                        progress ->
+                                                                progress
+                                                                        .isCompleted()
+                                                                &&
+                                                                progress
+                                                                        .getTopic()
+                                                                        .getId()
+                                                                        .equals(
+                                                                                topic.getId()
+                                                                        )
+                                                )
+                        )
+                        .count();
+
+        // -------------------------------------------------
+        // CALCULATE
+        // -------------------------------------------------
+
+        return calculatePercentage(
+                completedTopics,
+                topics.size()
+        );
     }
 
     // =====================================================
@@ -176,5 +265,27 @@ public class TopicProgressService {
                 .findTop5ByUserIdAndCompletedTrueOrderByCompletedAtDesc(
                         userId
                 );
+    }
+
+    // =====================================================
+    // CALCULATE PERCENTAGE
+    // =====================================================
+
+    private int calculatePercentage(
+            long completed,
+            long total) {
+
+        if (
+                total <= 0
+        ) {
+
+            return 0;
+        }
+
+        return (int) Math.round(
+                (
+                        completed * 100.0
+                ) / total
+        );
     }
 }

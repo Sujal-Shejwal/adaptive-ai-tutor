@@ -20,6 +20,9 @@ function TeacherSubjectsPage() {
 
     const [creating, setCreating] = useState(false);
 
+    const [deletingId, setDeletingId] =
+        useState(null);
+
     const [formData, setFormData] = useState({
         name: "",
         code: "",
@@ -92,6 +95,94 @@ function TeacherSubjectsPage() {
             [name]: value,
         }));
 
+    };
+
+
+    // =========================
+    // DELETE SUBJECT
+    // =========================
+
+    const handleDeleteSubject = async (
+        subject
+    ) => {
+
+        if (!subject?.id) {
+            return;
+        }
+
+
+        const confirmed =
+            window.confirm(
+                `Delete "${subject.name}"? This action cannot be undone.`
+            );
+
+
+        if (!confirmed) {
+            return;
+        }
+
+
+        setDeletingId(
+            subject.id
+        );
+
+        setError("");
+
+
+        try {
+
+            const response =
+                await fetch(
+                    `http://localhost:8080/api/subjects/${subject.id}`,
+                    {
+                        method: "DELETE",
+                    }
+                );
+
+
+            if (!response.ok) {
+
+                const responseText =
+                    await response.text();
+
+                throw new Error(
+                    responseText ||
+                    `Failed to delete subject (${response.status}).`
+                );
+            }
+
+
+            // Remove the subject immediately
+            // from the current list after the
+            // backend confirms deletion.
+            setSubjects(
+                (previous) =>
+                    previous.filter(
+                        (item) =>
+                            item.id !==
+                            subject.id
+                    )
+            );
+
+        } catch (deleteError) {
+
+            console.error(
+                "Error deleting subject:",
+                deleteError
+            );
+
+
+            setError(
+                deleteError.message ||
+                "Unable to delete subject. Please try again."
+            );
+
+        } finally {
+
+            setDeletingId(
+                null
+            );
+        }
     };
 
 
@@ -478,11 +569,34 @@ function TeacherSubjectsPage() {
 
                                         <button
                                             type="button"
-                                            className="rounded-lg p-2 text-slate-400 transition hover:bg-red-50 hover:text-red-600"
+                                            onClick={() =>
+                                                handleDeleteSubject(
+                                                    subject
+                                                )
+                                            }
+                                            disabled={
+                                                deletingId ===
+                                                subject.id
+                                            }
+                                            className="rounded-lg p-2 text-slate-400 transition hover:bg-red-50 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-50"
                                             title="Delete subject"
                                         >
 
-                                            <Trash2 size={18} />
+                                            {deletingId ===
+                                            subject.id ? (
+
+                                                <Loader2
+                                                    size={18}
+                                                    className="animate-spin"
+                                                />
+
+                                            ) : (
+
+                                                <Trash2
+                                                    size={18}
+                                                />
+
+                                            )}
 
                                         </button>
 

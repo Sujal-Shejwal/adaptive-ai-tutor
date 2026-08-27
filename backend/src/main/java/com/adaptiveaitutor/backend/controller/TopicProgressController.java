@@ -47,7 +47,9 @@ public class TopicProgressController {
         return progress
                 .map(ResponseEntity::ok)
                 .orElse(
-                        ResponseEntity.notFound().build()
+                        ResponseEntity
+                                .notFound()
+                                .build()
                 );
     }
 
@@ -70,7 +72,40 @@ public class TopicProgressController {
                             topicId
                     );
 
-            return ResponseEntity.ok(progress);
+            return ResponseEntity.ok(
+                    progress
+            );
+
+        } catch (RuntimeException exception) {
+
+            return ResponseEntity
+                    .badRequest()
+                    .build();
+        }
+    }
+
+    // =====================================================
+    // GET UNIT PROGRESS
+    // =====================================================
+
+    @GetMapping(
+            "/user/{userId}/unit/{unitId}"
+    )
+    public ResponseEntity<Integer> getUnitProgress(
+            @PathVariable Long userId,
+            @PathVariable Long unitId) {
+
+        try {
+
+            int progress =
+                    topicProgressService.getUnitProgress(
+                            userId,
+                            unitId
+                    );
+
+            return ResponseEntity.ok(
+                    progress
+            );
 
         } catch (RuntimeException exception) {
 
@@ -94,7 +129,9 @@ public class TopicProgressController {
                         userId
                 );
 
-        return ResponseEntity.ok(progress);
+        return ResponseEntity.ok(
+                progress
+        );
     }
 
     // =====================================================
@@ -108,7 +145,9 @@ public class TopicProgressController {
 
         return ResponseEntity.ok(
                 topicProgressService
-                        .getRecentActivity(userId)
+                        .getRecentActivity(
+                                userId
+                        )
         );
     }
 }

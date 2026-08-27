@@ -4,6 +4,7 @@ import java.util.List;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -21,37 +22,97 @@ public class TopicController {
 
     private final TopicService topicService;
 
-    public TopicController(TopicService topicService) {
-        this.topicService = topicService;
+    public TopicController(
+            TopicService topicService) {
+
+        this.topicService =
+                topicService;
     }
 
-    // Get all topics belonging to a unit
+    // =====================================================
+    // GET TOPICS BY UNIT
+    // =====================================================
+
     @GetMapping("/unit/{unitId}")
-    public ResponseEntity<List<Topic>> getTopicsByUnitId(
-            @PathVariable Long unitId) {
+    public ResponseEntity<List<Topic>>
+            getTopicsByUnitId(
+                    @PathVariable Long unitId) {
 
         return ResponseEntity.ok(
-                topicService.getTopicsByUnitId(unitId)
+                topicService
+                        .getTopicsByUnitId(
+                                unitId
+                        )
         );
     }
 
-    // Get a single topic by ID
+    // =====================================================
+    // GET TOPIC BY ID
+    // =====================================================
+
     @GetMapping("/{id}")
-    public ResponseEntity<Topic> getTopicById(
-            @PathVariable Long id) {
+    public ResponseEntity<Topic>
+            getTopicById(
+                    @PathVariable Long id) {
 
-        return topicService.getTopicById(id)
+        return topicService
+                .getTopicById(id)
                 .map(ResponseEntity::ok)
-                .orElse(ResponseEntity.notFound().build());
+                .orElse(
+                        ResponseEntity
+                                .notFound()
+                                .build()
+                );
     }
 
-    // Create a new topic
+    // =====================================================
+    // CREATE TOPIC
+    // =====================================================
+
     @PostMapping
-    public ResponseEntity<Topic> createTopic(
-            @RequestBody Topic topic) {
+    public ResponseEntity<Topic>
+            createTopic(
+                    @RequestBody Topic topic) {
 
         return ResponseEntity.ok(
-                topicService.createTopic(topic)
+                topicService.createTopic(
+                        topic
+                )
         );
+    }
+
+    // =====================================================
+    // DELETE TOPIC
+    // =====================================================
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void>
+            deleteTopic(
+                    @PathVariable Long id) {
+
+        try {
+
+            boolean deleted =
+                    topicService.deleteTopic(
+                            id
+                    );
+
+            if (!deleted) {
+
+                return ResponseEntity
+                        .notFound()
+                        .build();
+            }
+
+            return ResponseEntity
+                    .noContent()
+                    .build();
+
+        } catch (RuntimeException exception) {
+
+            return ResponseEntity
+                    .badRequest()
+                    .build();
+        }
     }
 }

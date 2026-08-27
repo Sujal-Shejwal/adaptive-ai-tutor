@@ -2,6 +2,7 @@ import {
     BookOpen,
     Plus,
     Loader2,
+    Trash2,
 } from "lucide-react";
 
 import { useEffect, useState } from "react";
@@ -25,6 +26,9 @@ function TeacherTopicsPage() {
     const [showForm, setShowForm] = useState(false);
 
     const [creating, setCreating] = useState(false);
+
+    const [deletingId, setDeletingId] =
+        useState(null);
 
     const [formData, setFormData] = useState({
         title: "",
@@ -219,6 +223,79 @@ function TeacherTopicsPage() {
 
         }
 
+    };
+
+
+    // =========================
+    // DELETE TOPIC
+    // =========================
+
+    const handleDeleteTopic = async (
+        topic
+    ) => {
+
+        if (!topic?.id) {
+            return;
+        }
+
+        const confirmed =
+            window.confirm(
+                `Delete "${topic.title}"? This action cannot be undone.`
+            );
+
+        if (!confirmed) {
+            return;
+        }
+
+        setDeletingId(topic.id);
+        setError("");
+
+        try {
+
+            const response =
+                await fetch(
+                    `http://localhost:8080/api/topics/${topic.id}`,
+                    {
+                        method: "DELETE",
+                    }
+                );
+
+            const responseText =
+                await response.text();
+
+            if (!response.ok) {
+
+                throw new Error(
+                    responseText ||
+                    `Failed to delete topic (${response.status}).`
+                );
+            }
+
+            setTopics(
+                (previous) =>
+                    previous.filter(
+                        (item) =>
+                            item.id !==
+                            topic.id
+                    )
+            );
+
+        } catch (deleteError) {
+
+            console.error(
+                "Error deleting topic:",
+                deleteError
+            );
+
+            setError(
+                deleteError.message ||
+                "Unable to delete topic. Please try again."
+            );
+
+        } finally {
+
+            setDeletingId(null);
+        }
     };
 
 
@@ -516,26 +593,64 @@ function TeacherTopicsPage() {
                                     className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition hover:shadow-md"
                                 >
 
-                                    <div className="flex items-start gap-4">
+                                    <div className="flex items-start justify-between gap-4">
 
-                                        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-blue-100 text-blue-600">
+                                        <div className="flex min-w-0 items-start gap-4">
 
-                                            <BookOpen size={23} />
+                                            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-blue-100 text-blue-600">
+
+                                                <BookOpen size={23} />
+
+                                            </div>
+
+
+                                            <div className="min-w-0">
+
+                                                <p className="text-sm font-medium text-blue-600">
+                                                    Topic {topic.topicNumber}
+                                                </p>
+
+                                                <h3 className="mt-1 break-words text-lg font-semibold text-slate-900">
+                                                    {topic.title}
+                                                </h3>
+
+                                            </div>
 
                                         </div>
 
 
-                                        <div>
+                                        <button
+                                            type="button"
+                                            onClick={() =>
+                                                handleDeleteTopic(
+                                                    topic
+                                                )
+                                            }
+                                            disabled={
+                                                deletingId ===
+                                                topic.id
+                                            }
+                                            className="shrink-0 rounded-lg p-2 text-slate-400 transition hover:bg-red-50 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-50"
+                                            title="Delete topic"
+                                        >
 
-                                            <p className="text-sm font-medium text-blue-600">
-                                                Topic {topic.topicNumber}
-                                            </p>
+                                            {deletingId ===
+                                            topic.id ? (
 
-                                            <h3 className="mt-1 text-lg font-semibold text-slate-900">
-                                                {topic.title}
-                                            </h3>
+                                                <Loader2
+                                                    size={18}
+                                                    className="animate-spin"
+                                                />
 
-                                        </div>
+                                            ) : (
+
+                                                <Trash2
+                                                    size={18}
+                                                />
+
+                                            )}
+
+                                        </button>
 
                                     </div>
 

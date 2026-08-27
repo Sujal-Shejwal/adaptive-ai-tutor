@@ -13,19 +13,69 @@ public class TopicService {
 
     private final TopicRepository topicRepository;
 
-    public TopicService(TopicRepository topicRepository) {
-        this.topicRepository = topicRepository;
+    public TopicService(
+            TopicRepository topicRepository) {
+
+        this.topicRepository =
+                topicRepository;
     }
 
-    public List<Topic> getTopicsByUnitId(Long unitId) {
-        return topicRepository.findByUnitId(unitId);
+    // =====================================================
+    // GET TOPICS BY UNIT
+    // =====================================================
+
+    public List<Topic> getTopicsByUnitId(
+            Long unitId) {
+
+        return topicRepository
+                .findByUnitId(unitId);
     }
 
-    public Optional<Topic> getTopicById(Long id) {
-        return topicRepository.findById(id);
+    // =====================================================
+    // GET TOPIC BY ID
+    // =====================================================
+
+    public Optional<Topic> getTopicById(
+            Long id) {
+
+        return topicRepository
+                .findById(id);
     }
 
-    public Topic createTopic(Topic topic) {
-        return topicRepository.save(topic);
+    // =====================================================
+    // CREATE TOPIC
+    // =====================================================
+
+    public Topic createTopic(
+            Topic topic) {
+
+        return topicRepository.save(
+                topic
+        );
+    }
+
+    // =====================================================
+    // DELETE TOPIC
+    // =====================================================
+
+    public boolean deleteTopic(
+            Long id) {
+
+        // -------------------------------------------------
+        // CHECK WHETHER TOPIC EXISTS
+        // -------------------------------------------------
+
+        if (!topicRepository.existsById(id)) {
+
+            return false;
+        }
+
+        // -------------------------------------------------
+        // DELETE TOPIC
+        // -------------------------------------------------
+
+        topicRepository.deleteById(id);
+
+        return true;
     }
 }

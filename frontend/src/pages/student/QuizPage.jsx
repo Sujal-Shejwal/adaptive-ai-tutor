@@ -362,16 +362,34 @@ function QuizPage() {
         // 7. STUDENT ID
         // =================================================
 
+        const getStudentId = () => {
+          const storedId =
+            localStorage.getItem("userId");
+
+          if (storedId) {
+            return Number(storedId);
+          }
+
+          try {
+            const storedUser =
+              JSON.parse(
+                localStorage.getItem("user") || "null"
+              );
+
+            return storedUser?.id
+              ? Number(storedUser.id)
+              : null;
+          } catch {
+            return null;
+          }
+        };
+
         const studentId =
-          Number(
-            localStorage.getItem(
-              "userId"
-            )
-          );
+          getStudentId();
 
         if (!studentId) {
           throw new Error(
-            "Student account not found."
+            "Student account not found. Please log in again."
           );
         }
 
@@ -553,7 +571,8 @@ function QuizPage() {
   const handleStartQuiz = () => {
     if (
       !quiz ||
-      alreadySubmitted
+      alreadySubmitted ||
+      questions.length === 0
     ) {
       return;
     }
@@ -671,16 +690,34 @@ function QuizPage() {
           return;
         }
 
+        const getStudentId = () => {
+          const storedId =
+            localStorage.getItem("userId");
+
+          if (storedId) {
+            return Number(storedId);
+          }
+
+          try {
+            const storedUser =
+              JSON.parse(
+                localStorage.getItem("user") || "null"
+              );
+
+            return storedUser?.id
+              ? Number(storedUser.id)
+              : null;
+          } catch {
+            return null;
+          }
+        };
+
         const studentId =
-          Number(
-            localStorage.getItem(
-              "userId"
-            )
-          );
+          getStudentId();
 
         if (!studentId) {
           throw new Error(
-            "Student account not found."
+            "Student account not found. Please log in again."
           );
         }
 
@@ -943,12 +980,8 @@ function QuizPage() {
               timer
             );
 
-            setQuizExpired(
-              true
-            );
-
-            setQuizStarted(
-              false
+            handleSubmitQuiz(
+              answers
             );
 
             return;
@@ -1167,7 +1200,7 @@ function QuizPage() {
 
           <div className="rounded-2xl border border-slate-200 bg-white p-10 text-center shadow-sm">
 
-            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-green-100 text-green-600">
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-slate-100 text-slate-500">
               <ClipboardCheck size={26} />
             </div>
 
@@ -1176,7 +1209,7 @@ function QuizPage() {
             </h2>
 
             <p className="mx-auto mt-2 max-w-md text-sm text-slate-500">
-              There is currently no quiz available for{" "}
+              There is currently no attemptable quiz available for{" "}
               {backendSubject?.name ||
                 frontendSubject?.name ||
                 subjectId}.

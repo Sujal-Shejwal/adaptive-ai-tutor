@@ -9,12 +9,36 @@ import com.adaptiveaitutor.backend.entity.QuizAttempt;
 public interface QuizAttemptRepository
         extends JpaRepository<QuizAttempt, Long> {
 
-    List<QuizAttempt> findByStudentId(Long studentId);
+    // =====================================================
+    // GET ATTEMPTS BY STUDENT
+    // =====================================================
 
-    List<QuizAttempt> findByQuizId(Long quizId);
+    List<QuizAttempt> findByStudentId(
+            Long studentId
+    );
+
+    // =====================================================
+    // GET ATTEMPTS BY QUIZ
+    // =====================================================
+
+    List<QuizAttempt> findByQuizId(
+            Long quizId
+    );
+
+    // =====================================================
+    // CHECK WHETHER A STUDENT ALREADY ATTEMPTED A QUIZ
+    // =====================================================
 
     boolean existsByQuizIdAndStudentId(
             Long quizId,
             Long studentId
+    );
+
+    // =====================================================
+    // CHECK WHETHER QUIZ HAS ANY SUBMISSIONS
+    // =====================================================
+
+    boolean existsByQuizId(
+            Long quizId
     );
 }

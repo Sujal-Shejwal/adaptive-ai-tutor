@@ -6,6 +6,7 @@ import {
 } from "lucide-react";
 
 import {
+    useEffect,
     useRef,
     useState,
 } from "react";
@@ -14,19 +15,25 @@ import {
 function ProfilePage() {
 
     /* ===================================================== */
-    /* DUMMY PROFILE DATA */
+    /* PROFILE DATA */
     /* ===================================================== */
 
     const [profile, setProfile] = useState({
-        fullName: "Sujal Shejwal",
-        email: "sujal@example.com",
-        phone: "+91 98765 43210",
-        rollNumber: "CE-2022-041",
-        department: "Information Technology",
-        year: "3rd Year",
+        fullName: "",
+        email: "",
+        phone: "",
+        rollNumber: "",
+        department: "",
+        year: "",
         role: "Student",
-        memberSince: "2026",
+        memberSince: "",
     });
+
+    const [profileLoading, setProfileLoading] =
+        useState(true);
+
+    const [profileError, setProfileError] =
+        useState("");
 
 
     /* ===================================================== */
@@ -74,6 +81,268 @@ function ProfilePage() {
 
     const [profileMessage, setProfileMessage] =
         useState("");
+
+    /* ===================================================== */
+    /* QUIZ STATISTICS */
+    /* ===================================================== */
+
+    const [quizStatistics, setQuizStatistics] =
+        useState({
+            questionsAnswered: 0,
+            quizzesDone: 0,
+            averageScore: 0,
+        });
+
+    const [quizStatsLoading, setQuizStatsLoading] =
+        useState(true);
+
+    /* ===================================================== */
+    /* GET LOGGED-IN USER ID */
+    /* ===================================================== */
+
+    const getUserId = () => {
+
+        const storedId =
+            localStorage.getItem("userId");
+
+        return storedId
+            ? Number(storedId)
+            : null;
+    };
+
+    /* ===================================================== */
+    /* LOAD PROFILE */
+    /* ===================================================== */
+
+    const loadProfile =
+        async () => {
+
+            const userId =
+                getUserId();
+
+            if (!userId) {
+
+                setProfileError(
+                    "User session not found. Please log in again."
+                );
+
+                setProfileLoading(false);
+
+                return;
+            }
+
+            try {
+
+                setProfileLoading(true);
+                setProfileError("");
+
+                const response =
+                    await fetch(
+                        `http://localhost:8080/api/users/${userId}`
+                    );
+
+                if (!response.ok) {
+
+                    throw new Error(
+                        `Failed to load profile (${response.status})`
+                    );
+                }
+
+                const data =
+                    await response.json();
+
+                const nextProfile = {
+                    fullName:
+                        data.name || "",
+
+                    email:
+                        data.email || "",
+
+                    phone: "",
+                    rollNumber: "",
+                    department: "",
+                    year: "",
+
+                    role:
+                        data.role?.toLowerCase() ===
+                        "teacher"
+                            ? "Teacher"
+                            : "Student",
+
+                    memberSince: "",
+                };
+
+                setProfile(
+                    nextProfile
+                );
+
+                setEditForm(
+                    nextProfile
+                );
+
+                localStorage.setItem(
+                    "userName",
+                    data.name || ""
+                );
+
+                localStorage.setItem(
+                    "userEmail",
+                    data.email || ""
+                );
+
+                localStorage.setItem(
+                    "userRole",
+                    data.role?.toLowerCase() ||
+                    "student"
+                );
+
+            } catch (error) {
+
+                console.error(
+                    "Profile loading error:",
+                    error
+                );
+
+                setProfileError(
+                    error.message ||
+                    "Unable to load profile."
+                );
+
+            } finally {
+
+                setProfileLoading(false);
+
+            }
+        };
+
+    /* ===================================================== */
+    /* LOAD QUIZ STATISTICS */
+    /* ===================================================== */
+
+    const loadQuizStatistics =
+        async () => {
+
+            const userId =
+                getUserId();
+
+            if (!userId) {
+
+                setQuizStatistics({
+                    questionsAnswered: 0,
+                    quizzesDone: 0,
+                    averageScore: 0,
+                });
+
+                setQuizStatsLoading(
+                    false
+                );
+
+                return;
+            }
+
+            try {
+
+                setQuizStatsLoading(
+                    true
+                );
+
+                const response =
+                    await fetch(
+                        `http://localhost:8080/api/quiz-attempts/student/${userId}`
+                    );
+
+                if (!response.ok) {
+
+                    throw new Error(
+                        `Failed to load quiz statistics (${response.status})`
+                    );
+                }
+
+                const data =
+                    await response.json();
+
+                const attempts =
+                    Array.isArray(data)
+                        ? data
+                        : [];
+
+                const quizzesDone =
+                    attempts.length;
+
+                const questionsAnswered =
+                    attempts.reduce(
+                        (
+                            total,
+                            attempt
+                        ) =>
+                            total +
+                            (
+                                Number(
+                                    attempt?.totalQuestions
+                                ) || 0
+                            ),
+                        0
+                    );
+
+                const averageScore =
+                    quizzesDone > 0
+                        ? Math.round(
+                            attempts.reduce(
+                                (
+                                    total,
+                                    attempt
+                                ) =>
+                                    total +
+                                    (
+                                        Number(
+                                            attempt?.score
+                                        ) || 0
+                                    ),
+                                0
+                            ) /
+                            quizzesDone
+                        )
+                        : 0;
+
+                setQuizStatistics({
+                    questionsAnswered,
+                    quizzesDone,
+                    averageScore,
+                });
+
+            } catch (error) {
+
+                console.error(
+                    "Quiz statistics error:",
+                    error
+                );
+
+                setQuizStatistics({
+                    questionsAnswered: 0,
+                    quizzesDone: 0,
+                    averageScore: 0,
+                });
+
+            } finally {
+
+                setQuizStatsLoading(
+                    false
+                );
+
+            }
+        };
+
+    /* ===================================================== */
+    /* INITIAL LOAD */
+    /* ===================================================== */
+
+    useEffect(() => {
+
+        loadProfile();
+
+        loadQuizStatistics();
+
+    }, []);
 
 
     /* ===================================================== */
@@ -182,20 +451,134 @@ function ProfilePage() {
     /* SAVE PROFILE */
     /* ===================================================== */
 
-    const handleSaveProfile = () => {
+    const handleSaveProfile = async () => {
 
-        setProfile(editForm);
+        const userId =
+            getUserId();
 
-        setIsEditing(false);
+        if (!userId) {
 
-        setProfileMessage(
-            "Profile updated successfully."
-        );
+            setProfileMessage(
+                "User session not found. Please log in again."
+            );
 
+            return;
+        }
 
-        setTimeout(() => {
-            setProfileMessage("");
-        }, 3000);
+        const name =
+            editForm.fullName?.trim();
+
+        const email =
+            editForm.email?.trim();
+
+        if (!name) {
+
+            setProfileMessage(
+                "Full name cannot be empty."
+            );
+
+            return;
+        }
+
+        if (!email) {
+
+            setProfileMessage(
+                "Email address cannot be empty."
+            );
+
+            return;
+        }
+
+        try {
+
+            const response =
+                await fetch(
+                    `http://localhost:8080/api/users/${userId}/profile`,
+                    {
+                        method: "PUT",
+                        headers: {
+                            "Content-Type":
+                                "application/json",
+                            Accept:
+                                "application/json",
+                        },
+                        body:
+                            JSON.stringify({
+                                name,
+                                email,
+                            }),
+                    }
+                );
+
+            const responseText =
+                await response.text();
+
+            if (!response.ok) {
+
+                throw new Error(
+                    responseText ||
+                    "Unable to update profile."
+                );
+            }
+
+            const data =
+                responseText
+                    ? JSON.parse(
+                        responseText
+                    )
+                    : null;
+
+            const updatedProfile = {
+                ...profile,
+                fullName:
+                    data?.name ||
+                    name,
+
+                email:
+                    data?.email ||
+                    email,
+            };
+
+            setProfile(
+                updatedProfile
+            );
+
+            setEditForm(
+                updatedProfile
+            );
+
+            localStorage.setItem(
+                "userName",
+                updatedProfile.fullName
+            );
+
+            localStorage.setItem(
+                "userEmail",
+                updatedProfile.email
+            );
+
+            setIsEditing(false);
+
+            setProfileMessage(
+                "Profile updated successfully."
+            );
+
+            setTimeout(() => {
+                setProfileMessage("");
+            }, 3000);
+
+        } catch (error) {
+
+            console.error(
+                "Profile update error:",
+                error
+            );
+
+            setProfileMessage(
+                error.message ||
+                "Unable to update profile."
+            );
+        }
     };
 
 
@@ -263,66 +646,139 @@ function ProfilePage() {
     /* UPDATE PASSWORD */
     /* ===================================================== */
 
-    const handleUpdatePassword = () => {
+    const handleUpdatePassword =
+        async () => {
 
-        setPasswordMessage("");
-
-
-        if (
-            !passwordForm.currentPassword ||
-            !passwordForm.newPassword ||
-            !passwordForm.confirmPassword
-        ) {
-
-            setPasswordMessage(
-                "Please fill in all password fields."
-            );
-
-            return;
-        }
-
-
-        if (
-            passwordForm.newPassword.length < 6
-        ) {
-
-            setPasswordMessage(
-                "New password must contain at least 6 characters."
-            );
-
-            return;
-        }
-
-
-        if (
-            passwordForm.newPassword !==
-            passwordForm.confirmPassword
-        ) {
-
-            setPasswordMessage(
-                "New password and confirmation do not match."
-            );
-
-            return;
-        }
-
-
-        setPasswordMessage(
-            "Password updated successfully."
-        );
-
-
-        setPasswordForm({
-            currentPassword: "",
-            newPassword: "",
-            confirmPassword: "",
-        });
-
-
-        setTimeout(() => {
             setPasswordMessage("");
-        }, 3000);
-    };
+
+            const userId =
+                getUserId();
+
+            if (!userId) {
+
+                setPasswordMessage(
+                    "User session not found. Please log in again."
+                );
+
+                return;
+            }
+
+            if (
+                !passwordForm.currentPassword ||
+                !passwordForm.newPassword ||
+                !passwordForm.confirmPassword
+            ) {
+
+                setPasswordMessage(
+                    "Please fill in all password fields."
+                );
+
+                return;
+            }
+
+            if (
+                passwordForm.newPassword.length < 6
+            ) {
+
+                setPasswordMessage(
+                    "New password must contain at least 6 characters."
+                );
+
+                return;
+            }
+
+            if (
+                passwordForm.newPassword !==
+                passwordForm.confirmPassword
+            ) {
+
+                setPasswordMessage(
+                    "New password and confirmation do not match."
+                );
+
+                return;
+            }
+
+            try {
+
+                const response =
+                    await fetch(
+                        `http://localhost:8080/api/users/${userId}/password`,
+                        {
+                            method: "PUT",
+                            headers: {
+                                "Content-Type":
+                                    "application/json",
+                                Accept:
+                                    "application/json",
+                            },
+                            body:
+                                JSON.stringify({
+                                    currentPassword:
+                                        passwordForm.currentPassword,
+
+                                    newPassword:
+                                        passwordForm.newPassword,
+                                }),
+                        }
+                    );
+
+                const responseText =
+                    await response.text();
+
+                if (!response.ok) {
+
+                    let message =
+                        responseText;
+
+                    try {
+
+                        const errorData =
+                            JSON.parse(
+                                responseText
+                            );
+
+                        message =
+                            errorData?.message ||
+                            message;
+
+                    } catch {
+                        // Response was plain text.
+                    }
+
+                    throw new Error(
+                        message ||
+                        "Unable to update password."
+                    );
+                }
+
+                setPasswordMessage(
+                    "Password updated successfully."
+                );
+
+                setPasswordForm({
+                    currentPassword: "",
+                    newPassword: "",
+                    confirmPassword: "",
+                });
+
+                setTimeout(() => {
+                    setPasswordMessage("");
+                }, 3000);
+
+            } catch (error) {
+
+                console.error(
+                    "Password update error:",
+                    error
+                );
+
+                setPasswordMessage(
+                    error.message ||
+                    "Unable to update password."
+                );
+            }
+        };
 
 
     /* ===================================================== */
@@ -374,6 +830,12 @@ function ProfilePage() {
                     <p className="mt-2 text-sm text-slate-500">
                         Manage your personal information and account settings.
                     </p>
+
+                    {profileError && (
+                        <div className="mt-4 rounded-xl bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+                            {profileError}
+                        </div>
+                    )}
 
                 </div>
 
@@ -708,19 +1170,16 @@ function ProfilePage() {
                                     <input
                                         type="text"
                                         name="phone"
-                                        value={
-                                            editForm.phone
-                                        }
-                                        onChange={
-                                            handleProfileChange
-                                        }
-                                        className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none focus:border-blue-500"
+                                        value=""
+                                        placeholder="Not available yet"
+                                        disabled
+                                        className="mt-2 w-full cursor-not-allowed rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-400 outline-none"
                                     />
 
                                 ) : (
 
-                                    <div className="mt-2 rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-700">
-                                        {profile.phone}
+                                    <div className="mt-2 rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-500">
+                                        {profile.phone || "Not available yet"}
                                     </div>
 
                                 )}
@@ -741,19 +1200,16 @@ function ProfilePage() {
                                     <input
                                         type="text"
                                         name="rollNumber"
-                                        value={
-                                            editForm.rollNumber
-                                        }
-                                        onChange={
-                                            handleProfileChange
-                                        }
-                                        className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none focus:border-blue-500"
+                                        value=""
+                                        placeholder="Not available yet"
+                                        disabled
+                                        className="mt-2 w-full cursor-not-allowed rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-400 outline-none"
                                     />
 
                                 ) : (
 
-                                    <div className="mt-2 rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-700">
-                                        {profile.rollNumber}
+                                    <div className="mt-2 rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-500">
+                                        {profile.rollNumber || "Not available yet"}
                                     </div>
 
                                 )}
@@ -774,19 +1230,16 @@ function ProfilePage() {
                                     <input
                                         type="text"
                                         name="department"
-                                        value={
-                                            editForm.department
-                                        }
-                                        onChange={
-                                            handleProfileChange
-                                        }
-                                        className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none focus:border-blue-500"
+                                        value=""
+                                        placeholder="Not available yet"
+                                        disabled
+                                        className="mt-2 w-full cursor-not-allowed rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-400 outline-none"
                                     />
 
                                 ) : (
 
-                                    <div className="mt-2 rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-700">
-                                        {profile.department}
+                                    <div className="mt-2 rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-500">
+                                        {profile.department || "Not available yet"}
                                     </div>
 
                                 )}
@@ -804,39 +1257,19 @@ function ProfilePage() {
 
                                 {isEditing ? (
 
-                                    <select
+                                    <input
+                                        type="text"
                                         name="year"
-                                        value={
-                                            editForm.year
-                                        }
-                                        onChange={
-                                            handleProfileChange
-                                        }
-                                        className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none focus:border-blue-500"
-                                    >
-
-                                        <option>
-                                            1st Year
-                                        </option>
-
-                                        <option>
-                                            2nd Year
-                                        </option>
-
-                                        <option>
-                                            3rd Year
-                                        </option>
-
-                                        <option>
-                                            4th Year
-                                        </option>
-
-                                    </select>
+                                        value=""
+                                        placeholder="Not available yet"
+                                        disabled
+                                        className="mt-2 w-full cursor-not-allowed rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-400 outline-none"
+                                    />
 
                                 ) : (
 
-                                    <div className="mt-2 rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-700">
-                                        {profile.year}
+                                    <div className="mt-2 rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-500">
+                                        {profile.year || "Not available yet"}
                                     </div>
 
                                 )}

@@ -27,6 +27,9 @@ function TeacherQuizzesPage() {
 
     const [creating, setCreating] = useState(false);
 
+    const [deletingId, setDeletingId] =
+        useState(null);
+
     const [error, setError] = useState("");
 
     const [showForm, setShowForm] = useState(false);
@@ -476,6 +479,88 @@ function TeacherQuizzesPage() {
             );
         }
     };
+
+    // =====================================================
+    // DELETE QUIZ
+    // =====================================================
+
+    const handleDeleteQuiz = async (
+        quiz
+    ) => {
+
+        if (!quiz?.id) {
+            return;
+        }
+
+        const confirmed =
+            window.confirm(
+                `Delete "${quiz.title}"? This action cannot be undone.`
+            );
+
+        if (!confirmed) {
+            return;
+        }
+
+        const wasSelected =
+            selectedQuizId === quiz.id;
+
+        setDeletingId(quiz.id);
+        setError("");
+
+        try {
+
+            const response =
+                await fetch(
+                    `http://localhost:8080/api/quizzes/${quiz.id}`,
+                    {
+                        method: "DELETE",
+                    }
+                );
+
+            const responseText =
+                await response.text();
+
+            if (!response.ok) {
+
+                throw new Error(
+                    responseText ||
+                    `Failed to delete quiz (${response.status}).`
+                );
+            }
+
+            setQuizzes(
+                (previous) =>
+                    previous.filter(
+                        (item) =>
+                            item.id !== quiz.id
+                    )
+            );
+
+            if (wasSelected) {
+
+                setSelectedQuizId(null);
+                setSubmissions([]);
+                setSubmissionError("");
+            }
+
+        } catch (deleteError) {
+
+            console.error(
+                "Delete quiz error:",
+                deleteError
+            );
+
+            setError(
+                deleteError.message ||
+                "Unable to delete quiz. Please try again."
+            );
+
+        } finally {
+
+            setDeletingId(null);
+        }
+    };
+
 
     // =====================================================
     // CREATE QUIZ
@@ -1462,49 +1547,93 @@ function TeacherQuizzesPage() {
 
                                                     </div>
 
-                                                    {/* VIEW SUBMISSIONS */}
+                                                    <div className="flex shrink-0 items-center gap-2">
 
-                                                    <button
-                                                        type="button"
-                                                        onClick={() =>
-                                                            loadSubmissions(
+                                                        {/* VIEW SUBMISSIONS */}
+
+                                                        <button
+                                                            type="button"
+                                                            onClick={() =>
+                                                                loadSubmissions(
+                                                                    quiz.id
+                                                                )
+                                                            }
+                                                            className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition ${
+                                                                isSelected
+                                                                    ? "bg-slate-900 text-white hover:bg-slate-800"
+                                                                    : "bg-blue-600 text-white hover:bg-blue-700"
+                                                            }`}
+                                                        >
+
+                                                            {isSelected ? (
+                                                                <>
+
+                                                                    <X
+                                                                        size={
+                                                                            16
+                                                                        }
+                                                                    />
+
+                                                                    Close
+
+                                                                </>
+                                                            ) : (
+                                                                <>
+
+                                                                    <Eye
+                                                                        size={
+                                                                            16
+                                                                        }
+                                                                    />
+
+                                                                    View Results
+
+                                                                </>
+                                                            )}
+
+                                                        </button>
+
+
+                                                        {/* DELETE QUIZ */}
+
+                                                        <button
+                                                            type="button"
+                                                            onClick={() =>
+                                                                handleDeleteQuiz(
+                                                                    quiz
+                                                                )
+                                                            }
+                                                            disabled={
+                                                                deletingId ===
                                                                 quiz.id
-                                                            )
-                                                        }
-                                                        className={`flex shrink-0 items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition ${
-                                                            isSelected
-                                                                ? "bg-slate-900 text-white hover:bg-slate-800"
-                                                                : "bg-blue-600 text-white hover:bg-blue-700"
-                                                        }`}
-                                                    >
+                                                            }
+                                                            className="rounded-xl p-2.5 text-slate-400 transition hover:bg-red-50 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-50"
+                                                            title="Delete quiz"
+                                                        >
 
-                                                        {isSelected ? (
-                                                            <>
+                                                            {deletingId ===
+                                                            quiz.id ? (
 
-                                                                <X
+                                                                <Loader2
                                                                     size={
-                                                                        16
+                                                                        18
+                                                                    }
+                                                                    className="animate-spin"
+                                                                />
+
+                                                            ) : (
+
+                                                                <Trash2
+                                                                    size={
+                                                                        18
                                                                     }
                                                                 />
 
-                                                                Close
+                                                            )}
 
-                                                            </>
-                                                        ) : (
-                                                            <>
+                                                        </button>
 
-                                                                <Eye
-                                                                    size={
-                                                                        16
-                                                                    }
-                                                                />
-
-                                                                View Results
-
-                                                            </>
-                                                        )}
-
-                                                    </button>
+                                                    </div>
 
                                                 </div>
 

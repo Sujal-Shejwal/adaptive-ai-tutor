@@ -2,6 +2,7 @@ import {
     BookOpen,
     Plus,
     Loader2,
+    Trash2,
 } from "lucide-react";
 
 import { useEffect, useState } from "react";
@@ -25,6 +26,9 @@ function TeacherUnitsPage() {
     const [showForm, setShowForm] = useState(false);
 
     const [creating, setCreating] = useState(false);
+
+    const [deletingId, setDeletingId] =
+        useState(null);
 
     const [formData, setFormData] = useState({
         title: "",
@@ -217,6 +221,84 @@ function TeacherUnitsPage() {
 
         }
 
+    };
+
+
+    // =========================
+    // DELETE UNIT
+    // =========================
+
+    const handleDeleteUnit = async (
+        unit
+    ) => {
+
+        if (!unit?.id) {
+            return;
+        }
+
+        const confirmed =
+            window.confirm(
+                `Delete "${unit.title}"? This action cannot be undone.`
+            );
+
+        if (!confirmed) {
+            return;
+        }
+
+        setDeletingId(
+            unit.id
+        );
+
+        setError("");
+
+        try {
+
+            const response =
+                await fetch(
+                    `http://localhost:8080/api/units/${unit.id}`,
+                    {
+                        method: "DELETE",
+                    }
+                );
+
+            const responseText =
+                await response.text();
+
+            if (!response.ok) {
+
+                throw new Error(
+                    responseText ||
+                    `Failed to delete unit (${response.status}).`
+                );
+            }
+
+            setUnits(
+                (previous) =>
+                    previous.filter(
+                        (item) =>
+                            item.id !==
+                            unit.id
+                    )
+            );
+
+        } catch (deleteError) {
+
+            console.error(
+                "Error deleting unit:",
+                deleteError
+            );
+
+            setError(
+                deleteError.message ||
+                "Unable to delete unit. Please try again."
+            );
+
+        } finally {
+
+            setDeletingId(
+                null
+            );
+        }
     };
 
 
@@ -511,7 +593,7 @@ function TeacherUnitsPage() {
 
                                     <div className="flex items-start justify-between gap-4">
 
-                                        <div className="flex items-start gap-4">
+                                        <div className="flex min-w-0 items-start gap-4">
 
                                             <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-blue-100 text-blue-600">
 
@@ -520,19 +602,53 @@ function TeacherUnitsPage() {
                                             </div>
 
 
-                                            <div>
+                                            <div className="min-w-0">
 
                                                 <p className="text-sm font-medium text-blue-600">
                                                     Unit {unit.unitNumber}
                                                 </p>
 
-                                                <h3 className="mt-1 text-lg font-semibold text-slate-900">
+                                                <h3 className="mt-1 break-words text-lg font-semibold text-slate-900">
                                                     {unit.title}
                                                 </h3>
 
                                             </div>
 
                                         </div>
+
+
+                                        <button
+                                            type="button"
+                                            onClick={() =>
+                                                handleDeleteUnit(
+                                                    unit
+                                                )
+                                            }
+                                            disabled={
+                                                deletingId ===
+                                                unit.id
+                                            }
+                                            className="shrink-0 rounded-lg p-2 text-slate-400 transition hover:bg-red-50 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-50"
+                                            title="Delete unit"
+                                        >
+
+                                            {deletingId ===
+                                            unit.id ? (
+
+                                                <Loader2
+                                                    size={18}
+                                                    className="animate-spin"
+                                                />
+
+                                            ) : (
+
+                                                <Trash2
+                                                    size={18}
+                                                />
+
+                                            )}
+
+                                        </button>
 
                                     </div>
 

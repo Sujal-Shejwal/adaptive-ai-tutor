@@ -13,19 +13,69 @@ public class UnitService {
 
     private final UnitRepository unitRepository;
 
-    public UnitService(UnitRepository unitRepository) {
-        this.unitRepository = unitRepository;
+    public UnitService(
+            UnitRepository unitRepository) {
+
+        this.unitRepository =
+                unitRepository;
     }
 
-    public List<Unit> getUnitsBySubjectId(Long subjectId) {
-        return unitRepository.findBySubjectId(subjectId);
+    // =====================================================
+    // GET UNITS BY SUBJECT
+    // =====================================================
+
+    public List<Unit> getUnitsBySubjectId(
+            Long subjectId) {
+
+        return unitRepository
+                .findBySubjectId(subjectId);
     }
 
-    public Optional<Unit> getUnitById(Long id) {
-        return unitRepository.findById(id);
+    // =====================================================
+    // GET UNIT BY ID
+    // =====================================================
+
+    public Optional<Unit> getUnitById(
+            Long id) {
+
+        return unitRepository
+                .findById(id);
     }
 
-    public Unit createUnit(Unit unit) {
-        return unitRepository.save(unit);
+    // =====================================================
+    // CREATE UNIT
+    // =====================================================
+
+    public Unit createUnit(
+            Unit unit) {
+
+        return unitRepository.save(
+                unit
+        );
+    }
+
+    // =====================================================
+    // DELETE UNIT
+    // =====================================================
+
+    public boolean deleteUnit(
+            Long id) {
+
+        // -------------------------------------------------
+        // CHECK WHETHER UNIT EXISTS
+        // -------------------------------------------------
+
+        if (!unitRepository.existsById(id)) {
+
+            return false;
+        }
+
+        // -------------------------------------------------
+        // DELETE UNIT
+        // -------------------------------------------------
+
+        unitRepository.deleteById(id);
+
+        return true;
     }
 }

@@ -37,22 +37,29 @@ const TopicLearningPage = () => {
 
   const getUserId = () => {
     try {
-      // LoginPage stores the user ID like this:
-      // localStorage.setItem("userId", data.id);
+      // Primary source used by the login flow.
+      const storedId =
+        localStorage.getItem("userId");
 
-      const userId = localStorage.getItem("userId");
-
-      if (userId) {
-        return userId;
+      if (storedId) {
+        return storedId;
       }
 
-      // Fallback in case an older login session
-      // stored the complete user object.
-      const user = JSON.parse(localStorage.getItem("user"));
+      // Fallback for sessions that stored the complete user object.
+      const storedUser =
+        JSON.parse(
+          localStorage.getItem("user") || "null"
+        );
 
-      return user?.id || null;
+      return storedUser?.id
+        ? String(storedUser.id)
+        : null;
     } catch (error) {
-      console.error("Unable to read logged-in user:", error);
+      console.error(
+        "Unable to read logged-in user:",
+        error
+      );
+
       return null;
     }
   };
@@ -114,12 +121,20 @@ const TopicLearningPage = () => {
         );
 
         if (progressResponse.ok) {
-          const progressData = await progressResponse.json();
+          const progressData =
+            await progressResponse.json();
 
-          setCompleted(progressData.completed === true);
+          setCompleted(
+            progressData?.completed === true ||
+            progressData?.isCompleted === true
+          );
         } else if (progressResponse.status === 404) {
-          // No progress record yet
+          // No progress record yet.
           setCompleted(false);
+        } else {
+          throw new Error(
+            "Unable to load topic progress."
+          );
         }
       } else {
         console.warn("No logged-in user ID found.");
@@ -174,6 +189,9 @@ const TopicLearningPage = () => {
         `${API_URL}/api/progress/user/${userId}/topic/${topicId}/complete`,
         {
           method: "POST",
+          headers: {
+            Accept: "application/json",
+          },
         }
       );
 

@@ -13,19 +13,66 @@ public class SubjectService {
 
     private final SubjectRepository subjectRepository;
 
-    public SubjectService(SubjectRepository subjectRepository) {
-        this.subjectRepository = subjectRepository;
+    public SubjectService(
+            SubjectRepository subjectRepository) {
+
+        this.subjectRepository =
+                subjectRepository;
     }
 
+    // =====================================================
+    // GET ALL SUBJECTS
+    // =====================================================
+
     public List<Subject> getAllSubjects() {
+
         return subjectRepository.findAll();
     }
 
-    public Optional<Subject> getSubjectById(Long id) {
+    // =====================================================
+    // GET SUBJECT BY ID
+    // =====================================================
+
+    public Optional<Subject> getSubjectById(
+            Long id) {
+
         return subjectRepository.findById(id);
     }
 
-    public Subject createSubject(Subject subject) {
-        return subjectRepository.save(subject);
+    // =====================================================
+    // CREATE SUBJECT
+    // =====================================================
+
+    public Subject createSubject(
+            Subject subject) {
+
+        return subjectRepository.save(
+                subject
+        );
+    }
+
+    // =====================================================
+    // DELETE SUBJECT
+    // =====================================================
+
+    public boolean deleteSubject(
+            Long id) {
+
+        // -------------------------------------------------
+        // CHECK WHETHER SUBJECT EXISTS
+        // -------------------------------------------------
+
+        if (!subjectRepository.existsById(id)) {
+
+            return false;
+        }
+
+        // -------------------------------------------------
+        // DELETE SUBJECT
+        // -------------------------------------------------
+
+        subjectRepository.deleteById(id);
+
+        return true;
     }
 }

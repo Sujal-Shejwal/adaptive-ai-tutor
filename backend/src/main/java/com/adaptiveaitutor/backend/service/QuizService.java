@@ -4,11 +4,13 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.adaptiveaitutor.backend.entity.Quiz;
 import com.adaptiveaitutor.backend.entity.QuizQuestion;
 import com.adaptiveaitutor.backend.entity.Subject;
 import com.adaptiveaitutor.backend.entity.User;
+import com.adaptiveaitutor.backend.repository.QuizAttemptRepository;
 import com.adaptiveaitutor.backend.repository.QuizQuestionRepository;
 import com.adaptiveaitutor.backend.repository.QuizRepository;
 import com.adaptiveaitutor.backend.repository.SubjectRepository;
@@ -18,20 +20,36 @@ import com.adaptiveaitutor.backend.repository.UserRepository;
 public class QuizService {
 
     private final QuizRepository quizRepository;
+
     private final QuizQuestionRepository quizQuestionRepository;
+
+    private final QuizAttemptRepository quizAttemptRepository;
+
     private final SubjectRepository subjectRepository;
+
     private final UserRepository userRepository;
 
     public QuizService(
             QuizRepository quizRepository,
             QuizQuestionRepository quizQuestionRepository,
+            QuizAttemptRepository quizAttemptRepository,
             SubjectRepository subjectRepository,
             UserRepository userRepository) {
 
-        this.quizRepository = quizRepository;
-        this.quizQuestionRepository = quizQuestionRepository;
-        this.subjectRepository = subjectRepository;
-        this.userRepository = userRepository;
+        this.quizRepository =
+                quizRepository;
+
+        this.quizQuestionRepository =
+                quizQuestionRepository;
+
+        this.quizAttemptRepository =
+                quizAttemptRepository;
+
+        this.subjectRepository =
+                subjectRepository;
+
+        this.userRepository =
+                userRepository;
     }
 
     // =====================================================
@@ -46,13 +64,17 @@ public class QuizService {
             Integer deadlineHours) {
 
         // -------------------------------------------------
-        // Validate deadline
+        // VALIDATE DEADLINE
         // -------------------------------------------------
 
-        if (deadlineHours == null ||
-                (deadlineHours != 12 &&
-                 deadlineHours != 24 &&
-                 deadlineHours != 48)) {
+        if (
+                deadlineHours == null ||
+                (
+                    deadlineHours != 12 &&
+                    deadlineHours != 24 &&
+                    deadlineHours != 48
+                )
+        ) {
 
             throw new RuntimeException(
                     "Deadline must be 12, 24, or 48 hours"
@@ -60,37 +82,42 @@ public class QuizService {
         }
 
         // -------------------------------------------------
-        // Find subject
+        // FIND SUBJECT
         // -------------------------------------------------
 
         Subject subject =
                 subjectRepository
                         .findById(subjectId)
-                        .orElseThrow(() ->
-                                new RuntimeException(
-                                        "Subject not found"
-                                )
+                        .orElseThrow(
+                                () ->
+                                        new RuntimeException(
+                                                "Subject not found"
+                                        )
                         );
 
         // -------------------------------------------------
-        // Find teacher
+        // FIND TEACHER
         // -------------------------------------------------
 
         User teacher =
                 userRepository
                         .findById(teacherId)
-                        .orElseThrow(() ->
-                                new RuntimeException(
-                                        "Teacher not found"
-                                )
+                        .orElseThrow(
+                                () ->
+                                        new RuntimeException(
+                                                "Teacher not found"
+                                        )
                         );
 
         // -------------------------------------------------
-        // Verify teacher role
+        // VERIFY TEACHER ROLE
         // -------------------------------------------------
 
-        if (!"teacher".equalsIgnoreCase(
-                teacher.getRole())) {
+        if (
+                !"teacher".equalsIgnoreCase(
+                        teacher.getRole()
+                )
+        ) {
 
             throw new RuntimeException(
                     "Only teachers can create quizzes"
@@ -98,19 +125,47 @@ public class QuizService {
         }
 
         // -------------------------------------------------
-        // Create quiz
+        // VALIDATE TITLE
+        // -------------------------------------------------
+
+        if (
+                title == null ||
+                title.trim().isEmpty()
+        ) {
+
+            throw new RuntimeException(
+                    "Quiz title cannot be empty"
+            );
+        }
+
+        // -------------------------------------------------
+        // VALIDATE DURATION
+        // -------------------------------------------------
+
+        if (
+                duration == null ||
+                duration < 1
+        ) {
+
+            throw new RuntimeException(
+                    "Quiz duration must be at least 1 minute"
+            );
+        }
+
+        // -------------------------------------------------
+        // CREATE QUIZ
         // -------------------------------------------------
 
         Quiz quiz =
                 new Quiz(
-                        title,
+                        title.trim(),
                         duration,
                         subject,
                         teacher
                 );
 
         // -------------------------------------------------
-        // Set creation and deadline time
+        // SET CREATION + DEADLINE
         // -------------------------------------------------
 
         LocalDateTime createdAt =
@@ -121,15 +176,21 @@ public class QuizService {
                         deadlineHours
                 );
 
-        quiz.setCreatedAt(createdAt);
+        quiz.setCreatedAt(
+                createdAt
+        );
 
-        quiz.setDueAt(dueAt);
+        quiz.setDueAt(
+                dueAt
+        );
 
         // -------------------------------------------------
-        // Save quiz
+        // SAVE QUIZ
         // -------------------------------------------------
 
-        return quizRepository.save(quiz);
+        return quizRepository.save(
+                quiz
+        );
     }
 
     // =====================================================
@@ -145,14 +206,16 @@ public class QuizService {
     // GET QUIZ
     // =====================================================
 
-    public Quiz getQuiz(Long quizId) {
+    public Quiz getQuiz(
+            Long quizId) {
 
         return quizRepository
                 .findById(quizId)
-                .orElseThrow(() ->
-                        new RuntimeException(
-                                "Quiz not found"
-                        )
+                .orElseThrow(
+                        () ->
+                                new RuntimeException(
+                                        "Quiz not found"
+                                )
                 );
     }
 
@@ -162,6 +225,9 @@ public class QuizService {
 
     public List<QuizQuestion> getQuestions(
             Long quizId) {
+
+        // Make sure quiz exists first.
+        getQuiz(quizId);
 
         return quizQuestionRepository
                 .findByQuizId(quizId);
@@ -183,28 +249,69 @@ public class QuizService {
         Quiz quiz =
                 quizRepository
                         .findById(quizId)
-                        .orElseThrow(() ->
-                                new RuntimeException(
-                                        "Quiz not found"
-                                )
+                        .orElseThrow(
+                                () ->
+                                        new RuntimeException(
+                                                "Quiz not found"
+                                        )
                         );
 
-        if (correctAnswer == null ||
+        // -------------------------------------------------
+        // VALIDATE QUESTION
+        // -------------------------------------------------
+
+        if (
+                question == null ||
+                question.trim().isEmpty()
+        ) {
+
+            throw new RuntimeException(
+                    "Question cannot be empty"
+            );
+        }
+
+        if (
+                option1 == null ||
+                option1.trim().isEmpty() ||
+                option2 == null ||
+                option2.trim().isEmpty() ||
+                option3 == null ||
+                option3.trim().isEmpty() ||
+                option4 == null ||
+                option4.trim().isEmpty()
+        ) {
+
+            throw new RuntimeException(
+                    "All four options are required"
+            );
+        }
+
+        // -------------------------------------------------
+        // VALIDATE CORRECT ANSWER
+        // -------------------------------------------------
+
+        if (
+                correctAnswer == null ||
                 correctAnswer < 0 ||
-                correctAnswer > 3) {
+                correctAnswer > 3
+        ) {
 
             throw new RuntimeException(
                     "Correct answer must be between 0 and 3"
             );
         }
 
+        // -------------------------------------------------
+        // CREATE QUESTION
+        // -------------------------------------------------
+
         QuizQuestion quizQuestion =
                 new QuizQuestion(
-                        question,
-                        option1,
-                        option2,
-                        option3,
-                        option4,
+                        question.trim(),
+                        option1.trim(),
+                        option2.trim(),
+                        option3.trim(),
+                        option4.trim(),
                         correctAnswer,
                         quiz
                 );
@@ -222,7 +329,9 @@ public class QuizService {
             Long teacherId) {
 
         return quizRepository
-                .findByCreatedById(teacherId);
+                .findByCreatedById(
+                        teacherId
+                );
     }
 
     // =====================================================
@@ -233,6 +342,65 @@ public class QuizService {
             Long subjectId) {
 
         return quizRepository
-                .findBySubjectId(subjectId);
+                .findBySubjectId(
+                        subjectId
+                );
+    }
+
+    // =====================================================
+    // DELETE QUIZ
+    // =====================================================
+
+    @Transactional
+    public boolean deleteQuiz(
+            Long quizId) {
+
+        // -------------------------------------------------
+        // FIND QUIZ
+        // -------------------------------------------------
+
+        Quiz quiz =
+                quizRepository
+                        .findById(quizId)
+                        .orElse(null);
+
+        if (quiz == null) {
+
+            return false;
+        }
+
+        // -------------------------------------------------
+        // PROTECT STUDENT RESULTS
+        // -------------------------------------------------
+
+        boolean hasAttempts =
+                quizAttemptRepository
+                        .existsByQuizId(
+                                quizId
+                        );
+
+        if (hasAttempts) {
+
+            throw new RuntimeException(
+                    "This quiz cannot be deleted because students have already submitted it."
+            );
+        }
+
+        // -------------------------------------------------
+        // DELETE QUIZ
+        // -------------------------------------------------
+        //
+        // Quiz.questions uses CascadeType.ALL and
+        // orphanRemoval=true, so associated questions
+        // are removed with the quiz.
+        //
+        // No student attempts exist at this point.
+        // -------------------------------------------------
+
+        quizRepository.delete(
+                quiz
+        );
+
+        return true;
     }
 }
