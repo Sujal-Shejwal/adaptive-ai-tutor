@@ -171,6 +171,31 @@ public class QuizAttemptController {
     }
 
     // =====================================================
+    // GET ALL ATTEMPTS FOR TEACHER
+    // =====================================================
+
+    @GetMapping("/teacher/{teacherId}")
+    public ResponseEntity<List<QuizAttemptResponse>>
+            getTeacherAttempts(
+                    @PathVariable Long teacherId) {
+
+        List<QuizAttempt> attempts =
+                quizAttemptService
+                        .getTeacherAttempts(
+                                teacherId
+                        );
+
+        List<QuizAttemptResponse> response =
+                attempts.stream()
+                        .map(this::toResponse)
+                        .collect(Collectors.toList());
+
+        return ResponseEntity.ok(
+                response
+        );
+    }
+
+    // =====================================================
     // RESPONSE MAPPER
     // =====================================================
 
@@ -179,21 +204,13 @@ public class QuizAttemptController {
 
         return new QuizAttemptResponse(
                 attempt.getId(),
-
                 attempt.getQuiz().getId(),
-
                 attempt.getStudent().getId(),
-
                 attempt.getStudent().getName(),
-
                 attempt.getStudent().getEmail(),
-
                 attempt.getScore(),
-
                 attempt.getTotalQuestions(),
-
                 attempt.getCorrectAnswers(),
-
                 attempt.getSubmittedAt()
         );
     }

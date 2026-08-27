@@ -5,8 +5,11 @@ import {
     TrendingUp,
 } from "lucide-react";
 
-import { useCallback, useEffect, useState } from "react";
-
+import {
+    useCallback,
+    useEffect,
+    useState,
+} from "react";
 
 const StatisticsCards = () => {
 
@@ -17,70 +20,123 @@ const StatisticsCards = () => {
         overallProgress: 0,
     });
 
-    const [loading, setLoading] = useState(true);
+    const [loading, setLoading] =
+        useState(true);
 
 
     // =========================================================
     // GET LOGGED-IN USER ID
     // =========================================================
 
-    const userId =
-        localStorage.getItem("userId") || "13";
+    const getUserId = () => {
+
+        const storedId =
+            localStorage.getItem("userId");
+
+        if (storedId) {
+            return storedId;
+        }
+
+        try {
+
+            const storedUser =
+                JSON.parse(
+                    localStorage.getItem("user") ||
+                    "null"
+                );
+
+            return storedUser?.id
+                ? String(storedUser.id)
+                : null;
+
+        } catch {
+
+            return null;
+        }
+    };
 
 
     // =========================================================
     // FETCH DASHBOARD STATISTICS
     // =========================================================
 
-    const fetchStatistics = useCallback(async () => {
+    const fetchStatistics =
+        useCallback(async () => {
 
-        try {
+            try {
 
-            const response = await fetch(
-                `http://localhost:8080/api/dashboard/user/${userId}/statistics`
-            );
+                const userId =
+                    getUserId();
+
+                if (!userId) {
+
+                    console.error(
+                        "Student user ID not found."
+                    );
+
+                    setLoading(false);
+
+                    return;
+                }
 
 
-            if (!response.ok) {
+                const response =
+                    await fetch(
+                        `http://localhost:8080/api/dashboard/user/${userId}/statistics`
+                    );
 
-                throw new Error(
-                    "Failed to fetch dashboard statistics."
+
+                if (!response.ok) {
+
+                    throw new Error(
+                        `Failed to fetch dashboard statistics (${response.status})`
+                    );
+
+                }
+
+
+                const data =
+                    await response.json();
+
+
+                setStatistics({
+
+                    completedTopics:
+                        Number(
+                            data.completedTopics
+                        ) || 0,
+
+                    learningMaterials:
+                        Number(
+                            data.learningMaterials
+                        ) || 0,
+
+                    totalTopics:
+                        Number(
+                            data.totalTopics
+                        ) || 0,
+
+                    overallProgress:
+                        Number(
+                            data.overallProgress
+                        ) || 0,
+
+                });
+
+            } catch (error) {
+
+                console.error(
+                    "Dashboard statistics error:",
+                    error
                 );
+
+            } finally {
+
+                setLoading(false);
 
             }
 
-
-            const data = await response.json();
-
-
-            setStatistics({
-                completedTopics:
-                    data.completedTopics ?? 0,
-
-                learningMaterials:
-                    data.learningMaterials ?? 0,
-
-                totalTopics:
-                    data.totalTopics ?? 0,
-
-                overallProgress:
-                    data.overallProgress ?? 0,
-            });
-
-        } catch (error) {
-
-            console.error(
-                "Dashboard statistics error:",
-                error
-            );
-
-        } finally {
-
-            setLoading(false);
-
-        }
-
-    }, [userId]);
+        }, []);
 
 
     // =========================================================
@@ -126,7 +182,7 @@ const StatisticsCards = () => {
 
 
     // =========================================================
-    // AUTO REFRESH EVERY 5 SECONDS
+    // AUTO REFRESH
     // =========================================================
 
     useEffect(() => {
@@ -270,9 +326,7 @@ const StatisticsCards = () => {
                             className="rounded-2xl border border-gray-200 bg-white p-5"
                         >
 
-                            {/* =================================================
-                                ICON
-                            ================================================= */}
+                            {/* ICON */}
 
                             <div
                                 className={`flex h-10 w-10 items-center justify-center rounded-xl ${card.iconBg}`}
@@ -286,9 +340,7 @@ const StatisticsCards = () => {
                             </div>
 
 
-                            {/* =================================================
-                                VALUE
-                            ================================================= */}
+                            {/* VALUE */}
 
                             <p className="mt-4 text-2xl font-bold text-gray-900">
 
@@ -299,9 +351,7 @@ const StatisticsCards = () => {
                             </p>
 
 
-                            {/* =================================================
-                                LABEL
-                            ================================================= */}
+                            {/* LABEL */}
 
                             <p className="mt-1 text-sm text-gray-500">
 
@@ -310,9 +360,7 @@ const StatisticsCards = () => {
                             </p>
 
 
-                            {/* =================================================
-                                DESCRIPTION
-                            ================================================= */}
+                            {/* DESCRIPTION */}
 
                             <p
                                 className={`mt-1 text-xs ${card.descriptionColor}`}

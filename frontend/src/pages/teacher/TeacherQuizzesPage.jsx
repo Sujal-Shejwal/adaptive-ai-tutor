@@ -77,8 +77,35 @@ function TeacherQuizzesPage() {
     // GET TEACHER ID
     // =====================================================
 
+    const getTeacherId = () => {
+
+        const storedId =
+            localStorage.getItem("userId");
+
+        if (storedId) {
+            return storedId;
+        }
+
+        try {
+
+            const storedUser =
+                JSON.parse(
+                    localStorage.getItem("user") ||
+                    "null"
+                );
+
+            return storedUser?.id
+                ? String(storedUser.id)
+                : null;
+
+        } catch {
+
+            return null;
+        }
+    };
+
     const teacherId =
-        localStorage.getItem("userId");
+        getTeacherId();
 
     // =====================================================
     // FETCH SUBJECTS

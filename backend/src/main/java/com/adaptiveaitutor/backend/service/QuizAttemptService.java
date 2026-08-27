@@ -1,6 +1,7 @@
 package com.adaptiveaitutor.backend.service;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -29,10 +30,17 @@ public class QuizAttemptService {
             QuizQuestionRepository quizQuestionRepository,
             UserRepository userRepository) {
 
-        this.quizAttemptRepository = quizAttemptRepository;
-        this.quizRepository = quizRepository;
-        this.quizQuestionRepository = quizQuestionRepository;
-        this.userRepository = userRepository;
+        this.quizAttemptRepository =
+                quizAttemptRepository;
+
+        this.quizRepository =
+                quizRepository;
+
+        this.quizQuestionRepository =
+                quizQuestionRepository;
+
+        this.userRepository =
+                userRepository;
     }
 
     // =====================================================
@@ -44,10 +52,6 @@ public class QuizAttemptService {
             Long studentId,
             Map<Long, Integer> answers) {
 
-        // -------------------------------------------------
-        // 1. FIND QUIZ
-        // -------------------------------------------------
-
         Quiz quiz =
                 quizRepository
                         .findById(quizId)
@@ -56,25 +60,6 @@ public class QuizAttemptService {
                                         "Quiz not found"
                                 )
                         );
-
-        // -------------------------------------------------
-        // 2. CHECK QUIZ DEADLINE
-        // -------------------------------------------------
-
-        LocalDateTime dueAt =
-                quiz.getDueAt();
-
-        if (dueAt != null &&
-                LocalDateTime.now().isAfter(dueAt)) {
-
-            throw new RuntimeException(
-                    "Quiz submission deadline has expired"
-            );
-        }
-
-        // -------------------------------------------------
-        // 3. FIND STUDENT
-        // -------------------------------------------------
 
         User student =
                 userRepository
@@ -85,10 +70,6 @@ public class QuizAttemptService {
                                 )
                         );
 
-        // -------------------------------------------------
-        // 4. VERIFY STUDENT ROLE
-        // -------------------------------------------------
-
         if (!"student".equalsIgnoreCase(
                 student.getRole())) {
 
@@ -96,10 +77,6 @@ public class QuizAttemptService {
                     "Only students can submit quizzes"
             );
         }
-
-        // -------------------------------------------------
-        // 5. CHECK DUPLICATE SUBMISSION
-        // -------------------------------------------------
 
         if (quizAttemptRepository
                 .existsByQuizIdAndStudentId(
@@ -113,8 +90,19 @@ public class QuizAttemptService {
         }
 
         // -------------------------------------------------
-        // 6. GET QUESTIONS
+        // CHECK DEADLINE
         // -------------------------------------------------
+
+        if (quiz.getDueAt() != null &&
+                LocalDateTime.now()
+                        .isAfter(
+                                quiz.getDueAt()
+                        )) {
+
+            throw new RuntimeException(
+                    "Quiz submission deadline has passed"
+            );
+        }
 
         List<QuizQuestion> questions =
                 quizQuestionRepository
@@ -127,21 +115,15 @@ public class QuizAttemptService {
             );
         }
 
-        // -------------------------------------------------
-        // 7. CALCULATE SCORE
-        // -------------------------------------------------
-
         int correctAnswers = 0;
 
         for (QuizQuestion question :
                 questions) {
 
             Integer selectedAnswer =
-                    answers != null
-                            ? answers.get(
-                                    question.getId()
-                            )
-                            : null;
+                    answers.get(
+                            question.getId()
+                    );
 
             if (selectedAnswer != null &&
                     selectedAnswer.equals(
@@ -152,26 +134,16 @@ public class QuizAttemptService {
             }
         }
 
-        // -------------------------------------------------
-        // 8. TOTAL QUESTIONS
-        // -------------------------------------------------
-
         int totalQuestions =
                 questions.size();
 
-        // -------------------------------------------------
-        // 9. CALCULATE PERCENTAGE
-        // -------------------------------------------------
-
         int score =
                 (int) Math.round(
-                        ((double) correctAnswers /
-                                totalQuestions) * 100
+                        (
+                            (double) correctAnswers
+                                / totalQuestions
+                        ) * 100
                 );
-
-        // -------------------------------------------------
-        // 10. CREATE ATTEMPT
-        // -------------------------------------------------
 
         QuizAttempt attempt =
                 new QuizAttempt(
@@ -182,10 +154,6 @@ public class QuizAttemptService {
                         correctAnswers,
                         LocalDateTime.now()
                 );
-
-        // -------------------------------------------------
-        // 11. SAVE ATTEMPT
-        // -------------------------------------------------
 
         return quizAttemptRepository.save(
                 attempt
@@ -212,5 +180,54 @@ public class QuizAttemptService {
 
         return quizAttemptRepository
                 .findByQuizId(quizId);
+    }
+
+    // =====================================================
+    // GET ALL ATTEMPTS FOR A TEACHER'S QUIZZES
+    // =====================================================
+
+    public List<QuizAttempt> getTeacherAttempts(
+            Long teacherId) {
+
+        User teacher =
+                userRepository
+                        .findById(teacherId)
+                        .orElseThrow(() ->
+                                new RuntimeException(
+                                        "Teacher not found"
+                                )
+                        );
+
+        if (!"teacher".equalsIgnoreCase(
+                teacher.getRole())) {
+
+            throw new RuntimeException(
+                    "Only teachers can access teacher performance"
+            );
+        }
+
+        List<Quiz> quizzes =
+                quizRepository
+                        .findByCreatedById(
+                                teacherId
+                        );
+
+        List<QuizAttempt> allAttempts =
+                new ArrayList<>();
+
+        for (Quiz quiz : quizzes) {
+
+            List<QuizAttempt> attempts =
+                    quizAttemptRepository
+                            .findByQuizId(
+                                    quiz.getId()
+                            );
+
+            allAttempts.addAll(
+                    attempts
+            );
+        }
+
+        return allAttempts;
     }
 }

@@ -13,27 +13,63 @@ public class NoteService {
 
     private final NoteRepository noteRepository;
 
-    public NoteService(NoteRepository noteRepository) {
-        this.noteRepository = noteRepository;
+    public NoteService(
+            NoteRepository noteRepository) {
+
+        this.noteRepository =
+                noteRepository;
     }
 
-    // Get all notes belonging to a topic
-    public List<Note> getNotesByTopicId(Long topicId) {
-        return noteRepository.findByTopicId(topicId);
+    // =====================================================
+    // GET ALL NOTES
+    // =====================================================
+
+    public List<Note> getAllNotes() {
+
+        return noteRepository.findAll();
     }
 
-    // Get a single note by ID
-    public Optional<Note> getNoteById(Long id) {
-        return noteRepository.findById(id);
+    // =====================================================
+    // GET NOTES BY TOPIC
+    // =====================================================
+
+    public List<Note> getNotesByTopicId(
+            Long topicId) {
+
+        return noteRepository
+                .findByTopicId(topicId);
     }
 
-    // Create/save a new note
-    public Note createNote(Note note) {
-        return noteRepository.save(note);
+    // =====================================================
+    // GET NOTE BY ID
+    // =====================================================
+
+    public Optional<Note> getNoteById(
+            Long id) {
+
+        return noteRepository
+                .findById(id);
     }
 
-    // Delete a note by ID
-    public void deleteNote(Long id) {
+    // =====================================================
+    // CREATE / SAVE NOTE
+    // =====================================================
+
+    public Note createNote(
+            Note note) {
+
+        return noteRepository.save(
+                note
+        );
+    }
+
+    // =====================================================
+    // DELETE NOTE
+    // =====================================================
+
+    public void deleteNote(
+            Long id) {
+
         noteRepository.deleteById(id);
     }
 }

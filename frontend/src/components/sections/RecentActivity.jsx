@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+
 import {
     ClipboardCheck,
 } from "lucide-react";
@@ -6,76 +7,127 @@ import {
 
 const RecentActivity = () => {
 
-    const [activities, setActivities] = useState([]);
-    const [loading, setLoading] = useState(true);
+    const [
+        activities,
+        setActivities,
+    ] = useState([]);
+
+    const [
+        loading,
+        setLoading,
+    ] = useState(true);
+
+    const [
+        error,
+        setError,
+    ] = useState("");
 
 
     // =========================================================
     // GET LOGGED-IN USER ID
     // =========================================================
 
-    const userId =
-        localStorage.getItem("userId");
+    const getUserId = () => {
+
+        const storedId =
+            localStorage.getItem("userId");
+
+        if (storedId) {
+            return storedId;
+        }
+
+
+        try {
+
+            const storedUser =
+                JSON.parse(
+                    localStorage.getItem("user") ||
+                    "null"
+                );
+
+            return storedUser?.id
+                ? String(storedUser.id)
+                : null;
+
+        } catch {
+
+            return null;
+        }
+    };
 
 
     // =========================================================
     // FETCH RECENT ACTIVITY
     // =========================================================
 
-    const fetchRecentActivity = useCallback(async () => {
+    const fetchRecentActivity =
+        useCallback(async () => {
 
-        if (!userId) {
+            try {
 
-            setActivities([]);
-            setLoading(false);
-
-            return;
-        }
+                setError("");
 
 
-        try {
-
-            const response = await fetch(
-                `http://localhost:8080/api/progress/user/${userId}/recent`
-            );
+                const userId =
+                    getUserId();
 
 
-            if (!response.ok) {
+                if (!userId) {
 
-                throw new Error(
-                    "Failed to fetch recent activity"
+                    setActivities([]);
+
+                    throw new Error(
+                        "Student account not found. Please log in again."
+                    );
+                }
+
+
+                const response =
+                    await fetch(
+                        `http://localhost:8080/api/progress/user/${userId}/recent`
+                    );
+
+
+                if (!response.ok) {
+
+                    throw new Error(
+                        `Failed to fetch recent activity (${response.status})`
+                    );
+
+                }
+
+
+                const data =
+                    await response.json();
+
+
+                setActivities(
+                    Array.isArray(data)
+                        ? data
+                        : []
                 );
+
+            } catch (error) {
+
+                console.error(
+                    "Recent activity error:",
+                    error
+                );
+
+                setActivities([]);
+
+                setError(
+                    error.message ||
+                    "Unable to load recent activity."
+                );
+
+            } finally {
+
+                setLoading(false);
 
             }
 
-
-            const data =
-                await response.json();
-
-
-            setActivities(
-                Array.isArray(data)
-                    ? data
-                    : []
-            );
-
-        } catch (error) {
-
-            console.error(
-                "Recent activity error:",
-                error
-            );
-
-
-            setActivities([]);
-
-        } finally {
-
-            setLoading(false);
-
-        }
-
-    }, [userId]);
+        }, []);
 
 
     // =========================================================
@@ -147,7 +199,9 @@ const RecentActivity = () => {
     // FORMAT TIME
     // =========================================================
 
-    const formatTime = (dateTime) => {
+    const formatTime = (
+        dateTime
+    ) => {
 
         if (!dateTime) {
 
@@ -158,6 +212,17 @@ const RecentActivity = () => {
 
         const activityDate =
             new Date(dateTime);
+
+
+        if (
+            Number.isNaN(
+                activityDate.getTime()
+            )
+        ) {
+
+            return "Recently";
+
+        }
 
 
         const now =
@@ -290,6 +355,32 @@ const RecentActivity = () => {
 
 
     // =========================================================
+    // ERROR STATE
+    // =========================================================
+
+    if (error) {
+
+        return (
+
+            <section className="rounded-2xl border border-red-200 bg-red-50 p-5">
+
+                <h2 className="text-lg font-semibold text-gray-900">
+                    Recent Activity
+                </h2>
+
+
+                <p className="mt-5 text-sm text-red-600">
+                    {error}
+                </p>
+
+            </section>
+
+        );
+
+    }
+
+
+    // =========================================================
     // EMPTY STATE
     // =========================================================
 
@@ -330,79 +421,83 @@ const RecentActivity = () => {
 
             <div className="mt-5 space-y-4">
 
-                {activities.map((activity) => {
+                {activities.map(
+                    (activity) => {
 
-                    const topic =
-                        activity.topic;
+                        const topic =
+                            activity.topic;
 
 
-                    return (
-
-                        <div
-                            key={activity.id}
-                            className="flex items-start gap-3"
-                        >
-
-                            {/* =================================================
-                                ICON
-                            ================================================= */}
+                        return (
 
                             <div
-                                className="
-                                    flex
-                                    h-8
-                                    w-8
-                                    shrink-0
-                                    items-center
-                                    justify-center
-                                    rounded-lg
-                                    bg-emerald-100
-                                    text-emerald-600
-                                "
+                                key={
+                                    activity.id
+                                }
+                                className="flex items-start gap-3"
                             >
 
-                                <ClipboardCheck
-                                    size={16}
-                                />
+                                {/* =================================================
+                                    ICON
+                                ================================================= */}
 
-                            </div>
+                                <div
+                                    className="
+                                        flex
+                                        h-8
+                                        w-8
+                                        shrink-0
+                                        items-center
+                                        justify-center
+                                        rounded-lg
+                                        bg-emerald-100
+                                        text-emerald-600
+                                    "
+                                >
+
+                                    <ClipboardCheck
+                                        size={16}
+                                    />
+
+                                </div>
 
 
-                            {/* =================================================
-                                ACTIVITY CONTENT
-                            ================================================= */}
+                                {/* =================================================
+                                    ACTIVITY CONTENT
+                                ================================================= */}
 
-                            <div className="min-w-0">
+                                <div className="min-w-0">
 
-                                <p className="text-sm text-gray-700">
+                                    <p className="text-sm text-gray-700">
 
-                                    Completed Topic:{" "}
+                                        Completed Topic:{" "}
 
-                                    <span className="font-medium">
+                                        <span className="font-medium">
 
-                                        {topic?.title ||
-                                            "Unknown Topic"}
+                                            {topic?.title ||
+                                                "Unknown Topic"}
+
+                                        </span>
+
+                                    </p>
+
+
+                                    <span className="text-xs text-gray-400">
+
+                                        {formatTime(
+                                            activity.completedAt
+                                        )}
 
                                     </span>
 
-                                </p>
-
-
-                                <span className="text-xs text-gray-400">
-
-                                    {formatTime(
-                                        activity.completedAt
-                                    )}
-
-                                </span>
+                                </div>
 
                             </div>
 
-                        </div>
+                        );
 
-                    );
-
-                })}
+                    }
+                )}
 
             </div>
 

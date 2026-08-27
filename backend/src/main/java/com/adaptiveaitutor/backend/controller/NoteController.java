@@ -46,6 +46,20 @@ public class NoteController {
         this.topicRepository = topicRepository;
     }
 
+
+
+    // =====================================================
+// GET ALL NOTES
+// =====================================================
+
+@GetMapping
+public ResponseEntity<List<Note>> getAllNotes() {
+
+    return ResponseEntity.ok(
+            noteService.getAllNotes()
+    );
+}
+
     // =====================================================
     // GET NOTES BY TOPIC
     // =====================================================

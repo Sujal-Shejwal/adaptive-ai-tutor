@@ -5,7 +5,11 @@ import {
 } from "lucide-react";
 
 import { Link } from "react-router-dom";
-import { useCallback, useEffect, useState } from "react";
+import {
+    useCallback,
+    useEffect,
+    useState,
+} from "react";
 
 
 const colorStyles = {
@@ -41,198 +45,273 @@ const colorStyles = {
 
 const SubjectsSection = () => {
 
-    const [subjects, setSubjects] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState("");
+    const [
+        subjects,
+        setSubjects,
+    ] = useState([]);
+
+    const [
+        loading,
+        setLoading,
+    ] = useState(true);
+
+    const [
+        error,
+        setError,
+    ] = useState("");
 
 
     // =========================================================
     // GET LOGGED-IN USER ID
     // =========================================================
 
+    const getUserId = () => {
+
+        const storedId =
+            localStorage.getItem("userId");
+
+        if (storedId) {
+            return storedId;
+        }
+
+        try {
+
+            const storedUser =
+                JSON.parse(
+                    localStorage.getItem("user") ||
+                    "null"
+                );
+
+            return storedUser?.id
+                ? String(storedUser.id)
+                : null;
+
+        } catch {
+
+            return null;
+        }
+    };
+
     const userId =
-        localStorage.getItem("userId") || "13";
+        getUserId();
 
 
     // =========================================================
     // FETCH SUBJECT DATA
     // =========================================================
 
-    const fetchSubjects = useCallback(async () => {
+    const fetchSubjects =
+        useCallback(async () => {
 
-        try {
+            try {
 
-            setError("");
+                setError("");
 
+                // -------------------------------------------------
+                // VERIFY STUDENT ACCOUNT
+                // -------------------------------------------------
 
-            // =====================================================
-            // 1. GET ALL SUBJECTS
-            // =====================================================
+                if (!userId) {
 
-            const subjectsResponse = await fetch(
-                "http://localhost:8080/api/subjects"
-            );
-
-
-            if (!subjectsResponse.ok) {
-                throw new Error(
-                    "Failed to fetch subjects."
-                );
-            }
+                    throw new Error(
+                        "Student account not found. Please log in again."
+                    );
+                }
 
 
-            const subjectsData =
-                await subjectsResponse.json();
+                // =====================================================
+                // 1. GET ALL SUBJECTS
+                // =====================================================
+
+                const subjectsResponse =
+                    await fetch(
+                        "http://localhost:8080/api/subjects"
+                    );
 
 
-            // =====================================================
-            // 2. GET SUBJECT PROGRESS
-            // =====================================================
+                if (!subjectsResponse.ok) {
 
-            const progressResponse = await fetch(
-                `http://localhost:8080/api/progress/user/${userId}/subjects`
-            );
-
-
-            if (!progressResponse.ok) {
-                throw new Error(
-                    "Failed to fetch subject progress."
-                );
-            }
+                    throw new Error(
+                        "Failed to fetch subjects."
+                    );
+                }
 
 
-            const progressData =
-                await progressResponse.json();
+                const subjectsData =
+                    await subjectsResponse.json();
 
 
-            // =====================================================
-            // 3. GET UNITS FOR EACH SUBJECT
-            // =====================================================
+                // =====================================================
+                // 2. GET SUBJECT PROGRESS
+                // =====================================================
 
-            const colors = [
-                "blue",
-                "green",
-                "orange",
-                "purple",
-            ];
+                const progressResponse =
+                    await fetch(
+                        `http://localhost:8080/api/progress/user/${userId}/subjects`
+                    );
 
 
-            const formattedSubjects =
-                await Promise.all(
+                if (!progressResponse.ok) {
 
-                    subjectsData.map(
-                        async (subject, index) => {
+                    throw new Error(
+                        "Failed to fetch subject progress."
+                    );
+                }
 
-                            let units = [];
+
+                const progressData =
+                    await progressResponse.json();
 
 
-                            try {
+                // =====================================================
+                // 3. GET UNITS FOR EACH SUBJECT
+                // =====================================================
 
-                                const unitsResponse =
-                                    await fetch(
-                                        `http://localhost:8080/api/units/subject/${subject.id}`
+                const colors = [
+                    "blue",
+                    "green",
+                    "orange",
+                    "purple",
+                ];
+
+
+                const formattedSubjects =
+                    await Promise.all(
+
+                        subjectsData.map(
+                            async (
+                                subject,
+                                index
+                            ) => {
+
+                                let units = [];
+
+
+                                try {
+
+                                    const unitsResponse =
+                                        await fetch(
+                                            `http://localhost:8080/api/units/subject/${subject.id}`
+                                        );
+
+
+                                    if (
+                                        unitsResponse.ok
+                                    ) {
+
+                                        units =
+                                            await unitsResponse.json();
+
+                                    }
+
+                                } catch (
+                                    unitError
+                                ) {
+
+                                    console.error(
+                                        `Error fetching units for subject ${subject.id}:`,
+                                        unitError
                                     );
-
-
-                                if (unitsResponse.ok) {
-
-                                    units =
-                                        await unitsResponse.json();
 
                                 }
 
-                            } catch (unitError) {
 
-                                console.error(
-                                    `Error fetching units for subject ${subject.id}:`,
-                                    unitError
-                                );
+                                // =================================================
+                                // CALCULATE TOTAL TOPICS
+                                // =================================================
+
+                                const totalTopics =
+                                    units.reduce(
+                                        (
+                                            total,
+                                            unit
+                                        ) =>
+                                            total +
+                                            (
+                                                unit.topics ||
+                                                0
+                                            ),
+                                        0
+                                    );
+
+
+                                // =================================================
+                                // GET REAL PROGRESS
+                                // =================================================
+
+                                const progress =
+                                    progressData[
+                                        subject.id
+                                    ] ?? 0;
+
+
+                                return {
+
+                                    id:
+                                        subject.id,
+
+                                    name:
+                                        subject.name,
+
+                                    code:
+                                        subject.code,
+
+                                    description:
+                                        subject.description,
+
+                                    shortName:
+                                        subject.code,
+
+                                    color:
+                                        colors[
+                                            index %
+                                            colors.length
+                                        ],
+
+                                    units:
+                                        units.length,
+
+                                    topics:
+                                        totalTopics,
+
+                                    progress:
+                                        progress,
+
+                                };
 
                             }
+                        )
+                    );
 
 
-                            // =================================================
-                            // CALCULATE TOTAL TOPICS
-                            // =================================================
+                // =====================================================
+                // SAVE REAL DATA
+                // =====================================================
 
-                            const totalTopics =
-                                units.reduce(
-                                    (total, unit) =>
-                                        total +
-                                        (unit.topics || 0),
-                                    0
-                                );
+                setSubjects(
+                    formattedSubjects
+                );
 
+            } catch (error) {
 
-                            // =================================================
-                            // GET REAL PROGRESS
-                            // =================================================
-
-                            const progress =
-                                progressData[subject.id] ?? 0;
-
-
-                            return {
-
-                                id: subject.id,
-
-                                name: subject.name,
-
-                                code: subject.code,
-
-                                description:
-                                    subject.description,
-
-                                shortName:
-                                    subject.code,
-
-                                color:
-                                    colors[
-                                        index %
-                                        colors.length
-                                    ],
-
-                                units:
-                                    units.length,
-
-                                topics:
-                                    totalTopics,
-
-                                progress:
-                                    progress,
-
-                            };
-
-                        }
-                    )
+                console.error(
+                    "Dashboard subjects error:",
+                    error
                 );
 
 
-            // =====================================================
-            // SAVE REAL DATA
-            // =====================================================
+                setError(
+                    error.message ||
+                    "Unable to load subjects."
+                );
 
-            setSubjects(formattedSubjects);
+            } finally {
 
-        } catch (error) {
+                setLoading(false);
 
-            console.error(
-                "Dashboard subjects error:",
-                error
-            );
+            }
 
-
-            setError(
-                "Unable to load subjects."
-            );
-
-        } finally {
-
-            setLoading(false);
-
-        }
-
-    }, [userId]);
+        }, [userId]);
 
 
     // =========================================================
@@ -255,7 +334,9 @@ const SubjectsSection = () => {
     useEffect(() => {
 
         const handleFocus = () => {
+
             fetchSubjects();
+
         };
 
 
@@ -422,141 +503,155 @@ const SubjectsSection = () => {
 
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
 
-                {subjects.map((subject) => {
+                {subjects.map(
+                    (subject) => {
 
-                    const styles =
-                        colorStyles[
-                            subject.color
-                        ];
-
-
-                    return (
-
-                        <div
-                            key={subject.id}
-                            className="rounded-2xl border border-gray-200 bg-white p-5"
-                        >
-
-                            {/* =================================================
-                                SUBJECT INFORMATION
-                            ================================================= */}
-
-                            <div className="flex items-start gap-3">
-
-                                <div
-                                    className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-xs font-semibold ${styles.icon}`}
-                                >
-                                    {subject.shortName}
-                                </div>
+                        const styles =
+                            colorStyles[
+                                subject.color
+                            ];
 
 
-                                <div className="min-w-0">
+                        return (
 
-                                    <h3 className="text-sm font-medium text-gray-900">
-                                        {subject.name}
-                                    </h3>
+                            <div
+                                key={
+                                    subject.id
+                                }
+                                className="rounded-2xl border border-gray-200 bg-white p-5"
+                            >
 
+                                {/* =================================================
+                                    SUBJECT INFORMATION
+                                ================================================= */}
 
-                                    <p className="mt-1 text-xs text-gray-500">
-                                        {subject.units} Units ·{" "}
-                                        {subject.topics} Topics
-                                    </p>
-
-                                </div>
-
-                            </div>
-
-
-                            {/* =================================================
-                                PROGRESS
-                            ================================================= */}
-
-                            <div className="mt-5">
-
-                                <div className="mb-2 flex items-center justify-between">
-
-                                    <span className="text-xs text-gray-500">
-                                        Progress
-                                    </span>
-
-
-                                    <span
-                                        className={`text-xs font-medium ${styles.icon.split(" ")[1]}`}
-                                    >
-                                        {subject.progress}%
-                                    </span>
-
-                                </div>
-
-
-                                <div className="h-1.5 rounded-full bg-gray-100">
+                                <div className="flex items-start gap-3">
 
                                     <div
-                                        className={`h-1.5 rounded-full transition-all duration-500 ${styles.progress}`}
-                                        style={{
-                                            width: `${subject.progress}%`,
-                                        }}
-                                    />
+                                        className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-xs font-semibold ${styles.icon}`}
+                                    >
+                                        {
+                                            subject.shortName
+                                        }
+                                    </div>
+
+
+                                    <div className="min-w-0">
+
+                                        <h3 className="text-sm font-medium text-gray-900">
+                                            {
+                                                subject.name
+                                            }
+                                        </h3>
+
+
+                                        <p className="mt-1 text-xs text-gray-500">
+                                            {
+                                                subject.units
+                                            } Units ·{" "}
+                                            {
+                                                subject.topics
+                                            } Topics
+                                        </p>
+
+                                    </div>
+
+                                </div>
+
+
+                                {/* =================================================
+                                    PROGRESS
+                                ================================================= */}
+
+                                <div className="mt-5">
+
+                                    <div className="mb-2 flex items-center justify-between">
+
+                                        <span className="text-xs text-gray-500">
+                                            Progress
+                                        </span>
+
+
+                                        <span
+                                            className={`text-xs font-medium ${styles.icon.split(" ")[1]}`}
+                                        >
+                                            {
+                                                subject.progress
+                                            }%
+                                        </span>
+
+                                    </div>
+
+
+                                    <div className="h-1.5 rounded-full bg-gray-100">
+
+                                        <div
+                                            className={`h-1.5 rounded-full transition-all duration-500 ${styles.progress}`}
+                                            style={{
+                                                width: `${subject.progress}%`,
+                                            }}
+                                        />
+
+                                    </div>
+
+                                </div>
+
+
+                                {/* =================================================
+                                    ACTIONS
+                                ================================================= */}
+
+                                <div className="mt-4 grid grid-cols-3 gap-2">
+
+                                    {/* ASK AI */}
+
+                                    <Link
+                                        to={`/student/chat/${subject.id}`}
+                                        className={`flex items-center justify-center gap-1 rounded-lg border py-2 text-xs font-medium transition ${styles.ask}`}
+                                    >
+
+                                        <MessageSquare size={14} />
+
+                                        Ask AI
+
+                                    </Link>
+
+
+                                    {/* QUIZ */}
+
+                                    <Link
+                                        to={`/student/quiz/${subject.id}`}
+                                        className="flex items-center justify-center gap-1 rounded-lg border border-gray-300 py-2 text-xs font-medium text-gray-700 transition hover:bg-gray-50"
+                                    >
+
+                                        <ClipboardCheck size={14} />
+
+                                        Quiz
+
+                                    </Link>
+
+
+                                    {/* CONTINUE */}
+
+                                    <Link
+                                        to={`/student/study/${subject.id}`}
+                                        className={`flex items-center justify-center gap-1 rounded-lg py-2 text-xs font-medium text-white transition ${styles.continue}`}
+                                    >
+
+                                        Continue
+
+                                        <ArrowRight size={14} />
+
+                                    </Link>
 
                                 </div>
 
                             </div>
 
+                        );
 
-                            {/* =================================================
-                                ACTIONS
-                            ================================================= */}
-
-                            <div className="mt-4 grid grid-cols-3 gap-2">
-
-                                {/* ASK AI */}
-
-                                <Link
-                                    to={`/student/chat/${subject.id}`}
-                                    className={`flex items-center justify-center gap-1 rounded-lg border py-2 text-xs font-medium transition ${styles.ask}`}
-                                >
-
-                                    <MessageSquare size={14} />
-
-                                    Ask AI
-
-                                </Link>
-
-
-                                {/* QUIZ */}
-
-                                <Link
-                                    to={`/student/quiz/${subject.id}`}
-                                    className="flex items-center justify-center gap-1 rounded-lg border border-gray-300 py-2 text-xs font-medium text-gray-700 transition hover:bg-gray-50"
-                                >
-
-                                    <ClipboardCheck size={14} />
-
-                                    Quiz
-
-                                </Link>
-
-
-                                {/* CONTINUE */}
-
-                                <Link
-                                    to={`/student/study/${subject.id}`}
-                                    className={`flex items-center justify-center gap-1 rounded-lg py-2 text-xs font-medium text-white transition ${styles.continue}`}
-                                >
-
-                                    Continue
-
-                                    <ArrowRight size={14} />
-
-                                </Link>
-
-                            </div>
-
-                        </div>
-
-                    );
-
-                })}
+                    }
+                )}
 
             </div>
 

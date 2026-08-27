@@ -27,8 +27,6 @@ import {
 } from "react-router-dom";
 
 import {
-  teacherStats,
-  teacherDocuments,
   teacherSubjects,
 } from "../../data/teacher";
 
@@ -55,7 +53,17 @@ export default function TeacherDashboardPage() {
   const [
     documents,
     setDocuments,
-  ] = useState(teacherDocuments);
+  ] = useState([]);
+
+  const [
+    notesLoading,
+    setNotesLoading,
+  ] = useState(true);
+
+  const [
+    notesError,
+    setNotesError,
+  ] = useState("");
 
   // =====================================================
   // QUIZ STATE
@@ -74,6 +82,30 @@ export default function TeacherDashboardPage() {
   const [
     quizError,
     setQuizError,
+  ] = useState("");
+
+  // =====================================================
+  // DASHBOARD STATISTICS STATE
+  // =====================================================
+
+  const [
+    dashboardStats,
+    setDashboardStats,
+  ] = useState({
+    totalStudents: 0,
+    learningMaterials: 0,
+    totalSubjects: 0,
+    averageQuizScore: 0,
+  });
+
+  const [
+    dashboardStatsLoading,
+    setDashboardStatsLoading,
+  ] = useState(true);
+
+  const [
+    dashboardStatsError,
+    setDashboardStatsError,
   ] = useState("");
 
   // =====================================================
@@ -99,6 +131,186 @@ export default function TeacherDashboardPage() {
     resultsError,
     setResultsError,
   ] = useState("");
+
+  // =====================================================
+  // FETCH DASHBOARD STATISTICS
+  // =====================================================
+
+  useEffect(() => {
+
+    const fetchDashboardStatistics = async () => {
+
+      try {
+
+        setDashboardStatsLoading(true);
+        setDashboardStatsError("");
+
+        let userId =
+          localStorage.getItem("userId");
+
+        if (!userId) {
+
+          try {
+
+            const storedUser =
+              JSON.parse(
+                localStorage.getItem("user") ||
+                  "null"
+              );
+
+            userId = storedUser?.id;
+          } catch {
+            userId = null;
+          }
+        }
+
+        if (!userId) {
+          throw new Error(
+            "Teacher account not found."
+          );
+        }
+
+        const response =
+          await fetch(
+            `http://localhost:8080/api/dashboard/user/${userId}/statistics`
+          );
+
+        if (!response.ok) {
+          throw new Error(
+            `Failed to fetch dashboard statistics (${response.status})`
+          );
+        }
+
+        const data =
+          await response.json();
+
+        setDashboardStats({
+          totalStudents:
+            Number(
+              data.totalStudents
+            ) || 0,
+
+          learningMaterials:
+            Number(
+              data.learningMaterials
+            ) || 0,
+
+          totalSubjects:
+            Number(
+              data.totalSubjects
+            ) || 0,
+
+          averageQuizScore:
+            Number(
+              data.averageQuizScore
+            ) || 0,
+        });
+
+      } catch (error) {
+
+        console.error(
+          "Error fetching dashboard statistics:",
+          error
+        );
+
+        setDashboardStatsError(
+          "Unable to load dashboard statistics."
+        );
+
+      } finally {
+
+        setDashboardStatsLoading(false);
+      }
+    };
+
+    fetchDashboardStatistics();
+
+  }, []);
+
+  // =====================================================
+  // FETCH REAL NOTES
+  // =====================================================
+
+  useEffect(() => {
+
+    const fetchNotes = async () => {
+
+      try {
+
+        setNotesLoading(true);
+        setNotesError("");
+
+        const response =
+          await fetch(
+            "http://localhost:8080/api/notes"
+          );
+
+        if (!response.ok) {
+          throw new Error(
+            `Failed to fetch notes (${response.status})`
+          );
+        }
+
+        const data =
+          await response.json();
+
+        const normalizedNotes =
+          Array.isArray(data)
+            ? data.map((note) => {
+
+                const topic =
+                  note?.topic || {};
+
+                const unit =
+                  topic?.unit || {};
+
+                const subject =
+                  unit?.subject || {};
+
+                return {
+                  id: note.id,
+                  name:
+                    note.fileName ||
+                    "Untitled PDF",
+                  topicTitle:
+                    topic.title ||
+                    "Unknown Topic",
+                  unitTitle:
+                    unit.title ||
+                    "Unknown Unit",
+                  subjectName:
+                    subject.name ||
+                    "Unknown Subject",
+                  subjectCode:
+                    subject.code || "",
+                };
+              })
+            : [];
+
+        setDocuments(
+          normalizedNotes
+        );
+
+      } catch (error) {
+
+        console.error(
+          "Error fetching notes:",
+          error
+        );
+
+        setNotesError(
+          "Unable to load uploaded documents."
+        );
+
+      } finally {
+
+        setNotesLoading(false);
+      }
+    };
+
+    fetchNotes();
+
+  }, []);
 
   // =====================================================
   // FETCH QUIZZES
@@ -172,7 +384,7 @@ export default function TeacherDashboardPage() {
 
       return documents.filter(
         (document) =>
-          document.subject ===
+          document.subjectCode ===
           selectedSubject
       );
 
@@ -185,17 +397,69 @@ export default function TeacherDashboardPage() {
   // DELETE DOCUMENT
   // =====================================================
 
-  const handleDeleteDocument = (
+  const handleDeleteDocument = async (
     documentId
   ) => {
 
-    setDocuments(
-      (currentDocuments) =>
-        currentDocuments.filter(
-          (document) =>
-            document.id !==
-            documentId
-        )
+    const confirmed =
+      window.confirm(
+        "Delete this uploaded PDF? This will remove the file and database record."
+      );
+
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+
+      const response =
+        await fetch(
+          `http://localhost:8080/api/notes/${documentId}`,
+          {
+            method: "DELETE",
+          }
+        );
+
+      if (!response.ok) {
+        throw new Error(
+          `Delete failed (${response.status})`
+        );
+      }
+
+      setDocuments(
+        (currentDocuments) =>
+          currentDocuments.filter(
+            (document) =>
+              document.id !==
+              documentId
+          )
+      );
+
+    } catch (error) {
+
+      console.error(
+        "Error deleting document:",
+        error
+      );
+
+      window.alert(
+        "Unable to delete the document. Please try again."
+      );
+    }
+  };
+
+  // =====================================================
+  // VIEW DOCUMENT
+  // =====================================================
+
+  const handleViewDocument = (
+    documentId
+  ) => {
+
+    window.open(
+      `http://localhost:8080/api/notes/${documentId}/file`,
+      "_blank",
+      "noopener,noreferrer"
     );
   };
 
@@ -462,76 +726,123 @@ export default function TeacherDashboardPage() {
 
         <div className="mt-7 grid grid-cols-4 gap-4">
 
-          {teacherStats.map(
-            (stat) => {
+          {/* TOTAL STUDENTS */}
 
-              const Icon =
-                statIcons[
-                  stat.type
-                ];
+          <div className="h-[139px] rounded-2xl border border-[#e2e8f0] bg-white px-5 py-5">
 
-              let iconStyle =
-                "bg-[#dbeafe] text-[#2563eb]";
+            <div className="flex h-[38px] w-[38px] items-center justify-center rounded-xl bg-[#dbeafe] text-[#2563eb]">
 
-              if (
-                stat.type ===
-                "notes"
-              ) {
+              <Users
+                className="h-[18px] w-[18px]"
+                strokeWidth={1.8}
+              />
 
-                iconStyle =
-                  "bg-[#d1fae5] text-[#10b981]";
-              }
+            </div>
 
-              if (
-                stat.type ===
-                "subjects"
-              ) {
+            <p className="mt-[13px] text-[25px] font-bold leading-[30px] text-[#17233c]">
 
-                iconStyle =
-                  "bg-[#fef3c7] text-[#f59e0b]";
-              }
+              {dashboardStatsLoading
+                ? "..."
+                : dashboardStats.totalStudents}
 
-              if (
-                stat.type ===
-                "progress"
-              ) {
+            </p>
 
-                iconStyle =
-                  "bg-[#ede9fe] text-[#8b5cf6]";
-              }
+            <p className="mt-[1px] text-[13px] leading-5 text-[#64748b]">
+              Total Students
+            </p>
 
-              return (
+          </div>
 
-                <div
-                  key={stat.id}
-                  className="h-[139px] rounded-2xl border border-[#e2e8f0] bg-white px-5 py-5"
-                >
+          {/* NOTES UPLOADED */}
 
-                  <div
-                    className={`flex h-[38px] w-[38px] items-center justify-center rounded-xl ${iconStyle}`}
-                  >
+          <div className="h-[139px] rounded-2xl border border-[#e2e8f0] bg-white px-5 py-5">
 
-                    <Icon
-                      className="h-[18px] w-[18px]"
-                      strokeWidth={1.8}
-                    />
+            <div className="flex h-[38px] w-[38px] items-center justify-center rounded-xl bg-[#d1fae5] text-[#10b981]">
 
-                  </div>
+              <FileText
+                className="h-[18px] w-[18px]"
+                strokeWidth={1.8}
+              />
 
-                  <p className="mt-[13px] text-[25px] font-bold leading-[30px] text-[#17233c]">
-                    {stat.value}
-                  </p>
+            </div>
 
-                  <p className="mt-[1px] text-[13px] leading-5 text-[#64748b]">
-                    {stat.label}
-                  </p>
+            <p className="mt-[13px] text-[25px] font-bold leading-[30px] text-[#17233c]">
 
-                </div>
-              );
-            }
-          )}
+              {dashboardStatsLoading
+                ? "..."
+                : dashboardStats.learningMaterials}
+
+            </p>
+
+            <p className="mt-[1px] text-[13px] leading-5 text-[#64748b]">
+              Notes Uploaded
+            </p>
+
+          </div>
+
+          {/* SUBJECTS */}
+
+          <div className="h-[139px] rounded-2xl border border-[#e2e8f0] bg-white px-5 py-5">
+
+            <div className="flex h-[38px] w-[38px] items-center justify-center rounded-xl bg-[#fef3c7] text-[#f59e0b]">
+
+              <BookOpen
+                className="h-[18px] w-[18px]"
+                strokeWidth={1.8}
+              />
+
+            </div>
+
+            <p className="mt-[13px] text-[25px] font-bold leading-[30px] text-[#17233c]">
+
+              {dashboardStatsLoading
+                ? "..."
+                : dashboardStats.totalSubjects}
+
+            </p>
+
+            <p className="mt-[1px] text-[13px] leading-5 text-[#64748b]">
+              Subjects
+            </p>
+
+          </div>
+
+          {/* AVERAGE QUIZ SCORE */}
+
+          <div className="h-[139px] rounded-2xl border border-[#e2e8f0] bg-white px-5 py-5">
+
+            <div className="flex h-[38px] w-[38px] items-center justify-center rounded-xl bg-[#ede9fe] text-[#8b5cf6]">
+
+              <Award
+                className="h-[18px] w-[18px]"
+                strokeWidth={1.8}
+              />
+
+            </div>
+
+            <p className="mt-[13px] text-[25px] font-bold leading-[30px] text-[#17233c]">
+
+              {dashboardStatsLoading
+                ? "..."
+                : `${dashboardStats.averageQuizScore}%`}
+
+            </p>
+
+            <p className="mt-[1px] text-[13px] leading-5 text-[#64748b]">
+              Average Quiz Score
+            </p>
+
+          </div>
 
         </div>
+
+        {dashboardStatsError && (
+
+          <div className="mt-3 rounded-lg bg-red-50 px-4 py-2 text-center text-[12px] text-red-600">
+            {dashboardStatsError}
+          </div>
+
+        )}
 
         {/* =====================================================
             QUIZZES
@@ -1105,23 +1416,25 @@ export default function TeacherDashboardPage() {
 
         <section className="mt-8 rounded-2xl border border-[#e2e8f0] bg-white">
 
-          {/* HEADER */}
+          <div className="flex flex-col gap-4 px-6 pb-4 pt-6 xl:flex-row xl:items-center xl:justify-between">
 
-          <div className="flex items-center justify-between px-6 pb-3 pt-6">
+            <div>
+              <h2 className="text-[16px] font-bold leading-5 text-[#17233c]">
+                Uploaded Documents
+              </h2>
 
-            <h2 className="text-[16px] font-bold leading-5 text-[#17233c]">
-              Uploaded Documents
-            </h2>
+              <p className="mt-1 text-[12px] text-[#94a3b8]">
+                Documents uploaded to the database.
+              </p>
+            </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
 
               {teacherSubjects.map(
                 (subject) => (
 
                   <button
-                    key={
-                      subject
-                    }
+                    key={subject}
                     type="button"
                     onClick={() =>
                       setSelectedSubject(
@@ -1145,126 +1458,168 @@ export default function TeacherDashboardPage() {
 
           </div>
 
-          {/* DOCUMENTS */}
+          {notesLoading && (
 
-          <div className="px-6 pb-4">
+            <div className="flex items-center justify-center gap-2 px-6 py-12 text-sm text-[#64748b]">
 
-            {filteredDocuments.map(
-              (
-                document,
-                index
-              ) => (
+              <Loader2
+                className="h-5 w-5 animate-spin"
+                strokeWidth={1.8}
+              />
 
-                <div
-                  key={
-                    document.id
-                  }
-                  className={`group flex h-[76px] items-center gap-4 px-4 ${
-                    index !==
-                    filteredDocuments.length -
-                      1
-                      ? "border-b border-[#f1f5f9]"
-                      : ""
-                  }`}
-                >
+              Loading uploaded documents...
 
-                  {/* PDF ICON */}
+            </div>
+          )}
 
-                  <div className="flex h-[44px] w-[44px] shrink-0 items-center justify-center rounded-xl bg-[#fff1f2]">
+          {!notesLoading &&
+            notesError && (
 
-                    <PdfIcon
-                      className="h-[19px] w-[19px] text-[#ff3b30]"
-                      strokeWidth={1.7}
-                    />
+              <div className="px-6 pb-6">
 
-                  </div>
+                <div className="rounded-xl border border-red-100 bg-red-50 px-4 py-4 text-center">
 
-                  {/* FILE INFO */}
-
-                  <div className="min-w-0 flex-1">
-
-                    <p className="truncate text-[14px] font-medium leading-5 text-[#17233c]">
-                      {document.name}
-                    </p>
-
-                    <p className="mt-[2px] text-[12px] leading-4 text-[#94a3b8]">
-
-                      {document.pages}{" "}
-                      pages ·{" "}
-                      {document.size}{" "}
-                      · Uploaded{" "}
-
-                      {
-                        document.uploadedDate
-                      }
-
-                    </p>
-
-                  </div>
-
-                  {/* SUBJECT */}
-
-                  <span
-                    className={`rounded-lg px-3 py-[5px] text-[11px] font-medium ${
-                      document.subject ===
-                      "DBMS"
-                        ? "bg-[#dbeafe] text-[#2563eb]"
-                        : document.subject ===
-                          "OS"
-                          ? "bg-[#d1fae5] text-[#10b981]"
-                          : document.subject ===
-                            "CN"
-                            ? "bg-[#fef3c7] text-[#f59e0b]"
-                            : "bg-[#ede9fe] text-[#8b5cf6]"
-                    }`}
-                  >
-                    {
-                      document.subject
-                    }
-                  </span>
-
-                  {/* DELETE */}
+                  <p className="text-sm text-red-600">
+                    {notesError}
+                  </p>
 
                   <button
                     type="button"
-                    title={`Delete ${document.name}`}
-                    aria-label={`Delete ${document.name}`}
                     onClick={() =>
-                      handleDeleteDocument(
-                        document.id
-                      )
+                      window.location.reload()
                     }
-                    className="rounded-lg p-2 text-gray-300 opacity-0 transition hover:bg-red-50 hover:text-red-500 group-hover:opacity-100"
+                    className="mt-3 rounded-lg bg-red-500 px-4 py-2 text-xs font-semibold text-white hover:bg-red-600"
                   >
-
-                    <Trash2
-                      className="h-4 w-4"
-                      strokeWidth={1.8}
-                    />
-
+                    Retry
                   </button>
 
                 </div>
-              )
-            )}
-
-            {/* EMPTY DOCUMENTS */}
-
-            {filteredDocuments.length ===
-              0 && (
-
-              <div className="py-12 text-center">
-
-                <FileText className="mx-auto h-8 w-8 text-gray-300" />
-
-                <p className="mt-3 text-sm text-gray-500">
-                  No documents found.
-                </p>
 
               </div>
             )}
 
-          </div>
+          {!notesLoading &&
+            !notesError && (
+
+              <div className="px-6 pb-4">
+
+                {filteredDocuments.map(
+                  (
+                    document,
+                    index
+                  ) => (
+
+                    <div
+                      key={document.id}
+                      className={`group flex min-h-[92px] items-center gap-4 px-4 py-3 ${
+                        index !==
+                        filteredDocuments.length -
+                          1
+                          ? "border-b border-[#f1f5f9]"
+                          : ""
+                      }`}
+                    >
+
+                      <div className="flex h-[44px] w-[44px] shrink-0 items-center justify-center rounded-xl bg-[#fff1f2]">
+
+                        <PdfIcon
+                          className="h-[19px] w-[19px] text-[#ff3b30]"
+                          strokeWidth={1.7}
+                        />
+
+                      </div>
+
+                      <div className="min-w-0 flex-1">
+
+                        <p className="truncate text-[14px] font-medium leading-5 text-[#17233c]">
+                          {document.name}
+                        </p>
+
+                        <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] leading-4 text-[#94a3b8]">
+
+                          <span>
+                            {document.subjectName}
+                          </span>
+
+                          <span>
+                            {document.unitTitle}
+                          </span>
+
+                          <span>
+                            {document.topicTitle}
+                          </span>
+
+                        </div>
+
+                      </div>
+
+                      <span
+                        className={`rounded-lg px-3 py-[5px] text-[11px] font-medium ${
+                          document.subjectCode ===
+                          "DBMS"
+                            ? "bg-[#dbeafe] text-[#2563eb]"
+                            : document.subjectCode ===
+                                "OS"
+                              ? "bg-[#d1fae5] text-[#10b981]"
+                              : document.subjectCode ===
+                                  "CN"
+                                ? "bg-[#fef3c7] text-[#f59e0b]"
+                                : "bg-[#ede9fe] text-[#8b5cf6]"
+                        }`}
+                      >
+                        {document.subjectCode ||
+                          document.subjectName}
+                      </span>
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          handleViewDocument(
+                            document.id
+                          )
+                        }
+                        className="rounded-lg border border-[#e2e8f0] px-3 py-2 text-[11px] font-semibold text-[#475569] transition hover:border-[#2563eb] hover:bg-blue-50 hover:text-[#2563eb]"
+                      >
+                        View PDF
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          handleDeleteDocument(
+                            document.id
+                          )
+                        }
+                        className="rounded-lg p-2 text-gray-300 transition hover:bg-red-50 hover:text-red-500"
+                        title={`Delete ${document.name}`}
+                      >
+                        <Trash2
+                          className="h-4 w-4"
+                          strokeWidth={1.8}
+                        />
+                      </button>
+
+                    </div>
+
+                  )
+                )}
+
+                {filteredDocuments.length ===
+                  0 && (
+
+                  <div className="py-12 text-center">
+
+                    <FileText className="mx-auto h-8 w-8 text-gray-300" />
+
+                    <p className="mt-3 text-sm text-gray-500">
+                      No documents found.
+                    </p>
+
+                  </div>
+                )}
+
+              </div>
+            )}
 
         </section>
 
