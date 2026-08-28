@@ -105,6 +105,309 @@ function AITutorLogo({ small = false }) {
     );
 }
 
+/* ========================================================= */
+/* SIMPLE GEMINI MARKDOWN RENDERER */
+/* ========================================================= */
+
+function renderInlineMarkdown(text) {
+
+    const parts =
+        String(text || "").split(
+            /(\*\*[^*]+\*\*|`[^`]+`)/
+        );
+
+
+    return parts.map(
+        (part, index) => {
+
+            if (
+                part.startsWith("**") &&
+                part.endsWith("**")
+            ) {
+
+                return (
+                    <strong
+                        key={index}
+                        className="font-semibold text-slate-900"
+                    >
+                        {part.slice(2, -2)}
+                    </strong>
+                );
+            }
+
+
+            if (
+                part.startsWith("`") &&
+                part.endsWith("`")
+            ) {
+
+                return (
+                    <code
+                        key={index}
+                        className="rounded-md bg-slate-100 px-1.5 py-0.5 font-mono text-[13px] text-slate-800"
+                    >
+                        {part.slice(1, -1)}
+                    </code>
+                );
+            }
+
+
+            return (
+                <span key={index}>
+                    {part}
+                </span>
+            );
+        }
+    );
+}
+
+
+function renderGeminiResponse(text) {
+
+    const normalized =
+        String(text || "")
+            .replace(/\r\n/g, "\n")
+            .replace(/\\n/g, "\n")
+            .replace(/^```[a-zA-Z0-9_-]*\n?/, "")
+            .replace(/\n?```$/, "")
+            .trim();
+
+
+    const lines =
+        normalized.split("\n");
+
+
+    const elements = [];
+
+    let paragraphLines = [];
+    let unorderedItems = [];
+    let orderedItems = [];
+
+
+    const flushParagraph = () => {
+
+        if (
+            paragraphLines.length === 0
+        ) {
+            return;
+        }
+
+
+        const textValue =
+            paragraphLines.join(" ").trim();
+
+
+        if (textValue) {
+
+            elements.push(
+                <p
+                    key={`paragraph-${elements.length}`}
+                    className="text-[15px] leading-7 text-slate-700"
+                >
+                    {renderInlineMarkdown(textValue)}
+                </p>
+            );
+        }
+
+
+        paragraphLines = [];
+    };
+
+
+    const flushUnordered = () => {
+
+        if (
+            unorderedItems.length === 0
+        ) {
+            return;
+        }
+
+
+        elements.push(
+            <ul
+                key={`unordered-${elements.length}`}
+                className="ml-5 list-disc space-y-2 text-[15px] leading-7 text-slate-700"
+            >
+                {unorderedItems.map(
+                    (item, index) => (
+                        <li key={index}>
+                            {renderInlineMarkdown(item)}
+                        </li>
+                    )
+                )}
+            </ul>
+        );
+
+
+        unorderedItems = [];
+    };
+
+
+    const flushOrdered = () => {
+
+        if (
+            orderedItems.length === 0
+        ) {
+            return;
+        }
+
+
+        elements.push(
+            <ol
+                key={`ordered-${elements.length}`}
+                className="ml-5 list-decimal space-y-2 text-[15px] leading-7 text-slate-700"
+            >
+                {orderedItems.map(
+                    (item, index) => (
+                        <li key={index}>
+                            {renderInlineMarkdown(item)}
+                        </li>
+                    )
+                )}
+            </ol>
+        );
+
+
+        orderedItems = [];
+    };
+
+
+    const flushLists = () => {
+
+        flushUnordered();
+        flushOrdered();
+    };
+
+
+    lines.forEach(
+        (line, index) => {
+
+            const trimmed =
+                line.trim();
+
+
+            if (!trimmed) {
+
+                flushParagraph();
+                flushLists();
+
+                return;
+            }
+
+
+            // Remove markdown-only horizontal rules.
+            if (
+                /^---+$/.test(trimmed)
+            ) {
+
+                flushParagraph();
+                flushLists();
+
+                elements.push(
+                    <hr
+                        key={`hr-${index}`}
+                        className="border-slate-200"
+                    />
+                );
+
+                return;
+            }
+
+
+            const heading =
+                trimmed.match(
+                    /^(#{1,3})\s+(.+)$/
+                );
+
+
+            if (heading) {
+
+                flushParagraph();
+                flushLists();
+
+                const level =
+                    heading[1].length;
+
+
+                const className =
+                    level === 1
+                        ? "text-xl font-bold text-slate-900"
+                        : level === 2
+                            ? "text-lg font-semibold text-slate-900"
+                            : "text-base font-semibold text-slate-900";
+
+
+                elements.push(
+                    <h3
+                        key={`heading-${index}`}
+                        className={className}
+                    >
+                        {renderInlineMarkdown(
+                            heading[2]
+                        )}
+                    </h3>
+                );
+
+                return;
+            }
+
+
+            const unordered =
+                trimmed.match(
+                    /^[-*]\s+(.+)$/
+                );
+
+
+            if (unordered) {
+
+                flushParagraph();
+                flushOrdered();
+
+                unorderedItems.push(
+                    unordered[1]
+                );
+
+                return;
+            }
+
+
+            const ordered =
+                trimmed.match(
+                    /^\d+\.\s+(.+)$/
+                );
+
+
+            if (ordered) {
+
+                flushParagraph();
+                flushUnordered();
+
+                orderedItems.push(
+                    ordered[1]
+                );
+
+                return;
+            }
+
+
+            paragraphLines.push(
+                trimmed
+            );
+        }
+    );
+
+
+    flushParagraph();
+    flushLists();
+
+
+    return (
+        <div className="space-y-3">
+            {elements}
+        </div>
+    );
+}
+
 
 /* ========================================================= */
 /* AI CHAT PAGE */
@@ -146,6 +449,12 @@ function AIChatPage() {
 
 
     const [message, setMessage] = useState("");
+
+    const [isSending, setIsSending] =
+        useState(false);
+
+    const [chatError, setChatError] =
+        useState("");
 
 
     /* ===================================================== */
@@ -211,6 +520,7 @@ function AIChatPage() {
 
 
         setMessage("");
+        setChatError("");
 
         setEditingMessageId(null);
 
@@ -351,6 +661,7 @@ function AIChatPage() {
 
 
         setMessage("");
+        setChatError("");
     };
 
 
@@ -358,13 +669,16 @@ function AIChatPage() {
     /* SEND MESSAGE */
     /* ===================================================== */
 
-    const handleSend = () => {
+    const handleSend = async () => {
 
         const trimmedMessage =
             message.trim();
 
 
-        if (!trimmedMessage) {
+        if (
+            !trimmedMessage ||
+            isSending
+        ) {
             return;
         }
 
@@ -386,15 +700,66 @@ function AIChatPage() {
 
 
         setMessage("");
+        setChatError("");
+        setIsSending(true);
 
 
-        /* Temporary AI response */
-        setTimeout(() => {
+        try {
+
+            const response =
+                await fetch(
+                    "http://localhost:8080/api/ai/chat",
+                    {
+                        method: "POST",
+
+                        headers: {
+                            "Content-Type":
+                                "application/json",
+                        },
+
+                        body: JSON.stringify({
+                            message:
+                                trimmedMessage,
+                        }),
+                    }
+                );
+
+
+            const data =
+                await response.json()
+                    .catch(
+                        () => ({})
+                    );
+
+
+            if (!response.ok) {
+
+                throw new Error(
+                    data?.message ||
+                    `AI request failed (${response.status}).`
+                );
+            }
+
+
+            const reply =
+                typeof data?.reply ===
+                "string"
+                    ? data.reply.trim()
+                    : "";
+
+
+            if (!reply) {
+
+                throw new Error(
+                    "AI returned an empty response."
+                );
+            }
+
 
             const aiMessage = {
                 id: Date.now() + 1,
                 type: "ai",
-                text: `I received your question about ${subject.name}. The real AI API will be connected in a later development stage.`,
+                text: reply,
                 time: "Now",
             };
 
@@ -406,7 +771,28 @@ function AIChatPage() {
                 ]
             );
 
-        }, 700);
+        } catch (error) {
+
+            console.error(
+                "AI chat error:",
+                error
+            );
+
+
+            const errorMessage =
+                error?.message ||
+                "Unable to get an AI response. Please try again.";
+
+
+            setChatError(
+                errorMessage
+            );
+
+        } finally {
+
+            setIsSending(false);
+
+        }
     };
 
 
@@ -462,7 +848,7 @@ function AIChatPage() {
     /* SAVE EDITED USER MESSAGE */
     /* ===================================================== */
 
-    const handleEditMessageSave = (
+    const handleEditMessageSave = async (
         messageId
     ) => {
 
@@ -475,58 +861,98 @@ function AIChatPage() {
         }
 
 
+        const messageIndex =
+            messages.findIndex(
+                (item) =>
+                    item.id ===
+                    messageId
+            );
+
+
+        if (messageIndex === -1) {
+            return;
+        }
+
+
         setMessages(
-            (previousMessages) => {
+            (previousMessages) => [
+                ...previousMessages.slice(
+                    0,
+                    messageIndex
+                ),
 
-                const messageIndex =
-                    previousMessages.findIndex(
-                        (item) =>
-                            item.id ===
-                            messageId
-                    );
-
-
-                if (messageIndex === -1) {
-                    return previousMessages;
-                }
-
-
-                /*
-                 * Keep all messages before the edited
-                 * user message and replace the edited one.
-                 * The previous AI reply is removed because
-                 * the question has changed.
-                 */
-
-                return [
-                    ...previousMessages.slice(
-                        0,
-                        messageIndex
-                    ),
-
-                    {
-                        id: messageId,
-                        type: "user",
-                        text: trimmedText,
-                        time: "Now",
-                    },
-                ];
-            }
+                {
+                    id: messageId,
+                    type: "user",
+                    text: trimmedText,
+                    time: "Now",
+                },
+            ]
         );
 
 
         setEditingMessageId(null);
-
         setEditingMessageText("");
+        setChatError("");
+        setIsSending(true);
 
 
-        /* Temporary new AI response */
-        setTimeout(() => {
+        try {
+
+            const response =
+                await fetch(
+                    "http://localhost:8080/api/ai/chat",
+                    {
+                        method: "POST",
+
+                        headers: {
+                            "Content-Type":
+                                "application/json",
+                        },
+
+                        body: JSON.stringify({
+                            message:
+                                trimmedText,
+                        }),
+                    }
+                );
+
+
+            const data =
+                await response.json()
+                    .catch(
+                        () => ({})
+                    );
+
+
+            if (!response.ok) {
+
+                throw new Error(
+                    data?.message ||
+                    `AI request failed (${response.status}).`
+                );
+            }
+
+
+            const reply =
+                typeof data?.reply ===
+                "string"
+                    ? data.reply.trim()
+                    : "";
+
+
+            if (!reply) {
+
+                throw new Error(
+                    "AI returned an empty response."
+                );
+            }
+
 
             const aiMessage = {
                 id: Date.now(),
                 type: "ai",
-                text: `Updated question received. The real AI API will generate the answer for "${trimmedText}" later.`,
+                text: reply,
                 time: "Now",
             };
 
@@ -538,7 +964,24 @@ function AIChatPage() {
                 ]
             );
 
-        }, 700);
+        } catch (error) {
+
+            console.error(
+                "AI edit message error:",
+                error
+            );
+
+
+            setChatError(
+                error?.message ||
+                "Unable to regenerate the AI response."
+            );
+
+        } finally {
+
+            setIsSending(false);
+
+        }
     };
 
 
@@ -1008,36 +1451,6 @@ function AIChatPage() {
                     </div>
 
 
-                    {/* SUBJECT FILTERS */}
-                    <div className="flex items-center gap-2">
-
-                        {Object.entries(
-                            subjectShortNames
-                        ).map(
-                            ([id, name]) => {
-
-                                const isActive =
-                                    id === subjectId;
-
-
-                                return (
-                                    <Link
-                                        key={id}
-                                        to={`/student/chat/${id}`}
-                                        className={`rounded-lg px-3 py-1.5 text-xs font-medium transition ${
-                                            isActive
-                                                ? "bg-blue-600 text-white"
-                                                : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                                        }`}
-                                    >
-                                        {name}
-                                    </Link>
-                                );
-                            }
-                        )}
-
-                    </div>
-
                 </header>
 
 
@@ -1048,6 +1461,16 @@ function AIChatPage() {
                 <div className="min-h-0 flex-1 overflow-y-auto bg-slate-50 px-6 py-7">
 
                     <div className="mx-auto max-w-4xl space-y-7">
+
+                        {chatError && (
+
+                            <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+
+                                {chatError}
+
+                            </div>
+
+                        )}
 
                         {messages.map(
                             (item) => {
@@ -1086,11 +1509,9 @@ function AIChatPage() {
 
                                                     <div className="rounded-2xl border border-slate-200 bg-white px-5 py-4 shadow-sm">
 
-                                                        <p className="text-[15px] leading-7 text-slate-700">
-                                                            {
-                                                                item.text
-                                                            }
-                                                        </p>
+                                                        {renderGeminiResponse(
+                                                            item.text
+                                                        )}
 
                                                     </div>
 
@@ -1255,19 +1676,30 @@ function AIChatPage() {
                                     handleSend
                                 }
                                 disabled={
-                                    !message.trim()
+                                    !message.trim() ||
+                                    isSending
                                 }
                                 className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-600 text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-blue-200"
-                                title="Send message"
+                                title={
+                                    isSending
+                                        ? "Waiting for AI..."
+                                        : "Send message"
+                                }
                             >
-                                <Send size={17} />
+                                {isSending ? (
+                                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                                ) : (
+                                    <Send size={17} />
+                                )}
                             </button>
 
                         </div>
 
 
                         <p className="mt-2 text-center text-[11px] text-slate-400">
-                            AI responses are based on uploaded course materials. Press Enter to send.
+                            {isSending
+                                ? "AI is thinking..."
+                                : "AI responses are based on uploaded course materials. Press Enter to send."}
                         </p>
 
                     </div>

@@ -81,7 +81,13 @@ function StudyPage() {
 
     const [unitProgress, setUnitProgress] = useState({});
 
+    const [unitTopicCounts, setUnitTopicCounts] =
+        useState({});
+
     const [progressLoading, setProgressLoading] = useState(true);
+
+    const [topicCountsLoading, setTopicCountsLoading] =
+        useState(true);
 
 
     // =========================
@@ -96,6 +102,7 @@ function StudyPage() {
 
                 setLoading(true);
                 setProgressLoading(true);
+                setTopicCountsLoading(true);
                 setError(false);
 
                 const subjectResponse = await fetch(
@@ -186,6 +193,77 @@ function StudyPage() {
                     Object.fromEntries(unitProgressEntries)
                 );
 
+
+                // =========================
+                // GET ACTUAL TOPIC COUNTS
+                // =========================
+                //
+                // The Topic table is the source of truth.
+                // Do not rely on unit.topics here.
+                //
+
+                const topicCountEntries =
+                    await Promise.all(
+                        (
+                            Array.isArray(unitsData)
+                                ? unitsData
+                                : []
+                        ).map(
+                            async (unit) => {
+
+                                try {
+
+                                    const response =
+                                        await fetch(
+                                            `http://localhost:8080/api/topics/unit/${unit.id}`
+                                        );
+
+
+                                    if (!response.ok) {
+
+                                        return [
+                                            unit.id,
+                                            0,
+                                        ];
+                                    }
+
+
+                                    const topicsData =
+                                        await response.json();
+
+
+                                    return [
+                                        unit.id,
+                                        Array.isArray(
+                                            topicsData
+                                        )
+                                            ? topicsData.length
+                                            : 0,
+                                    ];
+
+                                } catch (topicCountError) {
+
+                                    console.error(
+                                        `Error loading topics for unit ${unit.id}:`,
+                                        topicCountError
+                                    );
+
+                                    return [
+                                        unit.id,
+                                        0,
+                                    ];
+                                }
+                            }
+                        )
+                    );
+
+
+                setUnitTopicCounts(
+                    Object.fromEntries(
+                        topicCountEntries
+                    )
+                );
+
             } catch (loadError) {
 
                 console.error(
@@ -199,6 +277,7 @@ function StudyPage() {
 
                 setLoading(false);
                 setProgressLoading(false);
+                setTopicCountsLoading(false);
             }
         };
 
@@ -207,6 +286,7 @@ function StudyPage() {
         } else {
             setLoading(false);
             setProgressLoading(false);
+            setTopicCountsLoading(false);
             setError(true);
         }
 
@@ -316,9 +396,11 @@ function StudyPage() {
 
 
     const subjectTopics =
-        units.reduce(
-            (total, unit) =>
-                total + (unit.topics || 0),
+        Object.values(
+            unitTopicCounts
+        ).reduce(
+            (total, count) =>
+                total + Number(count || 0),
             0
         );
 
@@ -661,7 +743,11 @@ function StudyPage() {
 
                                             <p className="mt-1 text-sm text-slate-500">
 
-                                                {unit.topics} Topics · {progressLoading
+                                                {topicCountsLoading
+                                                    ? "Loading topics..."
+                                                    : `${unitTopicCounts?.[unit.id] ?? 0} Topics`}
+                                                {" · "}
+                                                {progressLoading
                                                     ? "Loading..."
                                                     : `${unitProgressValue}% complete`}
 
