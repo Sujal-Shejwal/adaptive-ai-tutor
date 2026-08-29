@@ -1,0 +1,69 @@
+# =====================================================
+# APPLICATION
+# =====================================================
+
+spring.application.name=backend
+
+
+# =====================================================
+# POSTGRESQL DATABASE
+# =====================================================
+
+spring.datasource.url=jdbc:postgresql://localhost:5432/adaptive_ai_tutor
+
+spring.datasource.username=${DB_USERNAME}
+
+spring.datasource.password=${DB_PASSWORD}
+
+
+# =====================================================
+# JPA / HIBERNATE
+# =====================================================
+
+spring.jpa.hibernate.ddl-auto=update
+
+spring.jpa.show-sql=true
+
+spring.jpa.properties.hibernate.format_sql=true
+
+
+# =====================================================
+# SERVER
+# =====================================================
+
+server.port=8080
+
+
+# =====================================================
+# GOOGLE GEMINI / SPRING AI - CHAT
+# =====================================================
+
+spring.ai.google.genai.api-key=${GEMINI_API_KEY}
+
+spring.ai.google.genai.chat.model=gemini-2.5-flash
+
+spring.ai.google.genai.chat.temperature=0.5
+
+
+# =====================================================
+# GOOGLE GEMINI / SPRING AI - EMBEDDINGS
+# =====================================================
+
+spring.ai.google.genai.embedding.api-key=${GEMINI_API_KEY}
+
+spring.ai.google.genai.embedding.text.model=gemini-embedding-001
+
+spring.ai.google.genai.embedding.text.dimensions=1536
+
+
+# =====================================================
+# SPRING AI - PGVECTOR
+# =====================================================
+
+spring.ai.vectorstore.pgvector.initialize-schema=true
+
+spring.ai.vectorstore.pgvector.dimensions=1536
+
+spring.ai.vectorstore.pgvector.distance-type=COSINE_DISTANCE
+
+spring.ai.vectorstore.pgvector.index-type=HNSW

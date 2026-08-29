@@ -53,7 +53,7 @@ public class AIController {
             }
 
             // ---------------------------------------------
-            // SEND MESSAGE TO GEMINI
+            // SEND MESSAGE TO GEMINI + RAG
             // ---------------------------------------------
 
             String reply =

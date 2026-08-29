@@ -20,3 +20,6 @@ backend/target/
 # OS
 .DS_Store
 Thumbs.db
+
+# Local environment secrets
+backend/src/main/resources/application.properties
