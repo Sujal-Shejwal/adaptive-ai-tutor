@@ -25,7 +25,8 @@ public class GeminiService {
     }
 
     // =====================================================
-    // SEND MESSAGE TO GEMINI USING RAG
+    // SEND MESSAGE TO GEMINI
+    // WITH RAG + GENERAL KNOWLEDGE FALLBACK
     // =====================================================
 
     public String chat(
@@ -45,7 +46,7 @@ public class GeminiService {
                 message.trim();
 
         // -------------------------------------------------
-        // 1. SEARCH RELEVANT COURSE MATERIAL
+        // 1. SEARCH COURSE MATERIAL
         // -------------------------------------------------
 
         List<Document> documents =
@@ -54,7 +55,7 @@ public class GeminiService {
                 );
 
         // -------------------------------------------------
-        // 2. BUILD COURSE CONTEXT
+        // 2. BUILD CONTEXT
         // -------------------------------------------------
 
         String context =
@@ -64,12 +65,12 @@ public class GeminiService {
                         )
                         .collect(
                                 Collectors.joining(
-                                        "\n\n--- COURSE CHUNK ---\n\n"
+                                        "\n\n--- COURSE MATERIAL ---\n\n"
                                 )
                         );
 
         // -------------------------------------------------
-        // 3. BUILD RAG PROMPT
+        // 3. BUILD PROMPT
         // -------------------------------------------------
 
         String prompt;
@@ -79,21 +80,31 @@ public class GeminiService {
                 context.isBlank()
         ) {
 
+            // ---------------------------------------------
+            // NO RELEVANT COURSE MATERIAL
+            // ---------------------------------------------
+
             prompt =
                     """
                     You are an AI tutor.
 
                     The student asked:
+
                     %s
 
-                    No relevant content was found in
+                    No relevant information was found
+                    in the student's uploaded course material.
+
+                    Answer the student's question using
+                    your general knowledge.
+
+                    Be accurate, clear, and helpful.
+
+                    Do not claim that the answer came from
                     the uploaded course material.
 
-                    Explain that the uploaded course material
-                    does not contain enough information to
-                    confidently answer this question.
-
-                    Do not invent course-specific information.
+                    Do not mention RAG, embeddings,
+                    vector databases, or internal systems.
                     """
                     .formatted(
                             question
@@ -101,65 +112,58 @@ public class GeminiService {
 
         } else {
 
+            // ---------------------------------------------
+            // RELEVANT COURSE MATERIAL FOUND
+            // ---------------------------------------------
+
             prompt =
                     """
-                    You are an AI tutor for a course.
+                    You are an AI tutor.
 
-                    Answer the student's question using
-                    the uploaded course material provided below.
+                    The student asked:
+
+                    %s
+
 
                     ==============================
-                    UPLOADED COURSE MATERIAL
+                    RELEVANT COURSE MATERIAL
                     ==============================
 
                     %s
 
-                    ==============================
-                    STUDENT QUESTION
-                    ==============================
-
-                    %s
 
                     ==============================
                     INSTRUCTIONS
                     ==============================
 
-                    1. Use the uploaded course material as
-                       the primary source.
+                    Use the relevant course material as
+                    the primary source when answering.
 
-                    2. Give a clear and easy-to-understand
-                       explanation.
+                    Explain the answer clearly and simply.
 
-                    3. Stay faithful to the course material.
+                    You may also use your general knowledge
+                    when it helps explain the topic.
 
-                    4. Do not invent facts that are not
-                       supported by the retrieved material.
+                    Do not contradict the course material.
 
-                    5. You may organize the answer with
-                       headings, bullets, examples, or
-                       formulas when useful.
+                    If you add information from general
+                    knowledge, do not present it as though
+                    it came from the uploaded material.
 
-                    6. If the retrieved material does not
-                       contain enough information to answer
-                       the question, clearly say that the
-                       uploaded course material does not
-                       contain enough information.
+                    Do not mention RAG, embeddings,
+                    vector databases, similarity search,
+                    or internal implementation details.
 
-                    7. Do not mention internal RAG,
-                       embeddings, vector databases,
-                       similarity search, or implementation
-                       details to the student.
-
-                    Now answer the student's question.
+                    Answer naturally like a helpful tutor.
                     """
                     .formatted(
-                            context,
-                            question
+                            question,
+                            context
                     );
         }
 
         // -------------------------------------------------
-        // 4. SEND RAG PROMPT TO GEMINI
+        // 4. SEND TO GEMINI
         // -------------------------------------------------
 
         return chatClient

@@ -1,6 +1,8 @@
 package com.adaptiveaitutor.backend.service;
 
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 import org.springframework.ai.document.Document;
 import org.springframework.ai.vectorstore.SearchRequest;
@@ -12,6 +14,9 @@ public class RagSearchService {
 
     private final VectorStore vectorStore;
 
+    // Lower distance = more similar
+    private static final double MAX_DISTANCE = 0.45;
+
     public RagSearchService(
             VectorStore vectorStore) {
 
@@ -20,7 +25,7 @@ public class RagSearchService {
     }
 
     // =====================================================
-    // SEARCH RELEVANT DOCUMENTS
+    // SEARCH RELEVANT COURSE MATERIAL
     // =====================================================
 
     public List<Document> search(
@@ -41,7 +46,35 @@ public class RagSearchService {
                         .similarityThreshold(0.0)
                         .build();
 
-        return vectorStore
-                .similaritySearch(request);
+        List<Document> documents =
+                vectorStore.similaritySearch(
+                        request
+                );
+
+        // -------------------------------------------------
+        // FILTER USING PGVECTOR DISTANCE
+        // -------------------------------------------------
+
+        return documents.stream()
+                .filter(document -> {
+
+                    Map<String, Object> metadata =
+                            document.getMetadata();
+
+                    Object distanceValue =
+                            metadata.get("distance");
+
+                    if (distanceValue == null) {
+                        return false;
+                    }
+
+                    double distance =
+                            Double.parseDouble(
+                                    distanceValue.toString()
+                            );
+
+                    return distance <= MAX_DISTANCE;
+                })
+                .collect(Collectors.toList());
     }
 }

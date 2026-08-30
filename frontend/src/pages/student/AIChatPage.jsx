@@ -28,44 +28,6 @@ import subjects from "../../data/subjects";
 /* RECENT CONVERSATIONS */
 /* ========================================================= */
 
-const initialConversations = [
-    {
-        id: 1,
-        title: "SQL Joins Explained",
-        subject: "DBMS",
-        time: "2h ago",
-    },
-    {
-        id: 2,
-        title: "Process vs Thread",
-        subject: "OS",
-        time: "5h ago",
-    },
-    {
-        id: 3,
-        title: "TCP/IP Model Layers",
-        subject: "CN",
-        time: "Yesterday",
-    },
-    {
-        id: 4,
-        title: "Java OOP Polymorphism",
-        subject: "Java",
-        time: "Yesterday",
-    },
-    {
-        id: 5,
-        title: "Deadlock Prevention",
-        subject: "OS",
-        time: "2d ago",
-    },
-    {
-        id: 6,
-        title: "ER Diagram Basics",
-        subject: "DBMS",
-        time: "3d ago",
-    },
-];
 
 
 /* ========================================================= */
@@ -77,6 +39,70 @@ const subjectShortNames = {
     os: "OS",
     cn: "CN",
     java: "Java",
+};
+
+
+/* ========================================================= */
+/* BACKEND API HELPERS */
+/* ========================================================= */
+
+const API_BASE =
+    "http://localhost:8080";
+
+const formatTime = (value) => {
+
+    if (!value) {
+        return "Just now";
+    }
+
+    const date =
+        new Date(value);
+
+    if (Number.isNaN(date.getTime())) {
+        return "Just now";
+    }
+
+    const difference =
+        Date.now() -
+        date.getTime();
+
+    const seconds =
+        Math.floor(
+            difference / 1000
+        );
+
+    if (seconds < 60) {
+        return "Just now";
+    }
+
+    const minutes =
+        Math.floor(
+            seconds / 60
+        );
+
+    if (minutes < 60) {
+        return `${minutes}m ago`;
+    }
+
+    const hours =
+        Math.floor(
+            minutes / 60
+        );
+
+    if (hours < 24) {
+        return `${hours}h ago`;
+    }
+
+    const days =
+        Math.floor(
+            hours / 24
+        );
+
+    if (days === 1) {
+        return "Yesterday";
+    }
+
+    return `${days}d ago`;
 };
 
 
@@ -433,22 +459,28 @@ function AIChatPage() {
 
     const createWelcomeMessage = () => [
         {
-            id: Date.now(),
-            type: "ai",
-            text: `Hello Sujal! I'm your AI Tutor. I can help you with ${
-                subject?.name || "your subjects"
-            }. What would you like to learn today?`,
-            time: "10:00 AM",
+            id:
+                `welcome-${Date.now()}`,
+            type:
+                "ai",
+            text:
+                `Hello Sujal! I'm your AI Tutor. I can help you with ${
+                    subject?.name || "your subjects"
+                }. What would you like to learn today?`,
+            time:
+                "Now",
         },
     ];
 
 
-    const [messages, setMessages] = useState(
-        createWelcomeMessage()
-    );
+    const [messages, setMessages] =
+        useState(
+            createWelcomeMessage()
+        );
 
 
-    const [message, setMessage] = useState("");
+    const [message, setMessage] =
+        useState("");
 
     const [isSending, setIsSending] =
         useState(false);
@@ -461,13 +493,12 @@ function AIChatPage() {
     /* CONVERSATION STATE */
     /* ===================================================== */
 
-    const [conversations, setConversations] = useState(
-        initialConversations
-    );
+    const [conversations, setConversations] =
+        useState([]);
 
 
     const [selectedConversationId, setSelectedConversationId] =
-        useState(1);
+        useState(null);
 
 
     const [openMenuId, setOpenMenuId] =
@@ -499,7 +530,127 @@ function AIChatPage() {
 
 
     /* ===================================================== */
-    /* RESET CHAT WHEN SUBJECT CHANGES */
+    /* CREATE CONVERSATION */
+    /* ===================================================== */
+
+    const createConversation =
+        async (
+            title,
+            subjectName
+        ) => {
+
+            const response =
+                await fetch(
+                    `${API_BASE}/api/conversations`,
+                    {
+                        method:
+                            "POST",
+
+                        headers: {
+                            "Content-Type":
+                                "application/json",
+                        },
+
+                        body:
+                            JSON.stringify({
+                                title,
+                                subject:
+                                    subjectName,
+                            }),
+                    }
+                );
+
+            const data =
+                await response
+                    .json()
+                    .catch(
+                        () => ({})
+                    );
+
+            if (!response.ok) {
+
+                throw new Error(
+                    data?.message ||
+                    "Unable to create conversation."
+                );
+            }
+
+            return data;
+        };
+
+
+    /* ===================================================== */
+    /* LOAD CONVERSATION MESSAGES */
+    /* ===================================================== */
+
+    const loadConversationMessages =
+        async (
+            conversationId
+        ) => {
+
+            const response =
+                await fetch(
+                    `${API_BASE}/api/conversations/${conversationId}/messages`
+                );
+
+            const data =
+                await response
+                    .json()
+                    .catch(
+                        () => []
+                    );
+
+            if (!response.ok) {
+
+                throw new Error(
+                    data?.message ||
+                    "Unable to load conversation messages."
+                );
+            }
+
+            const mappedMessages =
+                Array.isArray(data)
+                    ? data.map(
+                          (item) => ({
+                              id:
+                                  item.id,
+
+                              type:
+                                  item.role ===
+                                  "user"
+                                      ? "user"
+                                      : "ai",
+
+                              text:
+                                  item.content,
+
+                              time:
+                                  formatTime(
+                                      item.createdAt
+                                  ),
+                          })
+                      )
+                    : [];
+
+            if (
+                mappedMessages.length === 0
+            ) {
+
+                setMessages(
+                    createWelcomeMessage()
+                );
+
+            } else {
+
+                setMessages(
+                    mappedMessages
+                );
+            }
+        };
+
+
+    /* ===================================================== */
+    /* LOAD CONVERSATIONS WHEN SUBJECT CHANGES */
     /* ===================================================== */
 
     useEffect(() => {
@@ -508,31 +659,172 @@ function AIChatPage() {
             return;
         }
 
+        let cancelled = false;
 
-        setMessages([
-            {
-                id: Date.now(),
-                type: "ai",
-                text: `Hello Sujal! I'm your AI Tutor. I can help you with ${subject.name}. What would you like to learn today?`,
-                time: "10:00 AM",
-            },
-        ]);
+        const loadConversations =
+            async () => {
 
+                setMessage("");
+                setChatError("");
+                setOpenMenuId(null);
 
-        setMessage("");
-        setChatError("");
+                setEditingMessageId(null);
+                setEditingMessageText("");
 
-        setEditingMessageId(null);
+                setEditingConversationId(null);
+                setEditingConversationTitle("");
 
-        setEditingMessageText("");
+                setSelectedConversationId(
+                    null
+                );
 
-        setEditingConversationId(null);
+                try {
 
-        setEditingConversationTitle("");
+                    const response =
+                        await fetch(
+                            `${API_BASE}/api/conversations`
+                        );
 
-        setOpenMenuId(null);
+                    const data =
+                        await response
+                            .json()
+                            .catch(
+                                () => []
+                            );
 
-        setSelectedConversationId(null);
+                    if (!response.ok) {
+
+                        throw new Error(
+                            "Unable to load conversations."
+                        );
+                    }
+
+                    const subjectName =
+                        subjectShortNames[subjectId] ||
+                        "AI";
+
+                    const filtered =
+                        Array.isArray(data)
+                            ? data.filter(
+                                  (item) =>
+                                      item.subject ===
+                                      subjectName
+                              )
+                            : [];
+
+                    if (cancelled) {
+                        return;
+                    }
+
+                    const mapped =
+                        filtered.map(
+                            (item) => ({
+                                id:
+                                    item.id,
+
+                                title:
+                                    item.title,
+
+                                subject:
+                                    item.subject,
+
+                                time:
+                                    formatTime(
+                                        item.updatedAt
+                                    ),
+                            })
+                        );
+
+                    setConversations(
+                        mapped
+                    );
+
+                    if (
+                        mapped.length > 0
+                    ) {
+
+                        const firstConversation =
+                            mapped[0];
+
+                        setSelectedConversationId(
+                            firstConversation.id
+                        );
+
+                        await loadConversationMessages(
+                            firstConversation.id
+                        );
+
+                    } else {
+
+                        const created =
+                            await createConversation(
+                                "New Conversation",
+                                subjectName
+                            );
+
+                        if (cancelled) {
+                            return;
+                        }
+
+                        const newConversation = {
+                            id:
+                                created.id,
+
+                            title:
+                                created.title,
+
+                            subject:
+                                created.subject,
+
+                            time:
+                                "Just now",
+                        };
+
+                        setConversations([
+                            newConversation,
+                        ]);
+
+                        setSelectedConversationId(
+                            created.id
+                        );
+
+                        setMessages(
+                            createWelcomeMessage()
+                        );
+                    }
+
+                } catch (error) {
+
+                    if (cancelled) {
+                        return;
+                    }
+
+                    console.error(
+                        "Conversation loading error:",
+                        error
+                    );
+
+                    setChatError(
+                        error?.message ||
+                        "Unable to load conversations."
+                    );
+
+                    setConversations([]);
+                    setSelectedConversationId(
+                        null
+                    );
+
+                    setMessages(
+                        createWelcomeMessage()
+                    );
+                }
+            };
+
+        loadConversations();
+
+        return () => {
+            cancelled = true;
+        };
 
     }, [subjectId]);
 
@@ -575,225 +867,346 @@ function AIChatPage() {
     /* NEW CHAT */
     /* ===================================================== */
 
-    const handleNewChat = () => {
+    const handleNewChat =
+        async () => {
 
-        const newConversation = {
-            id: Date.now(),
-            title: "New Conversation",
-            subject:
-                subjectShortNames[subjectId] || "AI",
-            time: "Just now",
+            try {
+
+                const subjectName =
+                    subjectShortNames[subjectId] ||
+                    "AI";
+
+                const created =
+                    await createConversation(
+                        "New Conversation",
+                        subjectName
+                    );
+
+                const newConversation = {
+                    id:
+                        created.id,
+
+                    title:
+                        created.title,
+
+                    subject:
+                        created.subject,
+
+                    time:
+                        "Just now",
+                };
+
+                setConversations(
+                    (previousConversations) => [
+                        newConversation,
+                        ...previousConversations,
+                    ]
+                );
+
+                setSelectedConversationId(
+                    created.id
+                );
+
+                setMessages(
+                    createWelcomeMessage()
+                );
+
+                setMessage("");
+                setChatError("");
+
+                setEditingMessageId(null);
+                setEditingMessageText("");
+
+                setEditingConversationId(null);
+                setEditingConversationTitle("");
+
+                setOpenMenuId(null);
+
+            } catch (error) {
+
+                console.error(
+                    "Create conversation error:",
+                    error
+                );
+
+                setChatError(
+                    error?.message ||
+                    "Unable to create conversation."
+                );
+            }
         };
-
-
-        setConversations(
-            (previousConversations) => [
-                newConversation,
-                ...previousConversations,
-            ]
-        );
-
-
-        setSelectedConversationId(
-            newConversation.id
-        );
-
-
-        setMessages([
-            {
-                id: Date.now() + 1,
-                type: "ai",
-                text: `Hello Sujal! I'm your AI Tutor. I can help you with ${subject.name}. What would you like to learn today?`,
-                time: "Now",
-            },
-        ]);
-
-
-        setMessage("");
-
-        setEditingMessageId(null);
-
-        setEditingMessageText("");
-
-        setEditingConversationId(null);
-
-        setEditingConversationTitle("");
-
-        setOpenMenuId(null);
-    };
 
 
     /* ===================================================== */
     /* SELECT CONVERSATION */
     /* ===================================================== */
 
-    const handleConversationSelect = (
-        conversation
-    ) => {
+    const handleConversationSelect =
+        async (
+            conversation
+        ) => {
 
-        setSelectedConversationId(
-            conversation.id
-        );
+            setSelectedConversationId(
+                conversation.id
+            );
 
+            setOpenMenuId(null);
 
-        setOpenMenuId(null);
+            setEditingConversationId(null);
+            setEditingConversationTitle("");
 
+            setMessage("");
+            setChatError("");
 
-        setEditingConversationId(null);
+            try {
 
-        setEditingConversationTitle("");
+                await loadConversationMessages(
+                    conversation.id
+                );
 
+            } catch (error) {
 
-        /*
-         * Temporary conversation loading.
-         * Real conversation history will come
-         * from the backend/database later.
-         */
+                console.error(
+                    "Conversation selection error:",
+                    error
+                );
 
-        setMessages([
-            {
-                id: Date.now(),
-                type: "ai",
-                text: `Hello Sujal! Let's continue with ${conversation.title}. What would you like to learn?`,
-                time: "10:00 AM",
-            },
-        ]);
-
-
-        setMessage("");
-        setChatError("");
-    };
+                setChatError(
+                    error?.message ||
+                    "Unable to load conversation."
+                );
+            }
+        };
 
 
     /* ===================================================== */
     /* SEND MESSAGE */
     /* ===================================================== */
 
-    const handleSend = async () => {
+    const handleSend =
+        async () => {
 
-        const trimmedMessage =
-            message.trim();
+            const trimmedMessage =
+                message.trim();
 
+            if (
+                !trimmedMessage ||
+                isSending
+            ) {
+                return;
+            }
 
-        if (
-            !trimmedMessage ||
-            isSending
-        ) {
-            return;
-        }
+            setChatError("");
+            setIsSending(true);
 
+            try {
 
-        const userMessage = {
-            id: Date.now(),
-            type: "user",
-            text: trimmedMessage,
-            time: "Now",
-        };
+                let conversationId =
+                    selectedConversationId;
 
+                // -----------------------------------------
+                // CREATE A REAL CONVERSATION IF NEEDED
+                // -----------------------------------------
 
-        setMessages(
-            (previousMessages) => [
-                ...previousMessages,
-                userMessage,
-            ]
-        );
+                if (!conversationId) {
 
+                    const subjectName =
+                        subjectShortNames[subjectId] ||
+                        "AI";
 
-        setMessage("");
-        setChatError("");
-        setIsSending(true);
+                    const created =
+                        await createConversation(
+                            "New Conversation",
+                            subjectName
+                        );
 
+                    conversationId =
+                        created.id;
 
-        try {
+                    const newConversation = {
+                        id:
+                            created.id,
 
-            const response =
-                await fetch(
-                    "http://localhost:8080/api/ai/chat",
-                    {
-                        method: "POST",
+                        title:
+                            created.title,
 
-                        headers: {
-                            "Content-Type":
-                                "application/json",
-                        },
+                        subject:
+                            created.subject,
 
-                        body: JSON.stringify({
-                            message:
-                                trimmedMessage,
-                        }),
+                        time:
+                            "Just now",
+                    };
+
+                    setConversations(
+                        (previous) => [
+                            newConversation,
+                            ...previous,
+                        ]
+                    );
+
+                    setSelectedConversationId(
+                        created.id
+                    );
+                }
+
+                // -----------------------------------------
+                // SHOW USER MESSAGE IMMEDIATELY
+                // -----------------------------------------
+
+                const userMessage = {
+                    id:
+                        `temp-user-${Date.now()}`,
+
+                    type:
+                        "user",
+
+                    text:
+                        trimmedMessage,
+
+                    time:
+                        "Now",
+                };
+
+                setMessages(
+                    (previousMessages) => [
+                        ...previousMessages,
+                        userMessage,
+                    ]
+                );
+
+                setMessage("");
+
+                // -----------------------------------------
+                // SEND TO BACKEND
+                // -----------------------------------------
+
+                const response =
+                    await fetch(
+                        `${API_BASE}/api/ai/chat`,
+                        {
+                            method:
+                                "POST",
+
+                            headers: {
+                                "Content-Type":
+                                    "application/json",
+                            },
+
+                            body:
+                                JSON.stringify({
+                                    conversationId:
+                                        conversationId,
+
+                                    message:
+                                        trimmedMessage,
+                                }),
+                        }
+                    );
+
+                const data =
+                    await response
+                        .json()
+                        .catch(
+                            () => ({})
+                        );
+
+                if (!response.ok) {
+
+                    throw new Error(
+                        data?.message ||
+                        `AI request failed (${response.status}).`
+                    );
+                }
+
+                const reply =
+                    typeof data?.reply ===
+                    "string"
+                        ? data.reply.trim()
+                        : "";
+
+                if (!reply) {
+
+                    throw new Error(
+                        "AI returned an empty response."
+                    );
+                }
+
+                // -----------------------------------------
+                // SHOW AI RESPONSE
+                // -----------------------------------------
+
+                const aiMessage = {
+                    id:
+                        `temp-ai-${Date.now()}`,
+
+                    type:
+                        "ai",
+
+                    text:
+                        reply,
+
+                    time:
+                        "Now",
+                };
+
+                setMessages(
+                    (previousMessages) => [
+                        ...previousMessages,
+                        aiMessage,
+                    ]
+                );
+
+                // -----------------------------------------
+                // MOVE CURRENT CONVERSATION TO TOP
+                // -----------------------------------------
+
+                setConversations(
+                    (previous) => {
+
+                        const current =
+                            previous.find(
+                                (item) =>
+                                    item.id ===
+                                    conversationId
+                            );
+
+                        if (!current) {
+                            return previous;
+                        }
+
+                        return [
+                            {
+                                ...current,
+                                time:
+                                    "Just now",
+                            },
+
+                            ...previous.filter(
+                                (item) =>
+                                    item.id !==
+                                    conversationId
+                            ),
+                        ];
                     }
                 );
 
+            } catch (error) {
 
-            const data =
-                await response.json()
-                    .catch(
-                        () => ({})
-                    );
-
-
-            if (!response.ok) {
-
-                throw new Error(
-                    data?.message ||
-                    `AI request failed (${response.status}).`
+                console.error(
+                    "AI chat error:",
+                    error
                 );
-            }
 
-
-            const reply =
-                typeof data?.reply ===
-                "string"
-                    ? data.reply.trim()
-                    : "";
-
-
-            if (!reply) {
-
-                throw new Error(
-                    "AI returned an empty response."
+                setChatError(
+                    error?.message ||
+                    "Unable to get an AI response. Please try again."
                 );
+
+            } finally {
+
+                setIsSending(false);
             }
-
-
-            const aiMessage = {
-                id: Date.now() + 1,
-                type: "ai",
-                text: reply,
-                time: "Now",
-            };
-
-
-            setMessages(
-                (previousMessages) => [
-                    ...previousMessages,
-                    aiMessage,
-                ]
-            );
-
-        } catch (error) {
-
-            console.error(
-                "AI chat error:",
-                error
-            );
-
-
-            const errorMessage =
-                error?.message ||
-                "Unable to get an AI response. Please try again.";
-
-
-            setChatError(
-                errorMessage
-            );
-
-        } finally {
-
-            setIsSending(false);
-
-        }
-    };
+        };
 
 
     /* ===================================================== */
@@ -848,141 +1261,159 @@ function AIChatPage() {
     /* SAVE EDITED USER MESSAGE */
     /* ===================================================== */
 
-    const handleEditMessageSave = async (
-        messageId
-    ) => {
+    const handleEditMessageSave =
+        async (
+            messageId
+        ) => {
 
-        const trimmedText =
-            editingMessageText.trim();
+            const trimmedText =
+                editingMessageText.trim();
 
+            if (!trimmedText) {
+                return;
+            }
 
-        if (!trimmedText) {
-            return;
-        }
-
-
-        const messageIndex =
-            messages.findIndex(
-                (item) =>
-                    item.id ===
-                    messageId
-            );
-
-
-        if (messageIndex === -1) {
-            return;
-        }
-
-
-        setMessages(
-            (previousMessages) => [
-                ...previousMessages.slice(
-                    0,
-                    messageIndex
-                ),
-
-                {
-                    id: messageId,
-                    type: "user",
-                    text: trimmedText,
-                    time: "Now",
-                },
-            ]
-        );
-
-
-        setEditingMessageId(null);
-        setEditingMessageText("");
-        setChatError("");
-        setIsSending(true);
-
-
-        try {
-
-            const response =
-                await fetch(
-                    "http://localhost:8080/api/ai/chat",
-                    {
-                        method: "POST",
-
-                        headers: {
-                            "Content-Type":
-                                "application/json",
-                        },
-
-                        body: JSON.stringify({
-                            message:
-                                trimmedText,
-                        }),
-                    }
+            const messageIndex =
+                messages.findIndex(
+                    (item) =>
+                        item.id ===
+                        messageId
                 );
 
+            if (
+                messageIndex === -1
+            ) {
+                return;
+            }
 
-            const data =
-                await response.json()
-                    .catch(
-                        () => ({})
+            if (
+                !selectedConversationId
+            ) {
+
+                setChatError(
+                    "Conversation ID is required."
+                );
+
+                return;
+            }
+
+            /*
+             * Persist the edited user message in PostgreSQL.
+             *
+             * IMPORTANT:
+             * We intentionally do not call /api/ai/chat here.
+             * That endpoint creates a new user message, which would
+             * duplicate the edited message. Regeneration will use a
+             * dedicated backend edit/regenerate endpoint.
+             */
+
+            setChatError("");
+            setIsSending(true);
+
+            try {
+
+                const response =
+                    await fetch(
+                        `${API_BASE}/api/conversations/message/${messageId}`,
+                        {
+                            method:
+                                "PUT",
+
+                            headers: {
+                                "Content-Type":
+                                    "application/json",
+                            },
+
+                            body:
+                                JSON.stringify({
+                                    content:
+                                        trimmedText,
+                                }),
+                        }
                     );
 
+                const data =
+                    await response
+                        .json()
+                        .catch(
+                            () => ({})
+                        );
 
-            if (!response.ok) {
+                if (!response.ok) {
 
-                throw new Error(
-                    data?.message ||
-                    `AI request failed (${response.status}).`
+                    throw new Error(
+                        data?.message ||
+                        `Unable to update message (${response.status}).`
+                    );
+                }
+
+                /*
+                 * Update the local message after the database
+                 * update succeeds.
+                 */
+
+                setMessages(
+                    (previousMessages) =>
+                        previousMessages.map(
+                            (item) =>
+                                item.id ===
+                                messageId
+                                    ? {
+                                          ...item,
+                                          text:
+                                              data?.content ||
+                                              trimmedText,
+                                          time:
+                                              "Just now",
+                                      }
+                                    : item
+                        )
                 );
-            }
 
+                setEditingMessageId(null);
+                setEditingMessageText("");
 
-            const reply =
-                typeof data?.reply ===
-                "string"
-                    ? data.reply.trim()
-                    : "";
+                /*
+                 * Reload from the backend so the UI is guaranteed
+                 * to match PostgreSQL.
+                 */
 
-
-            if (!reply) {
-
-                throw new Error(
-                    "AI returned an empty response."
+                await loadConversationMessages(
+                    selectedConversationId
                 );
+
+                setConversations(
+                    (previous) =>
+                        previous.map(
+                            (conversation) =>
+                                conversation.id ===
+                                selectedConversationId
+                                    ? {
+                                          ...conversation,
+                                          time:
+                                              "Just now",
+                                      }
+                                    : conversation
+                        )
+                );
+
+            } catch (error) {
+
+                console.error(
+                    "Edit message error:",
+                    error
+                );
+
+                setChatError(
+                    error?.message ||
+                    "Unable to update the message."
+                );
+
+            } finally {
+
+                setIsSending(false);
             }
-
-
-            const aiMessage = {
-                id: Date.now(),
-                type: "ai",
-                text: reply,
-                time: "Now",
-            };
-
-
-            setMessages(
-                (previousMessages) => [
-                    ...previousMessages,
-                    aiMessage,
-                ]
-            );
-
-        } catch (error) {
-
-            console.error(
-                "AI edit message error:",
-                error
-            );
-
-
-            setChatError(
-                error?.message ||
-                "Unable to regenerate the AI response."
-            );
-
-        } finally {
-
-            setIsSending(false);
-
-        }
-    };
+        };
 
 
     /* ===================================================== */
@@ -1009,38 +1440,94 @@ function AIChatPage() {
     /* SAVE CONVERSATION TITLE */
     /* ===================================================== */
 
-    const handleConversationEditSave = (
-        conversationId
-    ) => {
+    const handleConversationEditSave =
+        async (
+            conversationId
+        ) => {
 
-        const trimmedTitle =
-            editingConversationTitle.trim();
+            const trimmedTitle =
+                editingConversationTitle.trim();
 
+            if (!trimmedTitle) {
+                return;
+            }
 
-        if (!trimmedTitle) {
-            return;
-        }
+            try {
 
+                const response =
+                    await fetch(
+                        `${API_BASE}/api/conversations/${conversationId}`,
+                        {
+                            method:
+                                "PUT",
 
-        setConversations(
-            (previousConversations) =>
-                previousConversations.map(
-                    (conversation) =>
-                        conversation.id ===
-                        conversationId
-                            ? {
-                                ...conversation,
-                                title: trimmedTitle,
-                            }
-                            : conversation
-                )
-        );
+                            headers: {
+                                "Content-Type":
+                                    "application/json",
+                            },
 
+                            body:
+                                JSON.stringify({
+                                    title:
+                                        trimmedTitle,
+                                }),
+                        }
+                    );
 
-        setEditingConversationId(null);
+                const data =
+                    await response
+                        .json()
+                        .catch(
+                            () => ({})
+                        );
 
-        setEditingConversationTitle("");
-    };
+                if (!response.ok) {
+
+                    throw new Error(
+                        data?.message ||
+                        "Unable to rename conversation."
+                    );
+                }
+
+                setConversations(
+                    (previousConversations) =>
+                        previousConversations.map(
+                            (conversation) =>
+                                conversation.id ===
+                                conversationId
+                                    ? {
+                                          ...conversation,
+                                          title:
+                                              data.title ||
+                                              trimmedTitle,
+                                      }
+                                    : conversation
+                        )
+                );
+
+                setEditingConversationId(
+                    null
+                );
+
+                setEditingConversationTitle(
+                    ""
+                );
+
+                setChatError("");
+
+            } catch (error) {
+
+                console.error(
+                    "Rename conversation error:",
+                    error
+                );
+
+                setChatError(
+                    error?.message ||
+                    "Unable to rename conversation."
+                );
+            }
+        };
 
 
     /* ===================================================== */
@@ -1059,40 +1546,118 @@ function AIChatPage() {
     /* DELETE CONVERSATION */
     /* ===================================================== */
 
-    const handleConversationDelete = (
-        conversationId
-    ) => {
-
-        setConversations(
-            (previousConversations) =>
-                previousConversations.filter(
-                    (conversation) =>
-                        conversation.id !==
-                        conversationId
-                )
-        );
-
-
-        if (
-            selectedConversationId ===
+    const handleConversationDelete =
+        async (
             conversationId
-        ) {
+        ) => {
 
-            setSelectedConversationId(null);
+            try {
 
-            setMessages([
-                {
-                    id: Date.now(),
-                    type: "ai",
-                    text: `Hello Sujal! I'm your AI Tutor. I can help you with ${subject.name}. What would you like to learn today?`,
-                    time: "Now",
-                },
-            ]);
-        }
+                const response =
+                    await fetch(
+                        `${API_BASE}/api/conversations/${conversationId}`,
+                        {
+                            method:
+                                "DELETE",
+                        }
+                    );
 
+                if (
+                    !response.ok &&
+                    response.status !== 204
+                ) {
 
-        setOpenMenuId(null);
-    };
+                    throw new Error(
+                        "Unable to delete conversation."
+                    );
+                }
+
+                const remaining =
+                    conversations.filter(
+                        (conversation) =>
+                            conversation.id !==
+                            conversationId
+                    );
+
+                setConversations(
+                    remaining
+                );
+
+                setOpenMenuId(null);
+
+                if (
+                    selectedConversationId ===
+                    conversationId
+                ) {
+
+                    if (
+                        remaining.length > 0
+                    ) {
+
+                        const nextConversation =
+                            remaining[0];
+
+                        setSelectedConversationId(
+                            nextConversation.id
+                        );
+
+                        await loadConversationMessages(
+                            nextConversation.id
+                        );
+
+                    } else {
+
+                        const subjectName =
+                            subjectShortNames[subjectId] ||
+                            "AI";
+
+                        const created =
+                            await createConversation(
+                                "New Conversation",
+                                subjectName
+                            );
+
+                        const newConversation = {
+                            id:
+                                created.id,
+
+                            title:
+                                created.title,
+
+                            subject:
+                                created.subject,
+
+                            time:
+                                "Just now",
+                        };
+
+                        setConversations([
+                            newConversation,
+                        ]);
+
+                        setSelectedConversationId(
+                            created.id
+                        );
+
+                        setMessages(
+                            createWelcomeMessage()
+                        );
+                    }
+                }
+
+            } catch (error) {
+
+                console.error(
+                    "Delete conversation error:",
+                    error
+                );
+
+                setChatError(
+                    error?.message ||
+                    "Unable to delete conversation."
+                );
+            }
+        };
 
 
     /* ===================================================== */
@@ -1601,7 +2166,7 @@ function AIChatPage() {
                                                                 }
                                                                 className="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700"
                                                             >
-                                                                Save & Submit
+                                                                Save
                                                             </button>
 
                                                         </div>

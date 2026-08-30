@@ -26,6 +26,7 @@ import com.adaptiveaitutor.backend.entity.Note;
 import com.adaptiveaitutor.backend.entity.Topic;
 import com.adaptiveaitutor.backend.repository.TopicRepository;
 import com.adaptiveaitutor.backend.service.NoteService;
+import com.adaptiveaitutor.backend.service.RagIngestionService;
 
 @RestController
 @RequestMapping("/api/notes")
@@ -34,31 +35,37 @@ public class NoteController {
 
     private final NoteService noteService;
     private final TopicRepository topicRepository;
+    private final RagIngestionService ragIngestionService;
 
     private final Path uploadDirectory =
             Paths.get("uploads");
 
     public NoteController(
             NoteService noteService,
-            TopicRepository topicRepository) {
+            TopicRepository topicRepository,
+            RagIngestionService ragIngestionService) {
 
-        this.noteService = noteService;
-        this.topicRepository = topicRepository;
+        this.noteService =
+                noteService;
+
+        this.topicRepository =
+                topicRepository;
+
+        this.ragIngestionService =
+                ragIngestionService;
     }
 
-
-
     // =====================================================
-// GET ALL NOTES
-// =====================================================
+    // GET ALL NOTES
+    // =====================================================
 
-@GetMapping
-public ResponseEntity<List<Note>> getAllNotes() {
+    @GetMapping
+    public ResponseEntity<List<Note>> getAllNotes() {
 
-    return ResponseEntity.ok(
-            noteService.getAllNotes()
-    );
-}
+        return ResponseEntity.ok(
+                noteService.getAllNotes()
+        );
+    }
 
     // =====================================================
     // GET NOTES BY TOPIC
@@ -81,9 +88,14 @@ public ResponseEntity<List<Note>> getAllNotes() {
     public ResponseEntity<Note> getNoteById(
             @PathVariable Long id) {
 
-        return noteService.getNoteById(id)
+        return noteService
+                .getNoteById(id)
                 .map(ResponseEntity::ok)
-                .orElse(ResponseEntity.notFound().build());
+                .orElse(
+                        ResponseEntity
+                                .notFound()
+                                .build()
+                );
     }
 
     // =====================================================
@@ -96,35 +108,70 @@ public ResponseEntity<List<Note>> getAllNotes() {
 
         try {
 
+            // -------------------------------------------------
             // Find note from database
-            Note note = noteService.getNoteById(id)
-                    .orElse(null);
+            // -------------------------------------------------
+
+            Note note =
+                    noteService
+                            .getNoteById(id)
+                            .orElse(null);
 
             if (note == null) {
-                return ResponseEntity.notFound().build();
+
+                return ResponseEntity
+                        .notFound()
+                        .build();
             }
 
-            // Get file path from database
-            Path filePath = Paths.get(note.getFilePath());
+            // -------------------------------------------------
+            // Get file path
+            // -------------------------------------------------
 
+            Path filePath =
+                    Paths.get(
+                            note.getFilePath()
+                    );
+
+            // -------------------------------------------------
             // Check file exists
+            // -------------------------------------------------
+
             if (!Files.exists(filePath)) {
-                return ResponseEntity.notFound().build();
+
+                return ResponseEntity
+                        .notFound()
+                        .build();
             }
 
-            // Convert file into Spring Resource
+            // -------------------------------------------------
+            // Convert file to Resource
+            // -------------------------------------------------
+
             Resource resource =
-                    new UrlResource(filePath.toUri());
+                    new UrlResource(
+                            filePath.toUri()
+                    );
 
-            if (!resource.exists() ||
-                    !resource.isReadable()) {
+            if (
+                    !resource.exists() ||
+                    !resource.isReadable()
+            ) {
 
-                return ResponseEntity.notFound().build();
+                return ResponseEntity
+                        .notFound()
+                        .build();
             }
 
-            // Return PDF to browser
-            return ResponseEntity.ok()
-                    .contentType(MediaType.APPLICATION_PDF)
+            // -------------------------------------------------
+            // Return PDF
+            // -------------------------------------------------
+
+            return ResponseEntity
+                    .ok()
+                    .contentType(
+                            MediaType.APPLICATION_PDF
+                    )
                     .header(
                             HttpHeaders.CONTENT_DISPOSITION,
                             "inline; filename=\"" +
@@ -154,63 +201,128 @@ public ResponseEntity<List<Note>> getAllNotes() {
 
         try {
 
+            // -------------------------------------------------
             // Check file
+            // -------------------------------------------------
+
             if (file.isEmpty()) {
-                return ResponseEntity.badRequest().build();
+
+                return ResponseEntity
+                        .badRequest()
+                        .build();
             }
 
-            // Only PDF
+            // -------------------------------------------------
+            // Original file name
+            // -------------------------------------------------
+
             String originalFileName =
                     file.getOriginalFilename();
 
-            if (originalFileName == null ||
+            // -------------------------------------------------
+            // Only PDF
+            // -------------------------------------------------
+
+            if (
+                    originalFileName == null ||
                     !originalFileName
                             .toLowerCase()
-                            .endsWith(".pdf")) {
+                            .endsWith(".pdf")
+            ) {
 
-                return ResponseEntity.badRequest().build();
+                return ResponseEntity
+                        .badRequest()
+                        .build();
             }
 
+            // -------------------------------------------------
             // Find topic
-            Topic topic = topicRepository
-                    .findById(topicId)
-                    .orElse(null);
+            // -------------------------------------------------
+
+            Topic topic =
+                    topicRepository
+                            .findById(topicId)
+                            .orElse(null);
 
             if (topic == null) {
-                return ResponseEntity.notFound().build();
+
+                return ResponseEntity
+                        .notFound()
+                        .build();
             }
 
+            // -------------------------------------------------
             // Create uploads directory
-            Files.createDirectories(uploadDirectory);
+            // -------------------------------------------------
 
+            Files.createDirectories(
+                    uploadDirectory
+            );
+
+            // -------------------------------------------------
             // Create unique file name
+            // -------------------------------------------------
+
             String storedFileName =
                     UUID.randomUUID()
                             + "_"
                             + originalFileName;
 
             Path filePath =
-                    uploadDirectory.resolve(storedFileName);
+                    uploadDirectory.resolve(
+                            storedFileName
+                    );
 
-            // Save PDF to uploads folder
+            // -------------------------------------------------
+            // Save PDF
+            // -------------------------------------------------
+
             Files.copy(
                     file.getInputStream(),
                     filePath
             );
 
-            // Save database record
-            Note note = new Note(
-                    originalFileName,
-                    filePath.toString(),
-                    topic
-            );
+            // -------------------------------------------------
+            // Save Note
+            // -------------------------------------------------
+
+            Note note =
+                    new Note(
+                            originalFileName,
+                            filePath.toString(),
+                            topic
+                    );
 
             Note savedNote =
-                    noteService.createNote(note);
+                    noteService.createNote(
+                            note
+                    );
 
-            return ResponseEntity.ok(savedNote);
+            // =================================================
+            // AUTOMATIC RAG INGESTION
+            // =================================================
+
+            ragIngestionService.ingestNote(
+                    savedNote.getId()
+            );
+
+            // -------------------------------------------------
+            // Return saved note
+            // -------------------------------------------------
+
+            return ResponseEntity.ok(
+                    savedNote
+            );
 
         } catch (IOException exception) {
+
+            exception.printStackTrace();
+
+            return ResponseEntity
+                    .internalServerError()
+                    .build();
+
+        } catch (RuntimeException exception) {
 
             exception.printStackTrace();
 
@@ -230,27 +342,70 @@ public ResponseEntity<List<Note>> getAllNotes() {
 
         try {
 
-            Note note = noteService.getNoteById(id)
-                    .orElse(null);
+            // -------------------------------------------------
+            // Find note
+            // -------------------------------------------------
+
+            Note note =
+                    noteService
+                            .getNoteById(id)
+                            .orElse(null);
 
             if (note == null) {
-                return ResponseEntity.notFound().build();
+
+                return ResponseEntity
+                        .notFound()
+                        .build();
             }
 
+            // -------------------------------------------------
+            // Delete PGVector chunks
+            // -------------------------------------------------
+
+            int deletedVectorChunks =
+                    ragIngestionService
+                            .deleteVectorsForNote(id);
+
+            System.out.println(
+                    "Deleted " +
+                            deletedVectorChunks +
+                            " vector chunks for note " +
+                            id
+            );
+
+            // -------------------------------------------------
             // Delete physical PDF file
+            // -------------------------------------------------
+
             Path filePath =
-                    Paths.get(note.getFilePath());
+                    Paths.get(
+                            note.getFilePath()
+                    );
 
             if (Files.exists(filePath)) {
+
                 Files.delete(filePath);
             }
 
-            // Delete database record
+            // -------------------------------------------------
+            // Delete Note database record
+            // -------------------------------------------------
+
             noteService.deleteNote(id);
 
-            return ResponseEntity.noContent().build();
+            return ResponseEntity
+                    .noContent()
+                    .build();
 
         } catch (IOException exception) {
+
+            exception.printStackTrace();
+
+            return ResponseEntity
+                    .internalServerError()
+                    .build();
+
+        } catch (RuntimeException exception) {
 
             exception.printStackTrace();
 

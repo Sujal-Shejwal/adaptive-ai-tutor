@@ -7,6 +7,7 @@ import java.util.Map;
 
 import org.springframework.ai.document.Document;
 import org.springframework.ai.vectorstore.VectorStore;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
 import com.adaptiveaitutor.backend.entity.Note;
@@ -18,12 +19,14 @@ public class RagIngestionService {
     private final PdfTextExtractorService pdfTextExtractorService;
     private final TextChunkingService textChunkingService;
     private final VectorStore vectorStore;
+    private final JdbcTemplate jdbcTemplate;
 
     public RagIngestionService(
             NoteService noteService,
             PdfTextExtractorService pdfTextExtractorService,
             TextChunkingService textChunkingService,
-            VectorStore vectorStore) {
+            VectorStore vectorStore,
+            JdbcTemplate jdbcTemplate) {
 
         this.noteService =
                 noteService;
@@ -36,6 +39,9 @@ public class RagIngestionService {
 
         this.vectorStore =
                 vectorStore;
+
+        this.jdbcTemplate =
+                jdbcTemplate;
     }
 
     // =====================================================
@@ -78,8 +84,8 @@ public class RagIngestionService {
         if (chunks.isEmpty()) {
 
             throw new RuntimeException(
-                    "No text chunks created for note: " +
-                    noteId
+                    "No text chunks created for note: "
+                            + noteId
             );
         }
 
@@ -169,5 +175,29 @@ public class RagIngestionService {
         );
 
         return result;
+    }
+
+    // =====================================================
+    // DELETE VECTOR CHUNKS FOR NOTE
+    // =====================================================
+
+    public int deleteVectorsForNote(
+            Long noteId) {
+
+        if (noteId == null) {
+
+            return 0;
+        }
+
+        String sql =
+                """
+                DELETE FROM public.vector_store
+                WHERE metadata->>'noteId' = ?
+                """;
+
+        return jdbcTemplate.update(
+                sql,
+                noteId.toString()
+        );
     }
 }

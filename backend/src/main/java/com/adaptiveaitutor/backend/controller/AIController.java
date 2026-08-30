@@ -7,6 +7,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.adaptiveaitutor.backend.service.ConversationService;
 import com.adaptiveaitutor.backend.service.GeminiService;
 
 @RestController
@@ -15,12 +16,17 @@ import com.adaptiveaitutor.backend.service.GeminiService;
 public class AIController {
 
     private final GeminiService geminiService;
+    private final ConversationService conversationService;
 
     public AIController(
-            GeminiService geminiService) {
+            GeminiService geminiService,
+            ConversationService conversationService) {
 
         this.geminiService =
                 geminiService;
+
+        this.conversationService =
+                conversationService;
     }
 
     // =====================================================
@@ -37,10 +43,35 @@ public class AIController {
             // VALIDATE REQUEST
             // ---------------------------------------------
 
+            if (request == null) {
+
+                return ResponseEntity
+                        .badRequest()
+                        .body(
+                                new MessageResponse(
+                                        "Request cannot be empty."
+                                )
+                        );
+            }
+
             if (
-                    request == null ||
+                    request.getConversationId() == null
+            ) {
+
+                return ResponseEntity
+                        .badRequest()
+                        .body(
+                                new MessageResponse(
+                                        "Conversation ID is required."
+                                )
+                        );
+            }
+
+            if (
                     request.getMessage() == null ||
-                    request.getMessage().trim().isEmpty()
+                    request.getMessage()
+                            .trim()
+                            .isEmpty()
             ) {
 
                 return ResponseEntity
@@ -53,13 +84,47 @@ public class AIController {
             }
 
             // ---------------------------------------------
+            // VERIFY CONVERSATION EXISTS
+            // ---------------------------------------------
+
+            conversationService
+                    .getConversationById(
+                            request.getConversationId()
+                    );
+
+            String userMessage =
+                    request
+                            .getMessage()
+                            .trim();
+
+            // ---------------------------------------------
+            // SAVE USER MESSAGE
+            // ---------------------------------------------
+
+            conversationService.addMessage(
+                    request.getConversationId(),
+                    "user",
+                    userMessage
+            );
+
+            // ---------------------------------------------
             // SEND MESSAGE TO GEMINI + RAG
             // ---------------------------------------------
 
             String reply =
                     geminiService.chat(
-                            request.getMessage()
+                            userMessage
                     );
+
+            // ---------------------------------------------
+            // SAVE AI MESSAGE
+            // ---------------------------------------------
+
+            conversationService.addMessage(
+                    request.getConversationId(),
+                    "assistant",
+                    reply
+            );
 
             // ---------------------------------------------
             // RETURN RESPONSE
@@ -72,6 +137,8 @@ public class AIController {
             );
 
         } catch (RuntimeException exception) {
+
+            exception.printStackTrace();
 
             return ResponseEntity
                     .internalServerError()
@@ -91,9 +158,22 @@ public class AIController {
 
     public static class ChatRequest {
 
+        private Long conversationId;
+
         private String message;
 
         public ChatRequest() {
+        }
+
+        public Long getConversationId() {
+            return conversationId;
+        }
+
+        public void setConversationId(
+                Long conversationId) {
+
+            this.conversationId =
+                    conversationId;
         }
 
         public String getMessage() {
