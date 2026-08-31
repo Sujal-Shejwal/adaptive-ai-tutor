@@ -1258,7 +1258,7 @@ function AIChatPage() {
 
 
     /* ===================================================== */
-    /* SAVE EDITED USER MESSAGE */
+    /* SAVE EDITED USER MESSAGE + REGENERATE AI RESPONSE */
     /* ===================================================== */
 
     const handleEditMessageSave =
@@ -1297,24 +1297,20 @@ function AIChatPage() {
                 return;
             }
 
-            /*
-             * Persist the edited user message in PostgreSQL.
-             *
-             * IMPORTANT:
-             * We intentionally do not call /api/ai/chat here.
-             * That endpoint creates a new user message, which would
-             * duplicate the edited message. Regeneration will use a
-             * dedicated backend edit/regenerate endpoint.
-             */
-
             setChatError("");
             setIsSending(true);
 
             try {
 
+                /*
+                 * Update the existing user message, remove the old
+                 * messages after it, generate a fresh AI answer, and
+                 * save that answer on the backend.
+                 */
+
                 const response =
                     await fetch(
-                        `${API_BASE}/api/conversations/message/${messageId}`,
+                        `${API_BASE}/api/ai/regenerate/${selectedConversationId}/${messageId}`,
                         {
                             method:
                                 "PUT",
@@ -1343,39 +1339,18 @@ function AIChatPage() {
 
                     throw new Error(
                         data?.message ||
-                        `Unable to update message (${response.status}).`
+                        `Unable to regenerate AI response (${response.status}).`
                     );
                 }
-
-                /*
-                 * Update the local message after the database
-                 * update succeeds.
-                 */
-
-                setMessages(
-                    (previousMessages) =>
-                        previousMessages.map(
-                            (item) =>
-                                item.id ===
-                                messageId
-                                    ? {
-                                          ...item,
-                                          text:
-                                              data?.content ||
-                                              trimmedText,
-                                          time:
-                                              "Just now",
-                                      }
-                                    : item
-                        )
-                );
 
                 setEditingMessageId(null);
                 setEditingMessageText("");
 
                 /*
-                 * Reload from the backend so the UI is guaranteed
-                 * to match PostgreSQL.
+                 * Reload the complete conversation from PostgreSQL.
+                 * This guarantees that the edited user message and the
+                 * newly generated assistant response are both displayed
+                 * exactly as stored by the backend.
                  */
 
                 await loadConversationMessages(
@@ -1397,16 +1372,24 @@ function AIChatPage() {
                         )
                 );
 
+                /*
+                 * The response itself is not directly inserted into local
+                 * state because loadConversationMessages() fetches the
+                 * authoritative messages from the database immediately
+                 * after regeneration.
+                 */
+                void data;
+
             } catch (error) {
 
                 console.error(
-                    "Edit message error:",
+                    "Regenerate AI response error:",
                     error
                 );
 
                 setChatError(
                     error?.message ||
-                    "Unable to update the message."
+                    "Unable to regenerate the AI response."
                 );
 
             } finally {

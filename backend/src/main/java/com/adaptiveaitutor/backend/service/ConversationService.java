@@ -1,6 +1,7 @@
 package com.adaptiveaitutor.backend.service;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
 import org.springframework.stereotype.Service;
@@ -221,6 +222,151 @@ public class ConversationService {
                     conversation
             );
         }
+
+        return updatedMessage;
+    }
+
+    // =====================================================
+    // PREPARE MESSAGE FOR REGENERATION
+    // =====================================================
+    //
+    // Updates the edited user message and removes all
+    // messages that came after it.
+    //
+    // Example:
+    //
+    // User: What is entropy?
+    // AI:   Entropy is...
+    // User: Give example.
+    // AI:   ...
+    //
+    // Edit "What is entropy?"
+    //
+    // Result:
+    //
+    // User: Edited question
+    //
+    // Then Gemini will generate a new AI answer.
+    //
+    // =====================================================
+
+    @Transactional
+    public ChatMessage prepareMessageRegeneration(
+            Long conversationId,
+            Long messageId,
+            String content) {
+
+        if (
+                content == null ||
+                content.isBlank()
+        ) {
+
+            throw new RuntimeException(
+                    "Message content cannot be empty."
+            );
+        }
+
+        Conversation conversation =
+                getConversationById(
+                        conversationId
+                );
+
+        List<ChatMessage> messages =
+                chatMessageRepository
+                        .findByConversationIdOrderByCreatedAtAsc(
+                                conversationId
+                        );
+
+        int targetIndex = -1;
+
+        for (
+                int i = 0;
+                i < messages.size();
+                i++
+        ) {
+
+            if (
+                    messages.get(i)
+                            .getId()
+                            .equals(messageId)
+            ) {
+
+                targetIndex = i;
+
+                break;
+            }
+        }
+
+        if (targetIndex == -1) {
+
+            throw new RuntimeException(
+                    "Message not found in conversation: "
+                            + messageId
+            );
+        }
+
+        ChatMessage targetMessage =
+                messages.get(targetIndex);
+
+        if (
+                !"user".equalsIgnoreCase(
+                        targetMessage.getRole()
+                )
+        ) {
+
+            throw new RuntimeException(
+                    "Only user messages can be regenerated."
+            );
+        }
+
+        // -------------------------------------------------
+        // UPDATE USER MESSAGE
+        // -------------------------------------------------
+
+        targetMessage.setContent(
+                content.trim()
+        );
+
+        ChatMessage updatedMessage =
+                chatMessageRepository.save(
+                        targetMessage
+                );
+
+        // -------------------------------------------------
+        // DELETE EVERYTHING AFTER EDITED MESSAGE
+        // -------------------------------------------------
+
+        if (
+                targetIndex + 1 <
+                messages.size()
+        ) {
+
+            List<ChatMessage> messagesToDelete =
+                    new ArrayList<>(
+                            messages.subList(
+                                    targetIndex + 1,
+                                    messages.size()
+                            )
+                    );
+
+            chatMessageRepository.deleteAll(
+                    messagesToDelete
+            );
+
+            chatMessageRepository.flush();
+        }
+
+        // -------------------------------------------------
+        // UPDATE CONVERSATION TIME
+        // -------------------------------------------------
+
+        conversation.setUpdatedAt(
+                LocalDateTime.now()
+        );
+
+        conversationRepository.save(
+                conversation
+        );
 
         return updatedMessage;
     }

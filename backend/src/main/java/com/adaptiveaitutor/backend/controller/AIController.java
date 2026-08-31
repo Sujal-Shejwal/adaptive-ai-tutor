@@ -2,11 +2,14 @@ package com.adaptiveaitutor.backend.controller;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.adaptiveaitutor.backend.entity.ChatMessage;
 import com.adaptiveaitutor.backend.service.ConversationService;
 import com.adaptiveaitutor.backend.service.GeminiService;
 
@@ -84,7 +87,7 @@ public class AIController {
             }
 
             // ---------------------------------------------
-            // VERIFY CONVERSATION EXISTS
+            // VERIFY CONVERSATION
             // ---------------------------------------------
 
             conversationService
@@ -108,7 +111,7 @@ public class AIController {
             );
 
             // ---------------------------------------------
-            // SEND MESSAGE TO GEMINI + RAG
+            // SEND TO GEMINI + RAG
             // ---------------------------------------------
 
             String reply =
@@ -153,6 +156,108 @@ public class AIController {
     }
 
     // =====================================================
+    // REGENERATE AI RESPONSE AFTER MESSAGE EDIT
+    // =====================================================
+
+    @PutMapping(
+            "/regenerate/{conversationId}/{messageId}"
+    )
+    public ResponseEntity<?> regenerateMessage(
+            @PathVariable Long conversationId,
+            @PathVariable Long messageId,
+            @RequestBody UpdateMessageRequest request) {
+
+        try {
+
+            // ---------------------------------------------
+            // VALIDATE REQUEST
+            // ---------------------------------------------
+
+            if (
+                    request == null ||
+                    request.getContent() == null ||
+                    request.getContent().isBlank()
+            ) {
+
+                return ResponseEntity
+                        .badRequest()
+                        .body(
+                                new MessageResponse(
+                                        "Message content cannot be empty."
+                                )
+                        );
+            }
+
+            // ---------------------------------------------
+            // UPDATE MESSAGE + DELETE OLD ANSWERS
+            // ---------------------------------------------
+
+            ChatMessage updatedMessage =
+                    conversationService
+                            .prepareMessageRegeneration(
+                                    conversationId,
+                                    messageId,
+                                    request.getContent()
+                            );
+
+            // ---------------------------------------------
+            // GENERATE NEW AI RESPONSE
+            // ---------------------------------------------
+
+            String reply =
+                    geminiService.chat(
+                            updatedMessage.getContent()
+                    );
+
+            if (
+                    reply == null ||
+                    reply.isBlank()
+            ) {
+
+                throw new RuntimeException(
+                        "AI returned an empty response."
+                );
+            }
+
+            // ---------------------------------------------
+            // SAVE NEW AI MESSAGE
+            // ---------------------------------------------
+
+            ChatMessage assistantMessage =
+                    conversationService.addMessage(
+                            conversationId,
+                            "assistant",
+                            reply
+                    );
+
+            // ---------------------------------------------
+            // RETURN RESPONSE
+            // ---------------------------------------------
+
+            return ResponseEntity.ok(
+                    new RegenerateResponse(
+                            updatedMessage,
+                            assistantMessage
+                    )
+            );
+
+        } catch (RuntimeException exception) {
+
+            exception.printStackTrace();
+
+            return ResponseEntity
+                    .internalServerError()
+                    .body(
+                            new MessageResponse(
+                                    exception.getMessage() != null
+                                            ? exception.getMessage()
+                                            : "Unable to regenerate AI response."
+                            )
+                    );
+        }
+    }
+
+    // =====================================================
     // CHAT REQUEST
     // =====================================================
 
@@ -189,6 +294,29 @@ public class AIController {
     }
 
     // =====================================================
+    // UPDATE MESSAGE REQUEST
+    // =====================================================
+
+    public static class UpdateMessageRequest {
+
+        private String content;
+
+        public UpdateMessageRequest() {
+        }
+
+        public String getContent() {
+            return content;
+        }
+
+        public void setContent(
+                String content) {
+
+            this.content =
+                    content;
+        }
+    }
+
+    // =====================================================
     // CHAT RESPONSE
     // =====================================================
 
@@ -205,6 +333,36 @@ public class AIController {
 
         public String getReply() {
             return reply;
+        }
+    }
+
+    // =====================================================
+    // REGENERATE RESPONSE
+    // =====================================================
+
+    public static class RegenerateResponse {
+
+        private ChatMessage userMessage;
+
+        private ChatMessage assistantMessage;
+
+        public RegenerateResponse(
+                ChatMessage userMessage,
+                ChatMessage assistantMessage) {
+
+            this.userMessage =
+                    userMessage;
+
+            this.assistantMessage =
+                    assistantMessage;
+        }
+
+        public ChatMessage getUserMessage() {
+            return userMessage;
+        }
+
+        public ChatMessage getAssistantMessage() {
+            return assistantMessage;
         }
     }
 
