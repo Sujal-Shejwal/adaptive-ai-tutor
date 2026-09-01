@@ -1,5 +1,8 @@
 package com.adaptiveaitutor.backend.controller;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -20,6 +23,18 @@ public class AIController {
 
     private final GeminiService geminiService;
     private final ConversationService conversationService;
+
+    // =====================================================
+    // HISTORY LIMITS
+    // =====================================================
+
+    private static final int MAX_HISTORY_MESSAGES = 10;
+
+    private static final int MAX_HISTORY_CHARACTERS = 12000;
+
+    // =====================================================
+    // CONSTRUCTOR
+    // =====================================================
 
     public AIController(
             GeminiService geminiService,
@@ -101,33 +116,105 @@ public class AIController {
                             .trim();
 
             // ---------------------------------------------
+            // LOAD CONVERSATION HISTORY
+            // ---------------------------------------------
+
+            List<ChatMessage> allMessages =
+                    conversationService
+                            .getMessages(
+                                    request.getConversationId()
+                            );
+
+            List<ChatMessage> recentMessages =
+                    getRecentMessages(
+                            allMessages
+                    );
+
+            // ---------------------------------------------
+            // GENERATE AI RESPONSE FIRST
+            // ---------------------------------------------
+
+            String reply;
+
+            try {
+
+                reply =
+                        geminiService.chat(
+                                userMessage,
+                                recentMessages
+                        );
+
+            } catch (Exception exception) {
+
+                exception.printStackTrace();
+
+                return ResponseEntity
+                        .status(503)
+                        .body(
+                                new MessageResponse(
+                                        "AI service is temporarily unavailable. "
+                                        + "Please try again."
+                                )
+                        );
+            }
+
+            // ---------------------------------------------
+            // VALIDATE AI RESPONSE
+            // ---------------------------------------------
+
+            if (
+                    reply == null ||
+                    reply.isBlank()
+            ) {
+
+                return ResponseEntity
+                        .status(503)
+                        .body(
+                                new MessageResponse(
+                                        "AI returned an empty response."
+                                )
+                        );
+            }
+
+            // ---------------------------------------------
             // SAVE USER MESSAGE
             // ---------------------------------------------
 
-            conversationService.addMessage(
-                    request.getConversationId(),
-                    "user",
-                    userMessage
-            );
-
-            // ---------------------------------------------
-            // SEND TO GEMINI + RAG
-            // ---------------------------------------------
-
-            String reply =
-                    geminiService.chat(
+            ChatMessage savedUserMessage =
+                    conversationService.addMessage(
+                            request.getConversationId(),
+                            "user",
                             userMessage
                     );
 
             // ---------------------------------------------
-            // SAVE AI MESSAGE
+            // SAVE ASSISTANT MESSAGE
             // ---------------------------------------------
 
-            conversationService.addMessage(
-                    request.getConversationId(),
-                    "assistant",
-                    reply
-            );
+            ChatMessage savedAssistantMessage;
+
+            try {
+
+                savedAssistantMessage =
+                        conversationService.addMessage(
+                                request.getConversationId(),
+                                "assistant",
+                                reply
+                        );
+
+            } catch (RuntimeException exception) {
+
+                exception.printStackTrace();
+
+                return ResponseEntity
+                        .internalServerError()
+                        .body(
+                                new MessageResponse(
+                                        "AI responded, but the response "
+                                        + "could not be saved."
+                                )
+                        );
+            }
 
             // ---------------------------------------------
             // RETURN RESPONSE
@@ -135,7 +222,9 @@ public class AIController {
 
             return ResponseEntity.ok(
                     new ChatResponse(
-                            reply
+                            reply,
+                            savedUserMessage.getId(),
+                            savedAssistantMessage.getId()
                     )
             );
 
@@ -156,7 +245,7 @@ public class AIController {
     }
 
     // =====================================================
-    // REGENERATE AI RESPONSE AFTER MESSAGE EDIT
+    // SAFE AI REGENERATION
     // =====================================================
 
     @PutMapping(
@@ -188,47 +277,101 @@ public class AIController {
                         );
             }
 
+            String editedContent =
+                    request
+                            .getContent()
+                            .trim();
+
             // ---------------------------------------------
-            // UPDATE MESSAGE + DELETE OLD ANSWERS
+            // VERIFY TARGET MESSAGE
             // ---------------------------------------------
 
-            ChatMessage updatedMessage =
+            ChatMessage targetMessage =
                     conversationService
-                            .prepareMessageRegeneration(
+                            .getMessageForConversation(
                                     conversationId,
-                                    messageId,
-                                    request.getContent()
+                                    messageId
                             );
+
+            // ---------------------------------------------
+            // LOAD HISTORY BEFORE EDITED MESSAGE
+            // ---------------------------------------------
+
+            List<ChatMessage> history =
+                    conversationService
+                            .getHistoryBeforeMessage(
+                                    conversationId,
+                                    messageId
+                            );
+
+            // ---------------------------------------------
+            // APPLY HISTORY LIMITS
+            // ---------------------------------------------
+
+            history =
+                    getRecentMessages(
+                            history
+                    );
 
             // ---------------------------------------------
             // GENERATE NEW AI RESPONSE
             // ---------------------------------------------
 
-            String reply =
-                    geminiService.chat(
-                            updatedMessage.getContent()
-                    );
+            String reply;
+
+            try {
+
+                reply =
+                        geminiService.chat(
+                                editedContent,
+                                history
+                        );
+
+            } catch (Exception exception) {
+
+                exception.printStackTrace();
+
+                return ResponseEntity
+                        .status(503)
+                        .body(
+                                new MessageResponse(
+                                        "AI service is temporarily unavailable. "
+                                        + "Your original conversation was not changed."
+                                )
+                        );
+            }
+
+            // ---------------------------------------------
+            // VALIDATE AI RESPONSE
+            // ---------------------------------------------
 
             if (
                     reply == null ||
                     reply.isBlank()
             ) {
 
-                throw new RuntimeException(
-                        "AI returned an empty response."
-                );
+                return ResponseEntity
+                        .status(503)
+                        .body(
+                                new MessageResponse(
+                                        "AI returned an empty response. "
+                                        + "Your original conversation was not changed."
+                                )
+                        );
             }
 
             // ---------------------------------------------
-            // SAVE NEW AI MESSAGE
+            // APPLY DATABASE CHANGES ONLY AFTER AI SUCCESS
             // ---------------------------------------------
 
-            ChatMessage assistantMessage =
-                    conversationService.addMessage(
-                            conversationId,
-                            "assistant",
-                            reply
-                    );
+            ConversationService.RegenerationResult result =
+                    conversationService
+                            .completeMessageRegeneration(
+                                    conversationId,
+                                    targetMessage.getId(),
+                                    editedContent,
+                                    reply
+                            );
 
             // ---------------------------------------------
             // RETURN RESPONSE
@@ -236,8 +379,8 @@ public class AIController {
 
             return ResponseEntity.ok(
                     new RegenerateResponse(
-                            updatedMessage,
-                            assistantMessage
+                            result.getUserMessage(),
+                            result.getAssistantMessage()
                     )
             );
 
@@ -255,6 +398,192 @@ public class AIController {
                             )
                     );
         }
+    }
+
+    // =====================================================
+    // GET RECENT MESSAGES
+    // =====================================================
+    //
+    // Applies TWO limits:
+    //
+    // 1. Maximum number of messages
+    // 2. Maximum total characters
+    //
+    // Messages are selected from newest to oldest so the
+    // most recent context is preserved.
+    //
+    // =====================================================
+
+    private List<ChatMessage> getRecentMessages(
+            List<ChatMessage> messages) {
+
+        if (
+                messages == null ||
+                messages.isEmpty()
+        ) {
+
+            return List.of();
+        }
+
+        List<ChatMessage> selectedMessages =
+                new ArrayList<>();
+
+        int totalCharacters = 0;
+
+        // ---------------------------------------------
+        // START FROM MOST RECENT MESSAGE
+        // ---------------------------------------------
+
+        for (
+                int i = messages.size() - 1;
+                i >= 0;
+                i--
+        ) {
+
+            ChatMessage message =
+                    messages.get(i);
+
+            if (
+                    message == null ||
+                    message.getContent() == null ||
+                    message.getContent().isBlank()
+            ) {
+
+                continue;
+            }
+
+            int messageCharacters =
+                    message.getContent()
+                            .length();
+
+            // -----------------------------------------
+            // MESSAGE COUNT LIMIT
+            // -----------------------------------------
+
+            if (
+                    selectedMessages.size()
+                            >= MAX_HISTORY_MESSAGES
+            ) {
+
+                break;
+            }
+
+            // -----------------------------------------
+            // CHARACTER LIMIT
+            // -----------------------------------------
+
+            if (
+                    totalCharacters
+                            + messageCharacters
+                            >
+                    MAX_HISTORY_CHARACTERS
+            ) {
+
+                // -------------------------------------
+                // IF NOTHING HAS BEEN SELECTED YET,
+                // KEEP A TRUNCATED VERSION OF THE
+                // MOST RECENT MESSAGE.
+                // -------------------------------------
+
+                if (
+                        selectedMessages.isEmpty()
+                ) {
+
+                    String truncatedContent =
+                            message.getContent()
+                                    .substring(
+                                            0,
+                                            Math.min(
+                                                    MAX_HISTORY_CHARACTERS,
+                                                    messageCharacters
+                                            )
+                                    );
+
+                    ChatMessage truncatedMessage =
+                            new ChatMessage(
+                                    message.getRole(),
+                                    truncatedContent
+                            );
+
+                    selectedMessages.add(
+                            truncatedMessage
+                    );
+                }
+
+                break;
+            }
+
+            selectedMessages.add(
+                    message
+            );
+
+            totalCharacters +=
+                    messageCharacters;
+        }
+
+        // ---------------------------------------------
+        // REVERSE BACK TO OLD → NEW ORDER
+        // ---------------------------------------------
+
+        java.util.Collections.reverse(
+                selectedMessages
+        );
+
+        // ---------------------------------------------
+        // HISTORY DIAGNOSTICS
+        // ---------------------------------------------
+        //
+        // Temporary diagnostic output for Day 27.
+        //
+        // This lets us verify exactly how much history
+        // is being passed to Gemini.
+        //
+        // ---------------------------------------------
+
+        int finalCharacterCount =
+                selectedMessages.stream()
+                        .mapToInt(
+                                message ->
+                                        message.getContent() == null
+                                                ? 0
+                                                : message.getContent()
+                                                        .length()
+                        )
+                        .sum();
+
+        System.out.println(
+                "=========================================="
+        );
+
+        System.out.println(
+                "AI CONVERSATION HISTORY"
+        );
+
+        System.out.println(
+                "Messages sent to Gemini: "
+                        + selectedMessages.size()
+        );
+
+        System.out.println(
+                "Characters sent to Gemini: "
+                        + finalCharacterCount
+        );
+
+        System.out.println(
+                "Maximum messages: "
+                        + MAX_HISTORY_MESSAGES
+        );
+
+        System.out.println(
+                "Maximum characters: "
+                        + MAX_HISTORY_CHARACTERS
+        );
+
+        System.out.println(
+                "=========================================="
+        );
+
+        return selectedMessages;
     }
 
     // =====================================================
@@ -324,15 +653,35 @@ public class AIController {
 
         private String reply;
 
+        private Long userMessageId;
+
+        private Long assistantMessageId;
+
         public ChatResponse(
-                String reply) {
+                String reply,
+                Long userMessageId,
+                Long assistantMessageId) {
 
             this.reply =
                     reply;
+
+            this.userMessageId =
+                    userMessageId;
+
+            this.assistantMessageId =
+                    assistantMessageId;
         }
 
         public String getReply() {
             return reply;
+        }
+
+        public Long getUserMessageId() {
+            return userMessageId;
+        }
+
+        public Long getAssistantMessageId() {
+            return assistantMessageId;
         }
     }
 

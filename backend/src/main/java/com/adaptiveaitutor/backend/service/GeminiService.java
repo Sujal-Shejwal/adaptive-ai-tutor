@@ -7,6 +7,8 @@ import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.document.Document;
 import org.springframework.stereotype.Service;
 
+import com.adaptiveaitutor.backend.entity.ChatMessage;
+
 @Service
 public class GeminiService {
 
@@ -26,11 +28,16 @@ public class GeminiService {
 
     // =====================================================
     // SEND MESSAGE TO GEMINI
-    // WITH RAG + GENERAL KNOWLEDGE FALLBACK
+    // WITH RAG + CONVERSATION MEMORY
     // =====================================================
 
     public String chat(
-            String message) {
+            String message,
+            List<ChatMessage> history) {
+
+        // -------------------------------------------------
+        // VALIDATE MESSAGE
+        // -------------------------------------------------
 
         if (
                 message == null ||
@@ -55,7 +62,7 @@ public class GeminiService {
                 );
 
         // -------------------------------------------------
-        // 2. BUILD CONTEXT
+        // 2. BUILD COURSE CONTEXT
         // -------------------------------------------------
 
         String context =
@@ -70,7 +77,16 @@ public class GeminiService {
                         );
 
         // -------------------------------------------------
-        // 3. BUILD PROMPT
+        // 3. BUILD FORMATTED CONVERSATION HISTORY
+        // -------------------------------------------------
+
+        String conversationHistory =
+                buildConversationHistory(
+                        history
+                );
+
+        // -------------------------------------------------
+        // 4. BUILD PROMPT
         // -------------------------------------------------
 
         String prompt;
@@ -81,22 +97,58 @@ public class GeminiService {
         ) {
 
             // ---------------------------------------------
-            // NO RELEVANT COURSE MATERIAL
+            // NO COURSE MATERIAL
             // ---------------------------------------------
 
             prompt =
                     """
                     You are an AI tutor.
 
-                    The student asked:
+                    You are having an ongoing conversation
+                    with a student.
+
+                    ==============================
+                    PREVIOUS CONVERSATION
+                    ==============================
 
                     %s
+
+
+                    ==============================
+                    CURRENT QUESTION
+                    ==============================
+
+                    %s
+
+
+                    ==============================
+                    INSTRUCTIONS
+                    ==============================
+
+                    Use the previous conversation to
+                    understand the student's current question.
+
+                    Maintain conversational continuity.
+
+                    Resolve references such as:
+
+                    "it"
+                    "this"
+                    "that"
+                    "they"
+                    "its"
+                    "the above"
+                    "the previous concept"
+                    "that example"
+
+                    based on the previous conversation.
+
+                    Answer the current question directly.
 
                     No relevant information was found
                     in the student's uploaded course material.
 
-                    Answer the student's question using
-                    your general knowledge.
+                    Use your general knowledge when answering.
 
                     Be accurate, clear, and helpful.
 
@@ -104,23 +156,39 @@ public class GeminiService {
                     the uploaded course material.
 
                     Do not mention RAG, embeddings,
-                    vector databases, or internal systems.
+                    vector databases, similarity search,
+                    or internal implementation details.
+
+                    Answer naturally like a helpful tutor.
                     """
                     .formatted(
+                            conversationHistory,
                             question
                     );
 
         } else {
 
             // ---------------------------------------------
-            // RELEVANT COURSE MATERIAL FOUND
+            // COURSE MATERIAL FOUND
             // ---------------------------------------------
 
             prompt =
                     """
                     You are an AI tutor.
 
-                    The student asked:
+                    You are having an ongoing conversation
+                    with a student.
+
+                    ==============================
+                    PREVIOUS CONVERSATION
+                    ==============================
+
+                    %s
+
+
+                    ==============================
+                    CURRENT QUESTION
+                    ==============================
 
                     %s
 
@@ -136,8 +204,26 @@ public class GeminiService {
                     INSTRUCTIONS
                     ==============================
 
-                    Use the relevant course material as
-                    the primary source when answering.
+                    Use the previous conversation to
+                    understand the student's current question.
+
+                    Maintain conversational continuity.
+
+                    Resolve references such as:
+
+                    "it"
+                    "this"
+                    "that"
+                    "they"
+                    "its"
+                    "the above"
+                    "the previous concept"
+                    "that example"
+
+                    using the previous conversation.
+
+                    Use the relevant course material as the
+                    primary source when answering.
 
                     Explain the answer clearly and simply.
 
@@ -157,19 +243,127 @@ public class GeminiService {
                     Answer naturally like a helpful tutor.
                     """
                     .formatted(
+                            conversationHistory,
                             question,
                             context
                     );
         }
 
         // -------------------------------------------------
-        // 4. SEND TO GEMINI
+        // 5. SEND TO GEMINI
         // -------------------------------------------------
 
-        return chatClient
-                .prompt()
-                .user(prompt)
-                .call()
-                .content();
+        String response =
+                chatClient
+                        .prompt()
+                        .user(prompt)
+                        .call()
+                        .content();
+
+        // -------------------------------------------------
+        // 6. VALIDATE RESPONSE
+        // -------------------------------------------------
+
+        if (
+                response == null ||
+                response.isBlank()
+        ) {
+
+            throw new RuntimeException(
+                    "AI returned an empty response."
+            );
+        }
+
+        return response.trim();
+    }
+
+    // =====================================================
+    // BUILD CONVERSATION HISTORY
+    // =====================================================
+
+    private String buildConversationHistory(
+            List<ChatMessage> history) {
+
+        if (
+                history == null ||
+                history.isEmpty()
+        ) {
+
+            return "No previous conversation.";
+        }
+
+        return history.stream()
+                .filter(
+                        chatMessage ->
+                                chatMessage != null &&
+                                chatMessage.getContent() != null &&
+                                !chatMessage
+                                        .getContent()
+                                        .isBlank()
+                )
+                .map(
+                        chatMessage -> {
+
+                            String role =
+                                    chatMessage.getRole();
+
+                            String content =
+                                    chatMessage
+                                            .getContent()
+                                            .trim();
+
+                            if (
+                                    "user".equalsIgnoreCase(
+                                            role
+                                    )
+                            ) {
+
+                                return
+                                        "--- Previous Turn ---\n"
+                                        +
+                                        "Student: "
+                                        +
+                                        content;
+
+                            }
+
+                            if (
+                                    "assistant".equalsIgnoreCase(
+                                            role
+                                    )
+                            ) {
+
+                                return
+                                        "Tutor: "
+                                        +
+                                        content;
+                            }
+
+                            return
+                                    "--- Previous Turn ---\n"
+                                    +
+                                    "Message: "
+                                    +
+                                    content;
+                        }
+                )
+                .collect(
+                        Collectors.joining(
+                                "\n\n"
+                        )
+                );
+    }
+
+    // =====================================================
+    // BACKWARD-COMPATIBLE CHAT METHOD
+    // =====================================================
+
+    public String chat(
+            String message) {
+
+        return chat(
+                message,
+                List.of()
+        );
     }
 }

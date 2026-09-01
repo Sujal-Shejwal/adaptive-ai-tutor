@@ -95,8 +95,11 @@ public class ConversationService {
     public List<ChatMessage> getMessages(
             Long conversationId) {
 
-        if (!conversationRepository.existsById(
-                conversationId)) {
+        if (
+                !conversationRepository.existsById(
+                        conversationId
+                )
+        ) {
 
             throw new RuntimeException(
                     "Conversation not found: "
@@ -145,10 +148,41 @@ public class ConversationService {
                         conversationId
                 );
 
+        String cleanRole =
+                role.trim();
+
+        String cleanContent =
+                content.trim();
+
+        // -------------------------------------------------
+        // AUTOMATIC TITLE
+        // -------------------------------------------------
+
+        if (
+                "user".equalsIgnoreCase(
+                        cleanRole
+                ) &&
+                isDefaultConversationTitle(
+                        conversation.getTitle()
+                ) &&
+                conversation.getMessages().isEmpty()
+        ) {
+
+            conversation.setTitle(
+                    generateConversationTitle(
+                            cleanContent
+                    )
+            );
+        }
+
+        // -------------------------------------------------
+        // CREATE MESSAGE
+        // -------------------------------------------------
+
         ChatMessage chatMessage =
                 new ChatMessage(
-                        role.trim(),
-                        content.trim()
+                        cleanRole,
+                        cleanContent
                 );
 
         chatMessage.setConversation(
@@ -160,6 +194,10 @@ public class ConversationService {
                         chatMessage
                 );
 
+        // -------------------------------------------------
+        // UPDATE CONVERSATION
+        // -------------------------------------------------
+
         conversation.setUpdatedAt(
                 LocalDateTime.now()
         );
@@ -169,6 +207,283 @@ public class ConversationService {
         );
 
         return savedMessage;
+    }
+
+    // =====================================================
+    // FIND MESSAGE INSIDE CONVERSATION
+    // =====================================================
+
+    @Transactional(readOnly = true)
+    public ChatMessage getMessageForConversation(
+            Long conversationId,
+            Long messageId) {
+
+        Conversation conversation =
+                getConversationById(
+                        conversationId
+                );
+
+        List<ChatMessage> messages =
+                chatMessageRepository
+                        .findByConversationIdOrderByCreatedAtAsc(
+                                conversationId
+                        );
+
+        for (
+                ChatMessage message :
+                messages
+        ) {
+
+            if (
+                    message.getId()
+                            .equals(messageId)
+            ) {
+
+                if (
+                        !"user".equalsIgnoreCase(
+                                message.getRole()
+                        )
+                ) {
+
+                    throw new RuntimeException(
+                            "Only user messages can be regenerated."
+                    );
+                }
+
+                return message;
+            }
+        }
+
+        throw new RuntimeException(
+                "Message not found in conversation: "
+                        + messageId
+        );
+    }
+
+    // =====================================================
+    // GET HISTORY BEFORE MESSAGE
+    // =====================================================
+
+    @Transactional(readOnly = true)
+    public List<ChatMessage> getHistoryBeforeMessage(
+            Long conversationId,
+            Long messageId) {
+
+        List<ChatMessage> messages =
+                chatMessageRepository
+                        .findByConversationIdOrderByCreatedAtAsc(
+                                conversationId
+                        );
+
+        List<ChatMessage> history =
+                new ArrayList<>();
+
+        for (
+                ChatMessage message :
+                messages
+        ) {
+
+            if (
+                    message.getId()
+                            .equals(messageId)
+            ) {
+
+                break;
+            }
+
+            history.add(
+                    message
+            );
+        }
+
+        boolean messageFound =
+                messages.stream()
+                        .anyMatch(
+                                message ->
+                                        message.getId()
+                                                .equals(
+                                                        messageId
+                                                )
+                        );
+
+        if (!messageFound) {
+
+            throw new RuntimeException(
+                    "Message not found in conversation: "
+                            + messageId
+            );
+        }
+
+        return history;
+    }
+
+    // =====================================================
+    // COMPLETE MESSAGE REGENERATION
+    // =====================================================
+    //
+    // This is the ONLY method that modifies the database
+    // after Gemini successfully returns a response.
+    //
+    // =====================================================
+
+    @Transactional
+    public RegenerationResult completeMessageRegeneration(
+            Long conversationId,
+            Long messageId,
+            String newContent,
+            String newAssistantResponse) {
+
+        if (
+                newContent == null ||
+                newContent.isBlank()
+        ) {
+
+            throw new RuntimeException(
+                    "Message content cannot be empty."
+            );
+        }
+
+        if (
+                newAssistantResponse == null ||
+                newAssistantResponse.isBlank()
+        ) {
+
+            throw new RuntimeException(
+                    "Assistant response cannot be empty."
+            );
+        }
+
+        Conversation conversation =
+                getConversationById(
+                        conversationId
+                );
+
+        List<ChatMessage> messages =
+                chatMessageRepository
+                        .findByConversationIdOrderByCreatedAtAsc(
+                                conversationId
+                        );
+
+        int targetIndex =
+                -1;
+
+        for (
+                int i = 0;
+                i < messages.size();
+                i++
+        ) {
+
+            if (
+                    messages.get(i)
+                            .getId()
+                            .equals(messageId)
+            ) {
+
+                targetIndex =
+                        i;
+
+                break;
+            }
+        }
+
+        if (
+                targetIndex == -1
+        ) {
+
+            throw new RuntimeException(
+                    "Message not found in conversation: "
+                            + messageId
+            );
+        }
+
+        ChatMessage targetMessage =
+                messages.get(
+                        targetIndex
+                );
+
+        if (
+                !"user".equalsIgnoreCase(
+                        targetMessage.getRole()
+                )
+        ) {
+
+            throw new RuntimeException(
+                    "Only user messages can be regenerated."
+            );
+        }
+
+        // -------------------------------------------------
+        // UPDATE USER MESSAGE
+        // -------------------------------------------------
+
+        targetMessage.setContent(
+                newContent.trim()
+        );
+
+        ChatMessage updatedUserMessage =
+                chatMessageRepository.save(
+                        targetMessage
+                );
+
+        // -------------------------------------------------
+        // DELETE EVERYTHING AFTER EDITED MESSAGE
+        // -------------------------------------------------
+
+        if (
+                targetIndex + 1 <
+                messages.size()
+        ) {
+
+            List<ChatMessage> messagesToDelete =
+                    new ArrayList<>(
+                            messages.subList(
+                                    targetIndex + 1,
+                                    messages.size()
+                            )
+                    );
+
+            chatMessageRepository.deleteAll(
+                    messagesToDelete
+            );
+
+            chatMessageRepository.flush();
+        }
+
+        // -------------------------------------------------
+        // CREATE NEW ASSISTANT MESSAGE
+        // -------------------------------------------------
+
+        ChatMessage assistantMessage =
+                new ChatMessage(
+                        "assistant",
+                        newAssistantResponse.trim()
+                );
+
+        assistantMessage.setConversation(
+                conversation
+        );
+
+        ChatMessage savedAssistantMessage =
+                chatMessageRepository.save(
+                        assistantMessage
+                );
+
+        // -------------------------------------------------
+        // UPDATE CONVERSATION
+        // -------------------------------------------------
+
+        conversation.setUpdatedAt(
+                LocalDateTime.now()
+        );
+
+        conversationRepository.save(
+                conversation
+        );
+
+        return new RegenerationResult(
+                updatedUserMessage,
+                savedAssistantMessage
+        );
     }
 
     // =====================================================
@@ -227,151 +542,6 @@ public class ConversationService {
     }
 
     // =====================================================
-    // PREPARE MESSAGE FOR REGENERATION
-    // =====================================================
-    //
-    // Updates the edited user message and removes all
-    // messages that came after it.
-    //
-    // Example:
-    //
-    // User: What is entropy?
-    // AI:   Entropy is...
-    // User: Give example.
-    // AI:   ...
-    //
-    // Edit "What is entropy?"
-    //
-    // Result:
-    //
-    // User: Edited question
-    //
-    // Then Gemini will generate a new AI answer.
-    //
-    // =====================================================
-
-    @Transactional
-    public ChatMessage prepareMessageRegeneration(
-            Long conversationId,
-            Long messageId,
-            String content) {
-
-        if (
-                content == null ||
-                content.isBlank()
-        ) {
-
-            throw new RuntimeException(
-                    "Message content cannot be empty."
-            );
-        }
-
-        Conversation conversation =
-                getConversationById(
-                        conversationId
-                );
-
-        List<ChatMessage> messages =
-                chatMessageRepository
-                        .findByConversationIdOrderByCreatedAtAsc(
-                                conversationId
-                        );
-
-        int targetIndex = -1;
-
-        for (
-                int i = 0;
-                i < messages.size();
-                i++
-        ) {
-
-            if (
-                    messages.get(i)
-                            .getId()
-                            .equals(messageId)
-            ) {
-
-                targetIndex = i;
-
-                break;
-            }
-        }
-
-        if (targetIndex == -1) {
-
-            throw new RuntimeException(
-                    "Message not found in conversation: "
-                            + messageId
-            );
-        }
-
-        ChatMessage targetMessage =
-                messages.get(targetIndex);
-
-        if (
-                !"user".equalsIgnoreCase(
-                        targetMessage.getRole()
-                )
-        ) {
-
-            throw new RuntimeException(
-                    "Only user messages can be regenerated."
-            );
-        }
-
-        // -------------------------------------------------
-        // UPDATE USER MESSAGE
-        // -------------------------------------------------
-
-        targetMessage.setContent(
-                content.trim()
-        );
-
-        ChatMessage updatedMessage =
-                chatMessageRepository.save(
-                        targetMessage
-                );
-
-        // -------------------------------------------------
-        // DELETE EVERYTHING AFTER EDITED MESSAGE
-        // -------------------------------------------------
-
-        if (
-                targetIndex + 1 <
-                messages.size()
-        ) {
-
-            List<ChatMessage> messagesToDelete =
-                    new ArrayList<>(
-                            messages.subList(
-                                    targetIndex + 1,
-                                    messages.size()
-                            )
-                    );
-
-            chatMessageRepository.deleteAll(
-                    messagesToDelete
-            );
-
-            chatMessageRepository.flush();
-        }
-
-        // -------------------------------------------------
-        // UPDATE CONVERSATION TIME
-        // -------------------------------------------------
-
-        conversation.setUpdatedAt(
-                LocalDateTime.now()
-        );
-
-        conversationRepository.save(
-                conversation
-        );
-
-        return updatedMessage;
-    }
-
-    // =====================================================
     // UPDATE CONVERSATION TITLE
     // =====================================================
 
@@ -423,5 +593,199 @@ public class ConversationService {
         conversationRepository.delete(
                 conversation
         );
+    }
+
+    // =====================================================
+    // GENERATE CONVERSATION TITLE
+    // =====================================================
+
+    private String generateConversationTitle(
+            String message) {
+
+        if (
+                message == null ||
+                message.isBlank()
+        ) {
+
+            return "New Conversation";
+        }
+
+        String title =
+                message
+                        .replaceAll(
+                                "\\s+",
+                                " "
+                        )
+                        .trim();
+
+        title =
+                title.replaceAll(
+                        "[?!.]+$",
+                        ""
+                ).trim();
+
+        String lowerTitle =
+                title.toLowerCase();
+
+        if (
+                lowerTitle.startsWith(
+                        "what is "
+                )
+        ) {
+
+            title =
+                    title.substring(
+                            8
+                    ).trim();
+
+        } else if (
+                lowerTitle.startsWith(
+                        "what are "
+                )
+        ) {
+
+            title =
+                    title.substring(
+                            9
+                    ).trim();
+
+        } else if (
+                lowerTitle.startsWith(
+                        "explain "
+                )
+        ) {
+
+            title =
+                    title.substring(
+                            8
+                    ).trim();
+
+        } else if (
+                lowerTitle.startsWith(
+                        "tell me about "
+                )
+        ) {
+
+            title =
+                    title.substring(
+                            14
+                    ).trim();
+
+        } else if (
+                lowerTitle.startsWith(
+                        "define "
+                )
+        ) {
+
+            title =
+                    title.substring(
+                            7
+                    ).trim();
+        }
+
+        if (
+                title.isBlank()
+        ) {
+
+            title =
+                    message
+                            .replaceAll(
+                                    "\\s+",
+                                    " "
+                            )
+                            .trim();
+        }
+
+        final int MAX_TITLE_LENGTH =
+                50;
+
+        if (
+                title.length() >
+                MAX_TITLE_LENGTH
+        ) {
+
+            title =
+                    title.substring(
+                            0,
+                            MAX_TITLE_LENGTH
+                    ).trim();
+
+            int lastSpace =
+                    title.lastIndexOf(
+                            " "
+                    );
+
+            if (
+                    lastSpace > 20
+            ) {
+
+                title =
+                        title.substring(
+                                0,
+                                lastSpace
+                        );
+            }
+
+            title =
+                    title + "...";
+        }
+
+        if (
+                !title.isBlank()
+        ) {
+
+            title =
+                    Character.toUpperCase(
+                            title.charAt(0)
+                    )
+                    +
+                    title.substring(1);
+        }
+
+        return title;
+    }
+
+    // =====================================================
+    // DEFAULT TITLE CHECK
+    // =====================================================
+
+    private boolean isDefaultConversationTitle(
+            String title) {
+
+        return title == null ||
+                title.isBlank() ||
+                title.equalsIgnoreCase(
+                        "New Conversation"
+                );
+    }
+
+    // =====================================================
+    // REGENERATION RESULT
+    // =====================================================
+
+    public static class RegenerationResult {
+
+        private final ChatMessage userMessage;
+
+        private final ChatMessage assistantMessage;
+
+        public RegenerationResult(
+                ChatMessage userMessage,
+                ChatMessage assistantMessage) {
+
+            this.userMessage =
+                    userMessage;
+
+            this.assistantMessage =
+                    assistantMessage;
+        }
+
+        public ChatMessage getUserMessage() {
+            return userMessage;
+        }
+
+        public ChatMessage getAssistantMessage() {
+            return assistantMessage;
+        }
     }
 }
