@@ -9,11 +9,15 @@ import {
     X,
     Award,
     CheckCircle,
+    Sparkles,
 } from "lucide-react";
 
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 function TeacherQuizzesPage() {
+
+    const navigate = useNavigate();
 
     // =====================================================
     // STATE
@@ -854,21 +858,41 @@ function TeacherQuizzesPage() {
 
                     </div>
 
-                    <button
-                        type="button"
-                        onClick={() =>
-                            setShowForm(
-                                !showForm
-                            )
-                        }
-                        className="flex items-center gap-2 rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-blue-700"
-                    >
+                    <div className="flex flex-wrap items-center gap-3">
 
-                        <Plus size={18} />
+                        <button
+                            type="button"
+                            onClick={() =>
+                                navigate(
+                                    "/teacher/ai-quiz-generator"
+                                )
+                            }
+                            className="flex items-center gap-2 rounded-xl border border-blue-200 bg-white px-5 py-3 text-sm font-semibold text-blue-600 transition hover:bg-blue-50"
+                        >
 
-                        Create Quiz
+                            <Sparkles size={18} />
 
-                    </button>
+                            Generate with AI
+
+                        </button>
+
+                        <button
+                            type="button"
+                            onClick={() =>
+                                setShowForm(
+                                    !showForm
+                                )
+                            }
+                            className="flex items-center gap-2 rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-blue-700"
+                        >
+
+                            <Plus size={18} />
+
+                            Create Quiz
+
+                        </button>
+
+                    </div>
 
                 </div>
 

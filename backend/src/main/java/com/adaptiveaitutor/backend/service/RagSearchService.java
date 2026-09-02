@@ -15,14 +15,13 @@ import org.springframework.stereotype.Service;
 public class RagSearchService {
 
     private static final Logger logger =
-            LoggerFactory.getLogger(
-                    RagSearchService.class
-            );
+            LoggerFactory.getLogger(RagSearchService.class);
 
     private final VectorStore vectorStore;
 
-    // Lower distance = more similar
-    private static final double MAX_DISTANCE = 0.45;
+    // =====================================================
+    // CONSTRUCTOR
+    // =====================================================
 
     public RagSearchService(
             VectorStore vectorStore) {
@@ -32,15 +31,11 @@ public class RagSearchService {
     }
 
     // =====================================================
-    // SEARCH RELEVANT COURSE MATERIAL
+    // SEARCH
     // =====================================================
 
     public List<Document> search(
             String query) {
-
-        // -------------------------------------------------
-        // VALIDATE QUERY
-        // -------------------------------------------------
 
         if (
                 query == null ||
@@ -54,7 +49,7 @@ public class RagSearchService {
                 query.trim();
 
         // -------------------------------------------------
-        // BUILD SEARCH REQUEST
+        // SEARCH PGVECTOR
         // -------------------------------------------------
 
         SearchRequest request =
@@ -64,10 +59,6 @@ public class RagSearchService {
                         .topK(5)
                         .similarityThreshold(0.0)
                         .build();
-
-        // -------------------------------------------------
-        // PERFORM VECTOR SEARCH
-        // -------------------------------------------------
 
         List<Document> documents;
 
@@ -80,24 +71,8 @@ public class RagSearchService {
 
         } catch (Exception exception) {
 
-            // -------------------------------------------------
-            // RAG / EMBEDDING FAILURE
-            // -------------------------------------------------
-            //
-            // Example:
-            //
-            // Gemini embedding API returns HTTP 429
-            // because the embedding quota was exceeded.
-            //
-            // We do NOT fail the complete AI chat request.
-            //
-            // Returning an empty list allows GeminiService
-            // to use its general-knowledge fallback.
-            // -------------------------------------------------
-
-            logger.warn(
-                    "RAG search failed for query: '{}'. "
-                    + "Continuing without course-material context.",
+            logger.error(
+                    "RAG search failed for query: {}",
                     cleanQuery,
                     exception
             );
@@ -106,7 +81,7 @@ public class RagSearchService {
         }
 
         // -------------------------------------------------
-        // HANDLE EMPTY SEARCH RESULT
+        // NO RESULTS
         // -------------------------------------------------
 
         if (
@@ -114,67 +89,86 @@ public class RagSearchService {
                 documents.isEmpty()
         ) {
 
+            logger.warn(
+                    "No documents returned from PGVector for query: {}",
+                    cleanQuery
+            );
+
             return List.of();
         }
 
         // -------------------------------------------------
-        // FILTER USING PGVECTOR DISTANCE
+        // DEBUG INFORMATION
         // -------------------------------------------------
 
-        return documents.stream()
-                .filter(
-                        document -> {
+        logger.info(
+                "PGVector returned {} documents for query: {}",
+                documents.size(),
+                cleanQuery
+        );
 
-                            if (document == null) {
-                                return false;
-                            }
+        for (
+                int i = 0;
+                i < documents.size();
+                i++
+        ) {
 
-                            Map<String, Object> metadata =
-                                    document.getMetadata();
+            Document document =
+                    documents.get(i);
 
-                            if (metadata == null) {
-                                return false;
-                            }
+            if (document == null) {
+                continue;
+            }
 
-                            Object distanceValue =
-                                    metadata.get(
-                                            "distance"
-                                    );
+            Map<String, Object> metadata =
+                    document.getMetadata();
 
-                            if (
-                                    distanceValue == null
-                            ) {
+            logger.info(
+                    "RAG Document {} metadata: {}",
+                    i + 1,
+                    metadata
+            );
+        }
 
-                                return false;
-                            }
+        // -------------------------------------------------
+        // FILTER VALID DOCUMENTS
+        // -------------------------------------------------
 
-                            try {
+        List<Document> validDocuments =
+                documents.stream()
+                        .filter(
+                                document ->
+                                        document != null
+                                                &&
+                                        document.getText() != null
+                                                &&
+                                        !document
+                                                .getText()
+                                                .isBlank()
+                        )
+                        .collect(
+                                Collectors.toList()
+                        );
 
-                                double distance =
-                                        Double.parseDouble(
-                                                distanceValue
-                                                        .toString()
-                                        );
+        // -------------------------------------------------
+        // FALLBACK
+        // -------------------------------------------------
 
-                                return distance <=
-                                        MAX_DISTANCE;
+        if (
+                validDocuments.isEmpty()
+        ) {
 
-                            } catch (
-                                    NumberFormatException exception
-                            ) {
+            logger.warn(
+                    "PGVector returned documents, but none contained usable text."
+            );
 
-                                logger.warn(
-                                        "Invalid PGVector "
-                                        + "distance value: {}",
-                                        distanceValue
-                                );
+            return List.of();
+        }
 
-                                return false;
-                            }
-                        }
-                )
-                .collect(
-                        Collectors.toList()
-                );
+        // -------------------------------------------------
+        // RETURN RESULTS
+        // -------------------------------------------------
+
+        return validDocuments;
     }
 }

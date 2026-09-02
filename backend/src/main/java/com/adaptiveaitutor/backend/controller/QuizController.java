@@ -1,7 +1,6 @@
 package com.adaptiveaitutor.backend.controller;
 
-import java.util.List;
-import java.util.stream.Collectors;
+import java.util.Map;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CrossOrigin;
@@ -15,6 +14,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.adaptiveaitutor.backend.entity.Quiz;
 import com.adaptiveaitutor.backend.entity.QuizQuestion;
+import com.adaptiveaitutor.backend.service.AIQuizGeneratorService;
 import com.adaptiveaitutor.backend.service.QuizService;
 
 @RestController
@@ -24,11 +24,17 @@ public class QuizController {
 
     private final QuizService quizService;
 
+    private final AIQuizGeneratorService aiQuizGeneratorService;
+
     public QuizController(
-            QuizService quizService) {
+            QuizService quizService,
+            AIQuizGeneratorService aiQuizGeneratorService) {
 
         this.quizService =
                 quizService;
+
+        this.aiQuizGeneratorService =
+                aiQuizGeneratorService;
     }
 
     // =====================================================
@@ -36,31 +42,35 @@ public class QuizController {
     // =====================================================
 
     @PostMapping
-    public ResponseEntity<QuizResponse> createQuiz(
+    public ResponseEntity<?> createQuiz(
             @RequestBody CreateQuizRequest request) {
 
-        Quiz quiz =
-                quizService.createQuiz(
-                        request.getTitle(),
-                        request.getDuration(),
-                        request.getSubjectId(),
-                        request.getTeacherId(),
-                        request.getDeadlineHours()
-                );
+        try {
 
-        QuizResponse response =
-                new QuizResponse(
-                        quiz.getId(),
-                        quiz.getTitle(),
-                        quiz.getDuration(),
-                        quiz.getSubject().getId(),
-                        quiz.getCreatedAt(),
-                        quiz.getDueAt()
-                );
+            Quiz quiz =
+                    quizService.createQuiz(
+                            request.getTitle(),
+                            request.getDuration(),
+                            request.getSubjectId(),
+                            request.getTeacherId(),
+                            request.getDeadlineHours()
+                    );
 
-        return ResponseEntity.ok(
-                response
-        );
+            return ResponseEntity.ok(
+                    quiz
+            );
+
+        } catch (RuntimeException exception) {
+
+            return ResponseEntity
+                    .badRequest()
+                    .body(
+                            Map.of(
+                                    "error",
+                                    exception.getMessage()
+                            )
+                    );
+        }
     }
 
     // =====================================================
@@ -68,32 +78,25 @@ public class QuizController {
     // =====================================================
 
     @GetMapping
-    public ResponseEntity<List<QuizResponse>>
-            getAllQuizzes() {
+    public ResponseEntity<?> getAllQuizzes() {
 
-        List<Quiz> quizzes =
-                quizService.getAllQuizzes();
+        try {
 
-        List<QuizResponse> response =
-                quizzes.stream()
-                        .map(
-                                quiz ->
-                                        new QuizResponse(
-                                                quiz.getId(),
-                                                quiz.getTitle(),
-                                                quiz.getDuration(),
-                                                quiz.getSubject().getId(),
-                                                quiz.getCreatedAt(),
-                                                quiz.getDueAt()
-                                        )
-                        )
-                        .collect(
-                                Collectors.toList()
-                        );
+            return ResponseEntity.ok(
+                    quizService.getAllQuizzes()
+            );
 
-        return ResponseEntity.ok(
-                response
-        );
+        } catch (RuntimeException exception) {
+
+            return ResponseEntity
+                    .badRequest()
+                    .body(
+                            Map.of(
+                                    "error",
+                                    exception.getMessage()
+                            )
+                    );
+        }
     }
 
     // =====================================================
@@ -101,29 +104,15 @@ public class QuizController {
     // =====================================================
 
     @GetMapping("/{quizId}")
-    public ResponseEntity<QuizResponse>
-            getQuiz(
-                    @PathVariable Long quizId) {
+    public ResponseEntity<?> getQuiz(
+            @PathVariable Long quizId) {
 
         try {
 
-            Quiz quiz =
+            return ResponseEntity.ok(
                     quizService.getQuiz(
                             quizId
-                    );
-
-            QuizResponse response =
-                    new QuizResponse(
-                            quiz.getId(),
-                            quiz.getTitle(),
-                            quiz.getDuration(),
-                            quiz.getSubject().getId(),
-                            quiz.getCreatedAt(),
-                            quiz.getDueAt()
-                    );
-
-            return ResponseEntity.ok(
-                    response
+                    )
             );
 
         } catch (RuntimeException exception) {
@@ -139,35 +128,28 @@ public class QuizController {
     // =====================================================
 
     @GetMapping("/teacher/{teacherId}")
-    public ResponseEntity<List<QuizResponse>>
-            getTeacherQuizzes(
-                    @PathVariable Long teacherId) {
+    public ResponseEntity<?> getTeacherQuizzes(
+            @PathVariable Long teacherId) {
 
-        List<Quiz> quizzes =
-                quizService.getTeacherQuizzes(
-                        teacherId
-                );
+        try {
 
-        List<QuizResponse> response =
-                quizzes.stream()
-                        .map(
-                                quiz ->
-                                        new QuizResponse(
-                                                quiz.getId(),
-                                                quiz.getTitle(),
-                                                quiz.getDuration(),
-                                                quiz.getSubject().getId(),
-                                                quiz.getCreatedAt(),
-                                                quiz.getDueAt()
-                                        )
-                        )
-                        .collect(
-                                Collectors.toList()
-                        );
+            return ResponseEntity.ok(
+                    quizService.getTeacherQuizzes(
+                            teacherId
+                    )
+            );
 
-        return ResponseEntity.ok(
-                response
-        );
+        } catch (RuntimeException exception) {
+
+            return ResponseEntity
+                    .badRequest()
+                    .body(
+                            Map.of(
+                                    "error",
+                                    exception.getMessage()
+                            )
+                    );
+        }
     }
 
     // =====================================================
@@ -175,35 +157,28 @@ public class QuizController {
     // =====================================================
 
     @GetMapping("/subject/{subjectId}")
-    public ResponseEntity<List<QuizResponse>>
-            getSubjectQuizzes(
-                    @PathVariable Long subjectId) {
+    public ResponseEntity<?> getSubjectQuizzes(
+            @PathVariable Long subjectId) {
 
-        List<Quiz> quizzes =
-                quizService.getSubjectQuizzes(
-                        subjectId
-                );
+        try {
 
-        List<QuizResponse> response =
-                quizzes.stream()
-                        .map(
-                                quiz ->
-                                        new QuizResponse(
-                                                quiz.getId(),
-                                                quiz.getTitle(),
-                                                quiz.getDuration(),
-                                                quiz.getSubject().getId(),
-                                                quiz.getCreatedAt(),
-                                                quiz.getDueAt()
-                                        )
-                        )
-                        .collect(
-                                Collectors.toList()
-                        );
+            return ResponseEntity.ok(
+                    quizService.getSubjectQuizzes(
+                            subjectId
+                    )
+            );
 
-        return ResponseEntity.ok(
-                response
-        );
+        } catch (RuntimeException exception) {
+
+            return ResponseEntity
+                    .badRequest()
+                    .body(
+                            Map.of(
+                                    "error",
+                                    exception.getMessage()
+                            )
+                    );
+        }
     }
 
     // =====================================================
@@ -211,73 +186,67 @@ public class QuizController {
     // =====================================================
 
     @PostMapping("/{quizId}/questions")
-    public ResponseEntity<QuizQuestionResponse>
-            addQuestion(
-                    @PathVariable Long quizId,
-                    @RequestBody AddQuestionRequest request) {
+    public ResponseEntity<?> addQuestion(
+            @PathVariable Long quizId,
+            @RequestBody AddQuestionRequest request) {
 
-        QuizQuestion question =
-                quizService.addQuestion(
-                        quizId,
-                        request.getQuestion(),
-                        request.getOption1(),
-                        request.getOption2(),
-                        request.getOption3(),
-                        request.getOption4(),
-                        request.getCorrectAnswer()
-                );
+        try {
 
-        QuizQuestionResponse response =
-                new QuizQuestionResponse(
-                        question.getId(),
-                        question.getQuestion(),
-                        question.getOption1(),
-                        question.getOption2(),
-                        question.getOption3(),
-                        question.getOption4(),
-                        question.getCorrectAnswer()
-                );
+            QuizQuestion question =
+                    quizService.addQuestion(
+                            quizId,
+                            request.getQuestion(),
+                            request.getOption1(),
+                            request.getOption2(),
+                            request.getOption3(),
+                            request.getOption4(),
+                            request.getCorrectAnswer()
+                    );
 
-        return ResponseEntity.ok(
-                response
-        );
+            return ResponseEntity.ok(
+                    question
+            );
+
+        } catch (RuntimeException exception) {
+
+            return ResponseEntity
+                    .badRequest()
+                    .body(
+                            Map.of(
+                                    "error",
+                                    exception.getMessage()
+                            )
+                    );
+        }
     }
 
     // =====================================================
-    // GET QUESTIONS FOR QUIZ
+    // GET QUESTIONS
     // =====================================================
 
     @GetMapping("/{quizId}/questions")
-    public ResponseEntity<List<QuizQuestionResponse>>
-            getQuestions(
-                    @PathVariable Long quizId) {
+    public ResponseEntity<?> getQuestions(
+            @PathVariable Long quizId) {
 
-        List<QuizQuestion> questions =
-                quizService.getQuestions(
-                        quizId
-                );
+        try {
 
-        List<QuizQuestionResponse> response =
-                questions.stream()
-                        .map(
-                                question ->
-                                        new QuizQuestionResponse(
-                                                question.getId(),
-                                                question.getQuestion(),
-                                                question.getOption1(),
-                                                question.getOption2(),
-                                                question.getOption3(),
-                                                question.getOption4(),
-                                                question.getCorrectAnswer()
-                                        )
-                        )
-                        .collect(
-                                Collectors.toList()
-                        );
+            return ResponseEntity.ok(
+                    quizService.getQuestions(
+                            quizId
+                    )
+            );
 
-        return ResponseEntity.ok(
-                response
-        );
+        } catch (RuntimeException exception) {
+
+            return ResponseEntity
+                    .badRequest()
+                    .body(
+                            Map.of(
+                                    "error",
+                                    exception.getMessage()
+                            )
+                    );
+        }
     }
 
     // =====================================================
@@ -302,16 +271,59 @@ public class QuizController {
                         .build();
             }
 
-            return ResponseEntity
-                    .noContent()
-                    .build();
+            return ResponseEntity.ok(
+                    Map.of(
+                            "message",
+                            "Quiz deleted successfully."
+                    )
+            );
 
         } catch (RuntimeException exception) {
 
             return ResponseEntity
                     .badRequest()
                     .body(
-                            exception.getMessage()
+                            Map.of(
+                                    "error",
+                                    exception.getMessage()
+                            )
+                    );
+        }
+    }
+
+    // =====================================================
+    // AI QUIZ GENERATION
+    // =====================================================
+
+    @PostMapping("/ai/generate")
+    public ResponseEntity<?> generateAIQuiz(
+            @RequestBody AIQuizGenerationRequest request) {
+
+        try {
+
+            AIQuizGeneratorService.QuizGenerationResult result =
+                    aiQuizGeneratorService.generateQuiz(
+                            request.getTopicId(),
+                            request.getQuestionCount(),
+                            request.getDuration(),
+                            request.getSubjectId(),
+                            request.getTeacherId(),
+                            request.getDeadlineHours()
+                    );
+
+            return ResponseEntity.ok(
+                    result
+            );
+
+        } catch (RuntimeException exception) {
+
+            return ResponseEntity
+                    .badRequest()
+                    .body(
+                            Map.of(
+                                    "error",
+                                    exception.getMessage()
+                            )
                     );
         }
     }
@@ -480,128 +492,90 @@ public class QuizController {
     }
 
     // =====================================================
-    // QUIZ RESPONSE
+    // AI QUIZ GENERATION REQUEST
     // =====================================================
 
-    public static class QuizResponse {
+    public static class AIQuizGenerationRequest {
 
-        private Long id;
+        private Long topicId;
 
-        private String title;
+        private Integer questionCount;
 
         private Integer duration;
 
         private Long subjectId;
 
-        private java.time.LocalDateTime createdAt;
+        private Long teacherId;
 
-        private java.time.LocalDateTime dueAt;
+        private Integer deadlineHours;
 
-        public QuizResponse(
-                Long id,
-                String title,
-                Integer duration,
-                Long subjectId,
-                java.time.LocalDateTime createdAt,
-                java.time.LocalDateTime dueAt) {
-
-            this.id = id;
-            this.title = title;
-            this.duration = duration;
-            this.subjectId = subjectId;
-            this.createdAt = createdAt;
-            this.dueAt = dueAt;
+        public AIQuizGenerationRequest() {
         }
 
-        public Long getId() {
-            return id;
+        public Long getTopicId() {
+            return topicId;
         }
 
-        public String getTitle() {
-            return title;
+        public void setTopicId(
+                Long topicId) {
+
+            this.topicId =
+                    topicId;
+        }
+
+        public Integer getQuestionCount() {
+            return questionCount;
+        }
+
+        public void setQuestionCount(
+                Integer questionCount) {
+
+            this.questionCount =
+                    questionCount;
         }
 
         public Integer getDuration() {
             return duration;
         }
 
+        public void setDuration(
+                Integer duration) {
+
+            this.duration =
+                    duration;
+        }
+
         public Long getSubjectId() {
             return subjectId;
         }
 
-        public java.time.LocalDateTime getCreatedAt() {
-            return createdAt;
+        public void setSubjectId(
+                Long subjectId) {
+
+            this.subjectId =
+                    subjectId;
         }
 
-        public java.time.LocalDateTime getDueAt() {
-            return dueAt;
-        }
-    }
-
-    // =====================================================
-    // QUESTION RESPONSE
-    // =====================================================
-
-    public static class QuizQuestionResponse {
-
-        private Long id;
-
-        private String question;
-
-        private String option1;
-
-        private String option2;
-
-        private String option3;
-
-        private String option4;
-
-        private Integer correctAnswer;
-
-        public QuizQuestionResponse(
-                Long id,
-                String question,
-                String option1,
-                String option2,
-                String option3,
-                String option4,
-                Integer correctAnswer) {
-
-            this.id = id;
-            this.question = question;
-            this.option1 = option1;
-            this.option2 = option2;
-            this.option3 = option3;
-            this.option4 = option4;
-            this.correctAnswer = correctAnswer;
+        public Long getTeacherId() {
+            return teacherId;
         }
 
-        public Long getId() {
-            return id;
+        public void setTeacherId(
+                Long teacherId) {
+
+            this.teacherId =
+                    teacherId;
         }
 
-        public String getQuestion() {
-            return question;
+        public Integer getDeadlineHours() {
+            return deadlineHours;
         }
 
-        public String getOption1() {
-            return option1;
-        }
+        public void setDeadlineHours(
+                Integer deadlineHours) {
 
-        public String getOption2() {
-            return option2;
-        }
-
-        public String getOption3() {
-            return option3;
-        }
-
-        public String getOption4() {
-            return option4;
-        }
-
-        public Integer getCorrectAnswer() {
-            return correctAnswer;
+            this.deadlineHours =
+                    deadlineHours;
         }
     }
 }

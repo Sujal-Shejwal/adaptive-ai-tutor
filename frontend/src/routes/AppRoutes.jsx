@@ -10,6 +10,8 @@ import {
 // =====================================================
 
 import TeacherLayout from "../components/teacher/TeacherLayout";
+import TeacherAIQuizGeneratorPage
+    from "../pages/teacher/TeacherAIQuizGeneratorPage";
 
 import TeacherDashboardPage
   from "../pages/teacher/TeacherDashboardPage";
@@ -63,6 +65,9 @@ import AIChatPage
 
 import QuizPage
   from "../pages/student/QuizPage";
+
+import StudentQuizzesPage
+  from "../pages/student/StudentQuizzesPage";
 
 import ProgressPage
   from "../pages/student/ProgressPage";
@@ -218,6 +223,7 @@ function AppRoutes() {
         />
 
 
+
         {/* =====================================================
             LOGIN
         ===================================================== */}
@@ -302,6 +308,18 @@ function AppRoutes() {
             path="/teacher/quizzes"
             element={
               <TeacherQuizzesPage />
+            }
+          />
+
+
+          {/* =====================================================
+              TEACHER AI QUIZ GENERATOR
+          ===================================================== */}
+
+          <Route
+            path="/teacher/ai-quiz-generator"
+            element={
+              <TeacherAIQuizGeneratorPage />
             }
           />
 
@@ -525,13 +543,54 @@ function AppRoutes() {
 
 
         {/* =====================================================
+            STUDENT QUIZ LIST
+        ===================================================== */}
+
+        <Route
+          path="/student/quizzes"
+          element={
+
+            <ProtectedRoute
+              allowedRole="student"
+            >
+
+              <DashboardLayout>
+
+                <StudentQuizzesPage />
+
+              </DashboardLayout>
+
+            </ProtectedRoute>
+
+          }
+        />
+
+
+        {/* =====================================================
+            OLD SIDEBAR QUIZ LINK
+        =====================================================
+        The old sidebar route points to DBMS.
+        Redirect that route to the dynamic quiz list.
+        ===================================================== */}
+
+        <Route
+          path="/student/quiz/dbms"
+          element={
+            <Navigate
+              to="/student/quizzes"
+              replace
+            />
+          }
+        />
+
+
+        {/* =====================================================
             STUDENT QUIZ
         ===================================================== */}
 
         <Route
           path="/student/quiz/:subjectId"
           element={
-
             <ProtectedRoute
               allowedRole="student"
             >
