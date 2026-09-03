@@ -27,6 +27,9 @@ public class AIQuizGeneratorService {
 
     private final NoteRepository noteRepository;
 
+    private final PerformanceAnalysisService
+            performanceAnalysisService;
+
     private final ObjectMapper objectMapper =
             new ObjectMapper();
 
@@ -37,7 +40,8 @@ public class AIQuizGeneratorService {
     public AIQuizGeneratorService(
             ChatClient.Builder chatClientBuilder,
             QuizService quizService,
-            NoteRepository noteRepository) {
+            NoteRepository noteRepository,
+            PerformanceAnalysisService performanceAnalysisService) {
 
         this.chatClient =
                 chatClientBuilder.build();
@@ -47,10 +51,19 @@ public class AIQuizGeneratorService {
 
         this.noteRepository =
                 noteRepository;
+
+        this.performanceAnalysisService =
+                performanceAnalysisService;
     }
 
     // =====================================================
-    // GENERATE AI QUIZ
+    // EXISTING GENERATE QUIZ METHOD
+    // =====================================================
+    // Normal teacher-created AI quiz.
+    //
+    // studentId = null
+    // -> MEDIUM difficulty
+    // -> normal quiz
     // =====================================================
 
     @Transactional
@@ -61,6 +74,31 @@ public class AIQuizGeneratorService {
             Long subjectId,
             Long teacherId,
             Integer deadlineHours) {
+
+        return generateQuiz(
+                topicId,
+                questionCount,
+                duration,
+                subjectId,
+                teacherId,
+                deadlineHours,
+                null
+        );
+    }
+
+    // =====================================================
+    // ADAPTIVE GENERATE QUIZ METHOD
+    // =====================================================
+
+    @Transactional
+    public QuizGenerationResult generateQuiz(
+            Long topicId,
+            Integer questionCount,
+            Integer duration,
+            Long subjectId,
+            Long teacherId,
+            Integer deadlineHours,
+            Long studentId) {
 
         // -------------------------------------------------
         // VALIDATE TOPIC
@@ -143,6 +181,43 @@ public class AIQuizGeneratorService {
         }
 
         // -------------------------------------------------
+        // DETERMINE DIFFICULTY
+        // -------------------------------------------------
+
+        String difficulty =
+                determineDifficulty(
+                        studentId,
+                        topicId
+                );
+
+        System.out.println(
+                "=========================================="
+        );
+
+        System.out.println(
+                "AI QUIZ DIFFICULTY"
+        );
+
+        System.out.println(
+                "Student ID: "
+                        + studentId
+        );
+
+        System.out.println(
+                "Topic ID: "
+                        + topicId
+        );
+
+        System.out.println(
+                "Selected difficulty: "
+                        + difficulty
+        );
+
+        System.out.println(
+                "=========================================="
+        );
+
+        // -------------------------------------------------
         // GET NOTES FOR EXACT TOPIC
         // -------------------------------------------------
 
@@ -219,6 +294,38 @@ public class AIQuizGeneratorService {
                 %s
 
                 ============================================
+                ADAPTIVE DIFFICULTY
+                ============================================
+
+                Target difficulty: %s
+
+                Generate questions appropriate for this
+                difficulty level.
+
+                EASY:
+                - Focus on fundamental concepts.
+                - Test basic understanding and recognition.
+                - Use clear and direct wording.
+                - Prefer simple examples.
+                - Avoid unnecessary complexity.
+
+                MEDIUM:
+                - Test understanding and application.
+                - Include moderate reasoning.
+                - Use practical examples.
+                - Require the student to apply concepts.
+
+                HARD:
+                - Test deeper understanding.
+                - Require multi-step reasoning.
+                - Use challenging applications and scenarios.
+                - Distinguish strong understanding from memorization.
+
+                IMPORTANT:
+                The selected difficulty must affect the actual
+                question complexity, not just the wording.
+
+                ============================================
                 REQUIREMENTS
                 ============================================
 
@@ -228,12 +335,13 @@ public class AIQuizGeneratorService {
 
                 1. Be based only on the provided material.
                 2. Be relevant to the selected topic.
-                3. Have exactly four options.
-                4. Have exactly one correct answer.
-                5. Have a clear explanation.
-                6. Avoid duplicate questions.
-                7. Avoid ambiguous questions.
-                8. Never invent information.
+                3. Match the requested difficulty.
+                4. Have exactly four options.
+                5. Have exactly one correct answer.
+                6. Have a clear explanation.
+                7. Avoid duplicate questions.
+                8. Avoid ambiguous questions.
+                9. Never invent information.
 
                 Correct answer mapping:
 
@@ -275,6 +383,7 @@ public class AIQuizGeneratorService {
                 """
                 .formatted(
                         courseMaterial,
+                        difficulty,
                         questionCount,
                         questionCount
                 );
@@ -427,7 +536,7 @@ public class AIQuizGeneratorService {
         }
 
         // -------------------------------------------------
-        // CREATE QUIZ
+        // CREATE TOPIC-BASED QUIZ
         // -------------------------------------------------
 
         Quiz quiz =
@@ -437,9 +546,56 @@ public class AIQuizGeneratorService {
                                 .trim(),
                         duration,
                         subjectId,
+                        topicId,
                         teacherId,
                         deadlineHours
                 );
+
+        // =================================================
+        // MARK ADAPTIVE QUIZ
+        // =================================================
+        //
+        // This is the important Step 29 addition.
+        //
+        // Normal teacher AI quiz:
+        // studentId == null
+        // -> adaptive = false
+        // -> difficulty = null
+        //
+        // Student adaptive quiz:
+        // studentId != null
+        // -> adaptive = true
+        // -> difficulty = EASY/MEDIUM/HARD
+        // =================================================
+
+        if (studentId != null) {
+
+            quiz.setAdaptive(
+                    true
+            );
+
+            quiz.setDifficulty(
+                    difficulty
+            );
+
+            // Keep adaptive quiz titles tied to the selected topic.
+            // Gemini's title can otherwise reference an unrelated
+            // concept even when the topic ID is correct.
+            if (
+                    quiz.getTopic() != null &&
+                    quiz.getTopic().getTitle() != null &&
+                    !quiz.getTopic().getTitle().isBlank()
+            ) {
+                quiz.setTitle(
+                        quiz.getTopic().getTitle().trim()
+                                + " Adaptive Practice Quiz"
+                );
+            } else {
+                quiz.setTitle(
+                        "Adaptive Practice Quiz"
+                );
+            }
+        }
 
         // -------------------------------------------------
         // SAVE QUESTIONS
@@ -480,6 +636,183 @@ public class AIQuizGeneratorService {
     }
 
     // =====================================================
+    // DETERMINE DIFFICULTY
+    // =====================================================
+
+    private String determineDifficulty(
+            Long studentId,
+            Long topicId) {
+
+        // -------------------------------------------------
+        // NO STUDENT = NORMAL TEACHER QUIZ
+        // -------------------------------------------------
+
+        if (studentId == null) {
+
+            return "MEDIUM";
+        }
+
+        try {
+
+            PerformanceAnalysisService
+                    .PerformanceAnalysis analysis =
+                    performanceAnalysisService
+                            .analyzeStudentPerformance(
+                                    studentId
+                            );
+
+            // -------------------------------------------------
+            // FIRST: CHECK WEAK TOPICS
+            // -------------------------------------------------
+
+            if (
+                    analysis.getWeakTopics() != null
+            ) {
+
+                for (
+                        PerformanceAnalysisService.TopicPerformance topic :
+                        analysis.getWeakTopics()
+                ) {
+
+                    if (
+                            topic.getTopicId() != null &&
+                            topic.getTopicId()
+                                    .equals(
+                                            topicId
+                                    )
+                    ) {
+
+                        return difficultyFromScore(
+                                topic.getAverageScore()
+                        );
+                    }
+                }
+            }
+
+            // -------------------------------------------------
+            // SECOND: CHECK STRONG TOPICS
+            // -------------------------------------------------
+
+            if (
+                    analysis.getStrongTopics() != null
+            ) {
+
+                for (
+                        PerformanceAnalysisService.TopicPerformance topic :
+                        analysis.getStrongTopics()
+                ) {
+
+                    if (
+                            topic.getTopicId() != null &&
+                            topic.getTopicId()
+                                    .equals(
+                                            topicId
+                                    )
+                    ) {
+
+                        return difficultyFromScore(
+                                topic.getAverageScore()
+                        );
+                    }
+                }
+            }
+
+            // -------------------------------------------------
+            // THIRD: CALCULATE TOPIC AVERAGE DIRECTLY
+            // -------------------------------------------------
+
+            if (
+                    analysis.getQuizPerformance() != null &&
+                    !analysis.getQuizPerformance().isEmpty()
+            ) {
+
+                double totalScore =
+                        0.0;
+
+                int count =
+                        0;
+
+                for (
+                        PerformanceAnalysisService.QuizPerformance quiz :
+                        analysis.getQuizPerformance()
+                ) {
+
+                    if (
+                            quiz.getTopicId() != null &&
+                            quiz.getTopicId()
+                                    .equals(
+                                            topicId
+                                    ) &&
+                            quiz.getScore() != null
+                    ) {
+
+                        totalScore +=
+                                quiz.getScore();
+
+                        count++;
+                    }
+                }
+
+                if (
+                        count > 0
+                ) {
+
+                    double topicAverage =
+                            totalScore
+                                    / count;
+
+                    return difficultyFromScore(
+                            topicAverage
+                    );
+                }
+            }
+
+            // -------------------------------------------------
+            // FINAL FALLBACK:
+            // OVERALL PERFORMANCE
+            // -------------------------------------------------
+
+            return difficultyFromScore(
+                    analysis.getAverageScore()
+            );
+
+        } catch (Exception exception) {
+
+            // If adaptive analysis fails,
+            // don't break quiz generation.
+
+            exception.printStackTrace();
+
+            return "MEDIUM";
+        }
+    }
+
+    // =====================================================
+    // SCORE → DIFFICULTY
+    // =====================================================
+
+    private String difficultyFromScore(
+            double score) {
+
+        if (
+                score < 60
+        ) {
+
+            return "EASY";
+
+        } else if (
+                score < 80
+        ) {
+
+            return "MEDIUM";
+
+        } else {
+
+            return "HARD";
+        }
+    }
+
+    // =====================================================
     // EXTRACT COURSE MATERIAL
     // =====================================================
 
@@ -516,9 +849,13 @@ public class AIQuizGeneratorService {
                             .trim();
 
             File pdfFile =
-                    new File(filePath);
+                    new File(
+                            filePath
+                    );
 
-            if (!pdfFile.exists()) {
+            if (
+                    !pdfFile.exists()
+            ) {
 
                 System.out.println(
                         "PDF file not found: "
@@ -749,9 +1086,8 @@ public class AIQuizGeneratorService {
                                     7
                             )
                             .trim();
-        }
 
-        else if (
+        } else if (
                 cleaned.startsWith(
                         "```"
                 )

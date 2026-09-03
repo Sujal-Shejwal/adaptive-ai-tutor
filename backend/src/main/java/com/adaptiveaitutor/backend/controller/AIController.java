@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.adaptiveaitutor.backend.entity.ChatMessage;
+import com.adaptiveaitutor.backend.service.AdaptiveTutorService;
 import com.adaptiveaitutor.backend.service.ConversationService;
 import com.adaptiveaitutor.backend.service.GeminiService;
 
@@ -22,7 +23,10 @@ import com.adaptiveaitutor.backend.service.GeminiService;
 public class AIController {
 
     private final GeminiService geminiService;
+
     private final ConversationService conversationService;
+
+    private final AdaptiveTutorService adaptiveTutorService;
 
     // =====================================================
     // HISTORY LIMITS
@@ -38,13 +42,17 @@ public class AIController {
 
     public AIController(
             GeminiService geminiService,
-            ConversationService conversationService) {
+            ConversationService conversationService,
+            AdaptiveTutorService adaptiveTutorService) {
 
         this.geminiService =
                 geminiService;
 
         this.conversationService =
                 conversationService;
+
+        this.adaptiveTutorService =
+                adaptiveTutorService;
     }
 
     // =====================================================
@@ -57,9 +65,9 @@ public class AIController {
 
         try {
 
-            // ---------------------------------------------
+            // =================================================
             // VALIDATE REQUEST
-            // ---------------------------------------------
+            // =================================================
 
             if (request == null) {
 
@@ -101,9 +109,9 @@ public class AIController {
                         );
             }
 
-            // ---------------------------------------------
+            // =================================================
             // VERIFY CONVERSATION
-            // ---------------------------------------------
+            // =================================================
 
             conversationService
                     .getConversationById(
@@ -115,9 +123,9 @@ public class AIController {
                             .getMessage()
                             .trim();
 
-            // ---------------------------------------------
+            // =================================================
             // LOAD CONVERSATION HISTORY
-            // ---------------------------------------------
+            // =================================================
 
             List<ChatMessage> allMessages =
                     conversationService
@@ -130,19 +138,78 @@ public class AIController {
                             allMessages
                     );
 
-            // ---------------------------------------------
+            // =================================================
+            // BUILD ADAPTIVE PROFILE
+            // =================================================
+            //
+            // When studentId is supplied:
+            //
+            // Student performance
+            //        ↓
+            // Weak / strong topics
+            //        ↓
+            // Learning level
+            //        ↓
+            // Recommended difficulty
+            //        ↓
+            // Adaptive Tutor Context
+            //        ↓
+            // Gemini
+            //
+            // Existing non-student/API usage remains
+            // unchanged because studentId is optional.
+            // =================================================
+
+            String adaptiveContext =
+                    null;
+
+            if (
+                    request.getStudentId() != null
+            ) {
+
+                adaptiveContext =
+                        adaptiveTutorService
+                                .buildAdaptiveContext(
+                                        request.getStudentId()
+                                );
+            }
+
+            // =================================================
             // GENERATE AI RESPONSE FIRST
-            // ---------------------------------------------
+            // =================================================
 
             String reply;
 
             try {
 
-                reply =
-                        geminiService.chat(
-                                userMessage,
-                                recentMessages
-                        );
+                if (
+                        adaptiveContext != null &&
+                        !adaptiveContext.isBlank()
+                ) {
+
+                    // -------------------------------------------------
+                    // ADAPTIVE CHAT
+                    // -------------------------------------------------
+
+                    reply =
+                            geminiService.chat(
+                                    userMessage,
+                                    recentMessages,
+                                    adaptiveContext
+                            );
+
+                } else {
+
+                    // -------------------------------------------------
+                    // NORMAL CHAT
+                    // -------------------------------------------------
+
+                    reply =
+                            geminiService.chat(
+                                    userMessage,
+                                    recentMessages
+                            );
+                }
 
             } catch (Exception exception) {
 
@@ -153,14 +220,14 @@ public class AIController {
                         .body(
                                 new MessageResponse(
                                         "AI service is temporarily unavailable. "
-                                        + "Please try again."
+                                                + "Please try again."
                                 )
                         );
             }
 
-            // ---------------------------------------------
+            // =================================================
             // VALIDATE AI RESPONSE
-            // ---------------------------------------------
+            // =================================================
 
             if (
                     reply == null ||
@@ -176,9 +243,9 @@ public class AIController {
                         );
             }
 
-            // ---------------------------------------------
+            // =================================================
             // SAVE USER MESSAGE
-            // ---------------------------------------------
+            // =================================================
 
             ChatMessage savedUserMessage =
                     conversationService.addMessage(
@@ -187,9 +254,9 @@ public class AIController {
                             userMessage
                     );
 
-            // ---------------------------------------------
+            // =================================================
             // SAVE ASSISTANT MESSAGE
-            // ---------------------------------------------
+            // =================================================
 
             ChatMessage savedAssistantMessage;
 
@@ -211,14 +278,14 @@ public class AIController {
                         .body(
                                 new MessageResponse(
                                         "AI responded, but the response "
-                                        + "could not be saved."
+                                                + "could not be saved."
                                 )
                         );
             }
 
-            // ---------------------------------------------
+            // =================================================
             // RETURN RESPONSE
-            // ---------------------------------------------
+            // =================================================
 
             return ResponseEntity.ok(
                     new ChatResponse(
@@ -258,9 +325,9 @@ public class AIController {
 
         try {
 
-            // ---------------------------------------------
+            // =================================================
             // VALIDATE REQUEST
-            // ---------------------------------------------
+            // =================================================
 
             if (
                     request == null ||
@@ -282,9 +349,9 @@ public class AIController {
                             .getContent()
                             .trim();
 
-            // ---------------------------------------------
+            // =================================================
             // VERIFY TARGET MESSAGE
-            // ---------------------------------------------
+            // =================================================
 
             ChatMessage targetMessage =
                     conversationService
@@ -293,9 +360,9 @@ public class AIController {
                                     messageId
                             );
 
-            // ---------------------------------------------
+            // =================================================
             // LOAD HISTORY BEFORE EDITED MESSAGE
-            // ---------------------------------------------
+            // =================================================
 
             List<ChatMessage> history =
                     conversationService
@@ -304,28 +371,73 @@ public class AIController {
                                     messageId
                             );
 
-            // ---------------------------------------------
+            // =================================================
             // APPLY HISTORY LIMITS
-            // ---------------------------------------------
+            // =================================================
 
             history =
                     getRecentMessages(
                             history
                     );
 
-            // ---------------------------------------------
+            // =================================================
+            // BUILD ADAPTIVE PROFILE
+            // =================================================
+            //
+            // Regeneration can now also use the student's
+            // adaptive profile when studentId is provided.
+            // =================================================
+
+            String adaptiveContext =
+                    null;
+
+            if (
+                    request.getStudentId() != null
+            ) {
+
+                adaptiveContext =
+                        adaptiveTutorService
+                                .buildAdaptiveContext(
+                                        request.getStudentId()
+                                );
+            }
+
+            // =================================================
             // GENERATE NEW AI RESPONSE
-            // ---------------------------------------------
+            // =================================================
 
             String reply;
 
             try {
 
-                reply =
-                        geminiService.chat(
-                                editedContent,
-                                history
-                        );
+                if (
+                        adaptiveContext != null &&
+                        !adaptiveContext.isBlank()
+                ) {
+
+                    // -------------------------------------------------
+                    // ADAPTIVE REGENERATION
+                    // -------------------------------------------------
+
+                    reply =
+                            geminiService.chat(
+                                    editedContent,
+                                    history,
+                                    adaptiveContext
+                            );
+
+                } else {
+
+                    // -------------------------------------------------
+                    // NORMAL REGENERATION
+                    // -------------------------------------------------
+
+                    reply =
+                            geminiService.chat(
+                                    editedContent,
+                                    history
+                            );
+                }
 
             } catch (Exception exception) {
 
@@ -336,14 +448,14 @@ public class AIController {
                         .body(
                                 new MessageResponse(
                                         "AI service is temporarily unavailable. "
-                                        + "Your original conversation was not changed."
+                                                + "Your original conversation was not changed."
                                 )
                         );
             }
 
-            // ---------------------------------------------
+            // =================================================
             // VALIDATE AI RESPONSE
-            // ---------------------------------------------
+            // =================================================
 
             if (
                     reply == null ||
@@ -355,14 +467,14 @@ public class AIController {
                         .body(
                                 new MessageResponse(
                                         "AI returned an empty response. "
-                                        + "Your original conversation was not changed."
+                                                + "Your original conversation was not changed."
                                 )
                         );
             }
 
-            // ---------------------------------------------
+            // =================================================
             // APPLY DATABASE CHANGES ONLY AFTER AI SUCCESS
-            // ---------------------------------------------
+            // =================================================
 
             ConversationService.RegenerationResult result =
                     conversationService
@@ -373,9 +485,9 @@ public class AIController {
                                     reply
                             );
 
-            // ---------------------------------------------
+            // =================================================
             // RETURN RESPONSE
-            // ---------------------------------------------
+            // =================================================
 
             return ResponseEntity.ok(
                     new RegenerateResponse(
@@ -403,16 +515,6 @@ public class AIController {
     // =====================================================
     // GET RECENT MESSAGES
     // =====================================================
-    //
-    // Applies TWO limits:
-    //
-    // 1. Maximum number of messages
-    // 2. Maximum total characters
-    //
-    // Messages are selected from newest to oldest so the
-    // most recent context is preserved.
-    //
-    // =====================================================
 
     private List<ChatMessage> getRecentMessages(
             List<ChatMessage> messages) {
@@ -430,9 +532,9 @@ public class AIController {
 
         int totalCharacters = 0;
 
-        // ---------------------------------------------
+        // =================================================
         // START FROM MOST RECENT MESSAGE
-        // ---------------------------------------------
+        // =================================================
 
         for (
                 int i = messages.size() - 1;
@@ -456,9 +558,9 @@ public class AIController {
                     message.getContent()
                             .length();
 
-            // -----------------------------------------
+            // =================================================
             // MESSAGE COUNT LIMIT
-            // -----------------------------------------
+            // =================================================
 
             if (
                     selectedMessages.size()
@@ -468,9 +570,9 @@ public class AIController {
                 break;
             }
 
-            // -----------------------------------------
+            // =================================================
             // CHARACTER LIMIT
-            // -----------------------------------------
+            // =================================================
 
             if (
                     totalCharacters
@@ -479,18 +581,18 @@ public class AIController {
                     MAX_HISTORY_CHARACTERS
             ) {
 
-                // -------------------------------------
-                // IF NOTHING HAS BEEN SELECTED YET,
-                // KEEP A TRUNCATED VERSION OF THE
-                // MOST RECENT MESSAGE.
-                // -------------------------------------
+                // -------------------------------------------------
+                // IF NOTHING SELECTED YET,
+                // KEEP A TRUNCATED VERSION
+                // -------------------------------------------------
 
                 if (
                         selectedMessages.isEmpty()
                 ) {
 
                     String truncatedContent =
-                            message.getContent()
+                            message
+                                    .getContent()
                                     .substring(
                                             0,
                                             Math.min(
@@ -521,24 +623,17 @@ public class AIController {
                     messageCharacters;
         }
 
-        // ---------------------------------------------
-        // REVERSE BACK TO OLD → NEW ORDER
-        // ---------------------------------------------
+        // =================================================
+        // REVERSE TO OLD → NEW ORDER
+        // =================================================
 
         java.util.Collections.reverse(
                 selectedMessages
         );
 
-        // ---------------------------------------------
+        // =================================================
         // HISTORY DIAGNOSTICS
-        // ---------------------------------------------
-        //
-        // Temporary diagnostic output for Day 27.
-        //
-        // This lets us verify exactly how much history
-        // is being passed to Gemini.
-        //
-        // ---------------------------------------------
+        // =================================================
 
         int finalCharacterCount =
                 selectedMessages.stream()
@@ -596,6 +691,10 @@ public class AIController {
 
         private String message;
 
+        // Optional.
+        // When supplied, Adaptive AI is enabled.
+        private Long studentId;
+
         public ChatRequest() {
         }
 
@@ -620,6 +719,17 @@ public class AIController {
             this.message =
                     message;
         }
+
+        public Long getStudentId() {
+            return studentId;
+        }
+
+        public void setStudentId(
+                Long studentId) {
+
+            this.studentId =
+                    studentId;
+        }
     }
 
     // =====================================================
@@ -629,6 +739,11 @@ public class AIController {
     public static class UpdateMessageRequest {
 
         private String content;
+
+        // Optional.
+        // Allows regeneration to use the same adaptive
+        // student profile as normal chat.
+        private Long studentId;
 
         public UpdateMessageRequest() {
         }
@@ -642,6 +757,17 @@ public class AIController {
 
             this.content =
                     content;
+        }
+
+        public Long getStudentId() {
+            return studentId;
+        }
+
+        public void setStudentId(
+                Long studentId) {
+
+            this.studentId =
+                    studentId;
         }
     }
 

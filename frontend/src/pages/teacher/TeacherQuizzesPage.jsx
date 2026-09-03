@@ -1513,17 +1513,76 @@ function TeacherQuizzesPage() {
 
                                                     <div className="min-w-0 flex-1">
 
-                                                        <h3 className="font-semibold text-slate-900">
-                                                            {
-                                                                quiz.title
-                                                            }
-                                                        </h3>
+                                                        <div className="flex flex-wrap items-center gap-2">
+
+                                                            <h3 className="font-semibold text-slate-900">
+                                                                {quiz.title}
+                                                            </h3>
+
+                                                            {quiz.adaptive === true && (
+                                                                <span className="inline-flex items-center gap-1 rounded-lg bg-purple-50 px-2.5 py-1 text-[11px] font-semibold text-purple-700">
+                                                                    <Sparkles size={12} />
+                                                                    ADAPTIVE
+                                                                </span>
+                                                            )}
+
+                                                            {quiz.adaptive === true &&
+                                                                quiz.difficulty && (
+                                                                    <span
+                                                                        className={`rounded-lg px-2.5 py-1 text-[11px] font-semibold ${
+                                                                            String(
+                                                                                quiz.difficulty
+                                                                            ).toUpperCase() ===
+                                                                            "EASY"
+                                                                                ? "bg-green-50 text-green-700"
+                                                                                : String(
+                                                                                      quiz.difficulty
+                                                                                  ).toUpperCase() ===
+                                                                                  "HARD"
+                                                                                ? "bg-red-50 text-red-700"
+                                                                                : "bg-yellow-50 text-yellow-700"
+                                                                        }`}
+                                                                    >
+                                                                        {String(
+                                                                            quiz.difficulty
+                                                                        ).toUpperCase()}
+                                                                    </span>
+                                                                )}
+
+                                                        </div>
 
                                                         <p className="mt-1 text-sm text-slate-500">
                                                             {getSubjectName(
                                                                 quiz.subjectId
                                                             )}
                                                         </p>
+
+                                                        {quiz.adaptive === true && (
+                                                            <div className="mt-4 flex items-center gap-2 rounded-xl border border-purple-100 bg-purple-50 px-4 py-3">
+                                                                <Sparkles
+                                                                    size={16}
+                                                                    className="shrink-0 text-purple-600"
+                                                                />
+
+                                                                <p className="text-xs text-purple-700">
+                                                                    This quiz was personalized
+                                                                    using student performance.
+
+                                                                    {quiz.difficulty && (
+                                                                        <>
+                                                                            {" "}
+                                                                            Target difficulty:
+                                                                            <span className="ml-1 font-semibold">
+                                                                                {String(
+                                                                                    quiz.difficulty
+                                                                                ).toUpperCase()}
+                                                                            </span>
+                                                                            .
+                                                                        </>
+                                                                    )}
+                                                                </p>
+                                                            </div>
+                                                        )}
 
                                                         <div className="mt-3 flex flex-wrap gap-2">
 

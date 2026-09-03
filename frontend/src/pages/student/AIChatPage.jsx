@@ -443,6 +443,10 @@ function AIChatPage() {
 
     const { subjectId } = useParams();
 
+    const studentId = Number(
+        localStorage.getItem("userId")
+    );
+
 
     /* ===================================================== */
     /* CURRENT SUBJECT */
@@ -1097,6 +1101,9 @@ function AIChatPage() {
                                     conversationId:
                                         conversationId,
 
+                                    studentId:
+                                        studentId,
+
                                     message:
                                         trimmedMessage,
                                 }),
@@ -1324,6 +1331,8 @@ function AIChatPage() {
                                 JSON.stringify({
                                     content:
                                         trimmedText,
+                                    studentId:
+                                        studentId,
                                 }),
                         }
                     );

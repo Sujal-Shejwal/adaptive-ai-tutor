@@ -9,11 +9,13 @@ import org.springframework.transaction.annotation.Transactional;
 import com.adaptiveaitutor.backend.entity.Quiz;
 import com.adaptiveaitutor.backend.entity.QuizQuestion;
 import com.adaptiveaitutor.backend.entity.Subject;
+import com.adaptiveaitutor.backend.entity.Topic;
 import com.adaptiveaitutor.backend.entity.User;
 import com.adaptiveaitutor.backend.repository.QuizAttemptRepository;
 import com.adaptiveaitutor.backend.repository.QuizQuestionRepository;
 import com.adaptiveaitutor.backend.repository.QuizRepository;
 import com.adaptiveaitutor.backend.repository.SubjectRepository;
+import com.adaptiveaitutor.backend.repository.TopicRepository;
 import com.adaptiveaitutor.backend.repository.UserRepository;
 
 @Service
@@ -27,6 +29,8 @@ public class QuizService {
 
     private final SubjectRepository subjectRepository;
 
+    private final TopicRepository topicRepository;
+
     private final UserRepository userRepository;
 
     public QuizService(
@@ -34,6 +38,7 @@ public class QuizService {
             QuizQuestionRepository quizQuestionRepository,
             QuizAttemptRepository quizAttemptRepository,
             SubjectRepository subjectRepository,
+            TopicRepository topicRepository,
             UserRepository userRepository) {
 
         this.quizRepository =
@@ -48,18 +53,72 @@ public class QuizService {
         this.subjectRepository =
                 subjectRepository;
 
+        this.topicRepository =
+                topicRepository;
+
         this.userRepository =
                 userRepository;
     }
 
     // =====================================================
-    // CREATE QUIZ
+    // CREATE QUIZ - EXISTING MANUAL FLOW
     // =====================================================
 
     public Quiz createQuiz(
             String title,
             Integer duration,
             Long subjectId,
+            Long teacherId,
+            Integer deadlineHours) {
+
+        return createQuizInternal(
+                title,
+                duration,
+                subjectId,
+                null,
+                teacherId,
+                deadlineHours
+        );
+    }
+
+    // =====================================================
+    // CREATE QUIZ - TOPIC BASED
+    // =====================================================
+
+    public Quiz createQuiz(
+            String title,
+            Integer duration,
+            Long subjectId,
+            Long topicId,
+            Long teacherId,
+            Integer deadlineHours) {
+
+        if (topicId == null) {
+
+            throw new RuntimeException(
+                    "Topic ID is required for topic-based quiz."
+            );
+        }
+
+        return createQuizInternal(
+                title,
+                duration,
+                subjectId,
+                topicId,
+                teacherId,
+                deadlineHours
+        );
+    }
+
+    // =====================================================
+    // INTERNAL QUIZ CREATION
+    // =====================================================
+
+    private Quiz createQuizInternal(
+            String title,
+            Integer duration,
+            Long subjectId,
+            Long topicId,
             Long teacherId,
             Integer deadlineHours) {
 
@@ -70,9 +129,9 @@ public class QuizService {
         if (
                 deadlineHours == null ||
                 (
-                    deadlineHours != 12 &&
-                    deadlineHours != 24 &&
-                    deadlineHours != 48
+                        deadlineHours != 12 &&
+                        deadlineHours != 24 &&
+                        deadlineHours != 48
                 )
         ) {
 
@@ -94,6 +153,43 @@ public class QuizService {
                                                 "Subject not found"
                                         )
                         );
+
+        // -------------------------------------------------
+        // FIND TOPIC WHEN PROVIDED
+        // -------------------------------------------------
+
+        Topic topic = null;
+
+        if (topicId != null) {
+
+            topic =
+                    topicRepository
+                            .findById(topicId)
+                            .orElseThrow(
+                                    () ->
+                                            new RuntimeException(
+                                                    "Topic not found"
+                                            )
+                            );
+
+            // -------------------------------------------------
+            // VERIFY TOPIC BELONGS TO SUBJECT
+            // -------------------------------------------------
+
+            if (
+                    topic.getUnit() == null ||
+                    topic.getUnit().getSubject() == null ||
+                    !topic.getUnit()
+                            .getSubject()
+                            .getId()
+                            .equals(subjectId)
+            ) {
+
+                throw new RuntimeException(
+                        "Selected topic does not belong to the selected subject."
+                );
+            }
+        }
 
         // -------------------------------------------------
         // FIND TEACHER
@@ -156,13 +252,29 @@ public class QuizService {
         // CREATE QUIZ
         // -------------------------------------------------
 
-        Quiz quiz =
-                new Quiz(
-                        title.trim(),
-                        duration,
-                        subject,
-                        teacher
-                );
+        Quiz quiz;
+
+        if (topic != null) {
+
+            quiz =
+                    new Quiz(
+                            title.trim(),
+                            duration,
+                            subject,
+                            topic,
+                            teacher
+                    );
+
+        } else {
+
+            quiz =
+                    new Quiz(
+                            title.trim(),
+                            duration,
+                            subject,
+                            teacher
+                    );
+        }
 
         // -------------------------------------------------
         // SET CREATION + DEADLINE
@@ -226,7 +338,6 @@ public class QuizService {
     public List<QuizQuestion> getQuestions(
             Long quizId) {
 
-        // Make sure quiz exists first.
         getQuiz(quizId);
 
         return quizQuestionRepository
@@ -269,6 +380,10 @@ public class QuizService {
                     "Question cannot be empty"
             );
         }
+
+        // -------------------------------------------------
+        // VALIDATE OPTIONS
+        // -------------------------------------------------
 
         if (
                 option1 == null ||
@@ -388,13 +503,6 @@ public class QuizService {
 
         // -------------------------------------------------
         // DELETE QUIZ
-        // -------------------------------------------------
-        //
-        // Quiz.questions uses CascadeType.ALL and
-        // orphanRemoval=true, so associated questions
-        // are removed with the quiz.
-        //
-        // No student attempts exist at this point.
         // -------------------------------------------------
 
         quizRepository.delete(

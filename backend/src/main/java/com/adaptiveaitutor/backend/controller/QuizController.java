@@ -24,7 +24,8 @@ public class QuizController {
 
     private final QuizService quizService;
 
-    private final AIQuizGeneratorService aiQuizGeneratorService;
+    private final AIQuizGeneratorService
+            aiQuizGeneratorService;
 
     public QuizController(
             QuizService quizService,
@@ -308,7 +309,8 @@ public class QuizController {
                             request.getDuration(),
                             request.getSubjectId(),
                             request.getTeacherId(),
-                            request.getDeadlineHours()
+                            request.getDeadlineHours(),
+                            request.getStudentId()
                     );
 
             return ResponseEntity.ok(
@@ -509,6 +511,11 @@ public class QuizController {
 
         private Integer deadlineHours;
 
+        // Optional.
+        // When provided, the quiz difficulty becomes
+        // personalized for this student.
+        private Long studentId;
+
         public AIQuizGenerationRequest() {
         }
 
@@ -576,6 +583,17 @@ public class QuizController {
 
             this.deadlineHours =
                     deadlineHours;
+        }
+
+        public Long getStudentId() {
+            return studentId;
+        }
+
+        public void setStudentId(
+                Long studentId) {
+
+            this.studentId =
+                    studentId;
         }
     }
 }

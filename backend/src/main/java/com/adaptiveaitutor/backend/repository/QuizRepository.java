@@ -9,8 +9,27 @@ import com.adaptiveaitutor.backend.entity.Quiz;
 public interface QuizRepository
         extends JpaRepository<Quiz, Long> {
 
-    List<Quiz> findBySubjectId(Long subjectId);
+    // =====================================================
+    // GET QUIZZES BY SUBJECT
+    // =====================================================
 
-    List<Quiz> findByCreatedById(Long teacherId);
+    List<Quiz> findBySubjectId(
+            Long subjectId
+    );
 
+    // =====================================================
+    // GET QUIZZES BY TOPIC
+    // =====================================================
+
+    List<Quiz> findByTopicId(
+            Long topicId
+    );
+
+    // =====================================================
+    // GET QUIZZES BY TEACHER
+    // =====================================================
+
+    List<Quiz> findByCreatedById(
+            Long teacherId
+    );
 }

@@ -25,6 +25,10 @@ public class Quiz {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    // =====================================================
+    // QUIZ DETAILS
+    // =====================================================
+
     @Column(nullable = false)
     private String title;
 
@@ -32,7 +36,7 @@ public class Quiz {
     private Integer duration;
 
     // =====================================================
-    // QUIZ DEADLINE
+    // DATES
     // =====================================================
 
     @Column(name = "created_at")
@@ -42,12 +46,38 @@ public class Quiz {
     private LocalDateTime dueAt;
 
     // =====================================================
+    // ADAPTIVE AI
+    // =====================================================
+
+    @Column(
+            name = "is_adaptive",
+            nullable = false
+    )
+    private boolean adaptive = false;
+
+    @Column(name = "difficulty")
+    private String difficulty;
+
+    // =====================================================
     // SUBJECT
     // =====================================================
 
     @ManyToOne
-    @JoinColumn(name = "subject_id", nullable = false)
+    @JoinColumn(
+            name = "subject_id",
+            nullable = false
+    )
     private Subject subject;
+
+    // =====================================================
+    // TOPIC
+    // =====================================================
+
+    @ManyToOne
+    @JoinColumn(
+            name = "topic_id"
+    )
+    private Topic topic;
 
     // =====================================================
     // CREATED BY
@@ -55,7 +85,10 @@ public class Quiz {
 
     @JsonIgnore
     @ManyToOne
-    @JoinColumn(name = "created_by", nullable = false)
+    @JoinColumn(
+            name = "created_by",
+            nullable = false
+    )
     private User createdBy;
 
     // =====================================================
@@ -72,11 +105,18 @@ public class Quiz {
             new ArrayList<>();
 
     // =====================================================
-    // CONSTRUCTORS
+    // EMPTY CONSTRUCTOR
     // =====================================================
 
     public Quiz() {
     }
+
+    // =====================================================
+    // EXISTING CONSTRUCTOR
+    // =====================================================
+    //
+    // Used by normal teacher-created quizzes.
+    // =====================================================
 
     public Quiz(
             String title,
@@ -88,36 +128,86 @@ public class Quiz {
         this.duration = duration;
         this.subject = subject;
         this.createdBy = createdBy;
-        this.createdAt = LocalDateTime.now();
+
+        this.createdAt =
+                LocalDateTime.now();
+
+        this.adaptive = false;
+        this.difficulty = null;
     }
 
     // =====================================================
-    // GETTERS & SETTERS
+    // TOPIC-AWARE CONSTRUCTOR
+    // =====================================================
+    //
+    // Used by topic-based quiz creation.
+    // =====================================================
+
+    public Quiz(
+            String title,
+            Integer duration,
+            Subject subject,
+            Topic topic,
+            User createdBy) {
+
+        this.title = title;
+        this.duration = duration;
+        this.subject = subject;
+        this.topic = topic;
+        this.createdBy = createdBy;
+
+        this.createdAt =
+                LocalDateTime.now();
+
+        this.adaptive = false;
+        this.difficulty = null;
+    }
+
+    // =====================================================
+    // ID
     // =====================================================
 
     public Long getId() {
         return id;
     }
 
-    public void setId(Long id) {
+    public void setId(
+            Long id) {
+
         this.id = id;
     }
+
+    // =====================================================
+    // TITLE
+    // =====================================================
 
     public String getTitle() {
         return title;
     }
 
-    public void setTitle(String title) {
+    public void setTitle(
+            String title) {
+
         this.title = title;
     }
+
+    // =====================================================
+    // DURATION
+    // =====================================================
 
     public Integer getDuration() {
         return duration;
     }
 
-    public void setDuration(Integer duration) {
+    public void setDuration(
+            Integer duration) {
+
         this.duration = duration;
     }
+
+    // =====================================================
+    // CREATED AT
+    // =====================================================
 
     public LocalDateTime getCreatedAt() {
         return createdAt;
@@ -129,6 +219,10 @@ public class Quiz {
         this.createdAt = createdAt;
     }
 
+    // =====================================================
+    // DUE AT
+    // =====================================================
+
     public LocalDateTime getDueAt() {
         return dueAt;
     }
@@ -139,21 +233,79 @@ public class Quiz {
         this.dueAt = dueAt;
     }
 
+    // =====================================================
+    // ADAPTIVE
+    // =====================================================
+
+    public boolean isAdaptive() {
+        return adaptive;
+    }
+
+    public void setAdaptive(
+            boolean adaptive) {
+
+        this.adaptive = adaptive;
+    }
+
+    // =====================================================
+    // DIFFICULTY
+    // =====================================================
+
+    public String getDifficulty() {
+        return difficulty;
+    }
+
+    public void setDifficulty(
+            String difficulty) {
+
+        this.difficulty = difficulty;
+    }
+
+    // =====================================================
+    // SUBJECT
+    // =====================================================
+
     public Subject getSubject() {
         return subject;
     }
 
-    public void setSubject(Subject subject) {
+    public void setSubject(
+            Subject subject) {
+
         this.subject = subject;
     }
+
+    // =====================================================
+    // TOPIC
+    // =====================================================
+
+    public Topic getTopic() {
+        return topic;
+    }
+
+    public void setTopic(
+            Topic topic) {
+
+        this.topic = topic;
+    }
+
+    // =====================================================
+    // CREATED BY
+    // =====================================================
 
     public User getCreatedBy() {
         return createdBy;
     }
 
-    public void setCreatedBy(User createdBy) {
+    public void setCreatedBy(
+            User createdBy) {
+
         this.createdBy = createdBy;
     }
+
+    // =====================================================
+    // QUESTIONS
+    // =====================================================
 
     public List<QuizQuestion> getQuestions() {
         return questions;
@@ -172,9 +324,17 @@ public class Quiz {
     public void addQuestion(
             QuizQuestion question) {
 
-        questions.add(question);
+        if (question == null) {
+            return;
+        }
 
-        question.setQuiz(this);
+        questions.add(
+                question
+        );
+
+        question.setQuiz(
+                this
+        );
     }
 
     // =====================================================
@@ -184,8 +344,16 @@ public class Quiz {
     public void removeQuestion(
             QuizQuestion question) {
 
-        questions.remove(question);
+        if (question == null) {
+            return;
+        }
 
-        question.setQuiz(null);
+        questions.remove(
+                question
+        );
+
+        question.setQuiz(
+                null
+        );
     }
 }

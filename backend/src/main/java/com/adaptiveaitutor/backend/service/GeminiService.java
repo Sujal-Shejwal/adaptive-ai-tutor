@@ -27,13 +27,28 @@ public class GeminiService {
     }
 
     // =====================================================
-    // SEND MESSAGE TO GEMINI
-    // WITH RAG + CONVERSATION MEMORY
+    // NORMAL CHAT
     // =====================================================
 
     public String chat(
             String message,
             List<ChatMessage> history) {
+
+        return chat(
+                message,
+                history,
+                null
+        );
+    }
+
+    // =====================================================
+    // ADAPTIVE CHAT
+    // =====================================================
+
+    public String chat(
+            String message,
+            List<ChatMessage> history,
+            String adaptiveContext) {
 
         // -------------------------------------------------
         // VALIDATE MESSAGE
@@ -77,7 +92,7 @@ public class GeminiService {
                         );
 
         // -------------------------------------------------
-        // 3. BUILD FORMATTED CONVERSATION HISTORY
+        // 3. BUILD CONVERSATION HISTORY
         // -------------------------------------------------
 
         String conversationHistory =
@@ -86,8 +101,39 @@ public class GeminiService {
                 );
 
         // -------------------------------------------------
-        // 4. BUILD PROMPT
+        // 4. BUILD ADAPTIVE SECTION
         // -------------------------------------------------
+
+        String adaptiveSection =
+                "";
+
+        if (
+                adaptiveContext != null &&
+                !adaptiveContext.isBlank()
+        ) {
+
+            adaptiveSection =
+                    """
+
+                    ==============================
+                    STUDENT ADAPTIVE PROFILE
+                    ==============================
+
+                    %s
+
+                    ==============================
+                    END ADAPTIVE PROFILE
+                    ==============================
+
+                    """
+                    .formatted(
+                            adaptiveContext
+                    );
+        }
+
+        // =================================================
+        // 5. BUILD PROMPT
+        // =================================================
 
         String prompt;
 
@@ -107,19 +153,19 @@ public class GeminiService {
                     You are having an ongoing conversation
                     with a student.
 
+                    %s
+
                     ==============================
                     PREVIOUS CONVERSATION
                     ==============================
 
                     %s
 
-
                     ==============================
                     CURRENT QUESTION
                     ==============================
 
                     %s
-
 
                     ==============================
                     INSTRUCTIONS
@@ -162,6 +208,7 @@ public class GeminiService {
                     Answer naturally like a helpful tutor.
                     """
                     .formatted(
+                            adaptiveSection,
                             conversationHistory,
                             question
                     );
@@ -179,12 +226,13 @@ public class GeminiService {
                     You are having an ongoing conversation
                     with a student.
 
+                    %s
+
                     ==============================
                     PREVIOUS CONVERSATION
                     ==============================
 
                     %s
-
 
                     ==============================
                     CURRENT QUESTION
@@ -192,13 +240,11 @@ public class GeminiService {
 
                     %s
 
-
                     ==============================
                     RELEVANT COURSE MATERIAL
                     ==============================
 
                     %s
-
 
                     ==============================
                     INSTRUCTIONS
@@ -240,9 +286,13 @@ public class GeminiService {
                     vector databases, similarity search,
                     or internal implementation details.
 
+                    Apply the student's adaptive learning
+                    profile when one is provided.
+
                     Answer naturally like a helpful tutor.
                     """
                     .formatted(
+                            adaptiveSection,
                             conversationHistory,
                             question,
                             context
@@ -250,7 +300,7 @@ public class GeminiService {
         }
 
         // -------------------------------------------------
-        // 5. SEND TO GEMINI
+        // 6. SEND TO GEMINI
         // -------------------------------------------------
 
         String response =
@@ -261,7 +311,7 @@ public class GeminiService {
                         .content();
 
         // -------------------------------------------------
-        // 6. VALIDATE RESPONSE
+        // 7. VALIDATE RESPONSE
         // -------------------------------------------------
 
         if (
