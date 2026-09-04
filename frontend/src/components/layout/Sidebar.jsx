@@ -8,6 +8,7 @@ import {
     User,
     Settings,
     LogOut,
+    Users,
 } from "lucide-react";
 
 import {
@@ -27,6 +28,11 @@ const menuItems = [
         title: "Subjects",
         path: "/student/subjects",
         icon: BookOpen,
+    },
+    {
+        title: "Classrooms",
+        path: "/student/classrooms",
+        icon: Users,
     },
     {
         title: "AI Chat",
@@ -69,15 +75,13 @@ function Sidebar() {
 
     const handleLogout = () => {
 
-        /*
-         * Temporary frontend logout.
-         * Real authentication/session cleanup
-         * will be added with the backend.
-         */
-
         localStorage.removeItem("token");
 
         localStorage.removeItem("user");
+
+        localStorage.removeItem("userId");
+
+        localStorage.removeItem("userRole");
 
         navigate("/login");
     };
@@ -158,6 +162,13 @@ function Sidebar() {
                             );
 
 
+                        const isClassroomActive =
+                            item.title === "Classrooms" &&
+                            location.pathname.startsWith(
+                                "/student/classrooms"
+                            );
+
+
                         const isExactActive =
                             location.pathname === item.path;
 
@@ -165,7 +176,8 @@ function Sidebar() {
                         const isActive =
                             isExactActive ||
                             isChatActive ||
-                            isQuizActive;
+                            isQuizActive ||
+                            isClassroomActive;
 
 
                         return (

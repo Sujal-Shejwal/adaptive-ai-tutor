@@ -6,14 +6,25 @@ import {
   LogOut,
   GraduationCap,
   BookOpen,
+  Users,
 } from "lucide-react";
-import { NavLink, useNavigate } from "react-router-dom";
+
+import {
+  NavLink,
+  useNavigate,
+} from "react-router-dom";
+
 
 const navigationItems = [
   {
     label: "Dashboard",
     path: "/teacher/dashboard",
     icon: LayoutDashboard,
+  },
+  {
+    label: "Classrooms",
+    path: "/teacher/classrooms",
+    icon: Users,
   },
   {
     label: "Subjects",
@@ -37,37 +48,58 @@ const navigationItems = [
   },
 ];
 
+
 export default function TeacherSidebar() {
+
   const navigate = useNavigate();
 
+
   const handleLogout = () => {
+
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+    localStorage.removeItem("userId");
+    localStorage.removeItem("userRole");
+
     navigate("/login");
   };
 
+
   const handleLogoClick = () => {
+
     navigate("/");
   };
 
+
   return (
     <aside className="fixed left-0 top-0 z-40 flex h-screen w-[240px] flex-col border-r border-gray-200 bg-white">
-      {/* Brand */}
+
+
+      {/* ================================================= */}
+      {/* BRAND                                             */}
+      {/* ================================================= */}
+
       <div className="flex h-[80px] shrink-0 items-center border-b border-gray-200 px-5">
+
         <button
           type="button"
           onClick={handleLogoClick}
           className="flex items-center gap-3 text-left"
           aria-label="Go to Adaptive AI home"
         >
-          {/* Logo */}
+
           <div className="flex h-[34px] w-[34px] items-center justify-center rounded-lg bg-blue-600">
+
             <GraduationCap
               className="h-[17px] w-[17px] text-white"
               strokeWidth={1.8}
             />
+
           </div>
 
-          {/* Brand Text */}
+
           <div>
+
             <h1 className="text-[15px] font-bold leading-[18px] text-[#17233c]">
               Adaptive AI
             </h1>
@@ -75,19 +107,32 @@ export default function TeacherSidebar() {
             <p className="mt-[2px] text-[11px] leading-[14px] text-gray-500">
               Tutor Platform
             </p>
+
           </div>
+
         </button>
+
       </div>
 
-      {/* Navigation */}
+
+      {/* ================================================= */}
+      {/* NAVIGATION                                        */}
+      {/* ================================================= */}
+
       <nav className="flex-1 px-3 pt-[18px]">
+
         <p className="mb-3 px-2 text-[10px] font-medium uppercase tracking-[0.04em] text-gray-400">
           Teacher Menu
         </p>
 
+
         <div className="space-y-[3px]">
+
           {navigationItems.map((item) => {
-            const Icon = item.icon;
+
+            const Icon =
+              item.icon;
+
 
             return (
               <NavLink
@@ -101,33 +146,51 @@ export default function TeacherSidebar() {
                   }`
                 }
               >
+
                 <Icon
                   className="h-[18px] w-[18px]"
                   strokeWidth={1.8}
                 />
 
-                <span>{item.label}</span>
+                <span>
+                  {item.label}
+                </span>
+
               </NavLink>
             );
+
           })}
+
         </div>
+
       </nav>
 
-      {/* Logout */}
+
+      {/* ================================================= */}
+      {/* LOGOUT                                            */}
+      {/* ================================================= */}
+
       <div className="shrink-0 border-t border-gray-200">
+
         <button
           type="button"
           onClick={handleLogout}
           className="flex h-[72px] w-full items-center gap-3 px-6 text-[14px] font-medium text-red-500 transition hover:bg-red-50"
         >
+
           <LogOut
             className="h-[18px] w-[18px]"
             strokeWidth={1.8}
           />
 
-          <span>Logout</span>
+          <span>
+            Logout
+          </span>
+
         </button>
+
       </div>
+
     </aside>
   );
 }

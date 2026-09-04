@@ -10,8 +10,12 @@ import {
 // =====================================================
 
 import TeacherLayout from "../components/teacher/TeacherLayout";
+
 import TeacherAIQuizGeneratorPage
-    from "../pages/teacher/TeacherAIQuizGeneratorPage";
+  from "../pages/teacher/TeacherAIQuizGeneratorPage";
+
+import TeacherClassroomsPage
+  from "../pages/teacher/TeacherClassroomsPage";
 
 import TeacherDashboardPage
   from "../pages/teacher/TeacherDashboardPage";
@@ -47,6 +51,9 @@ import DashboardLayout
 
 import DashboardPage
   from "../pages/student/DashboardPage";
+
+import StudentClassroomsPage
+  from "../pages/student/StudentClassroomsPage";
 
 import SubjectsPage
   from "../pages/student/SubjectsPage";
@@ -106,7 +113,9 @@ function ProtectedRoute({
     localStorage.getItem("userRole");
 
 
-  // User is not logged in
+  // -------------------------------------------------
+  // USER IS NOT LOGGED IN
+  // -------------------------------------------------
 
   if (!userRole) {
 
@@ -116,11 +125,12 @@ function ProtectedRoute({
         replace
       />
     );
-
   }
 
 
-  // User has wrong role
+  // -------------------------------------------------
+  // USER HAS WRONG ROLE
+  // -------------------------------------------------
 
   if (
     allowedRole &&
@@ -135,7 +145,6 @@ function ProtectedRoute({
           replace
         />
       );
-
     }
 
 
@@ -145,12 +154,10 @@ function ProtectedRoute({
         replace
       />
     );
-
   }
 
 
   return children;
-
 }
 
 
@@ -158,13 +165,17 @@ function ProtectedRoute({
 // AUTH ROUTE
 // =====================================================
 
-function AuthRoute({ children }) {
+function AuthRoute({
+  children,
+}) {
 
   const userRole =
     localStorage.getItem("userRole");
 
 
-  // Already logged in as teacher
+  // -------------------------------------------------
+  // ALREADY LOGGED IN AS TEACHER
+  // -------------------------------------------------
 
   if (userRole === "teacher") {
 
@@ -174,11 +185,12 @@ function AuthRoute({ children }) {
         replace
       />
     );
-
   }
 
 
-  // Already logged in as student
+  // -------------------------------------------------
+  // ALREADY LOGGED IN AS STUDENT
+  // -------------------------------------------------
 
   if (userRole === "student") {
 
@@ -188,14 +200,14 @@ function AuthRoute({ children }) {
         replace
       />
     );
-
   }
 
 
-  // User is not logged in
+  // -------------------------------------------------
+  // USER IS NOT LOGGED IN
+  // -------------------------------------------------
 
   return children;
-
 }
 
 
@@ -221,7 +233,6 @@ function AppRoutes() {
             <LandingPage />
           }
         />
-
 
 
         {/* =====================================================
@@ -280,7 +291,6 @@ function AppRoutes() {
 
         >
 
-
           {/* =====================================================
               TEACHER DASHBOARD
           ===================================================== */}
@@ -289,6 +299,18 @@ function AppRoutes() {
             path="/teacher/dashboard"
             element={
               <TeacherDashboardPage />
+            }
+          />
+
+
+          {/* =====================================================
+              TEACHER CLASSROOMS
+          ===================================================== */}
+
+          <Route
+            path="/teacher/classrooms"
+            element={
+              <TeacherClassroomsPage />
             }
           />
 
@@ -447,6 +469,30 @@ function AppRoutes() {
 
 
         {/* =====================================================
+            STUDENT CLASSROOMS
+        ===================================================== */}
+
+        <Route
+          path="/student/classrooms"
+          element={
+
+            <ProtectedRoute
+              allowedRole="student"
+            >
+
+              <DashboardLayout>
+
+                <StudentClassroomsPage />
+
+              </DashboardLayout>
+
+            </ProtectedRoute>
+
+          }
+        />
+
+
+        {/* =====================================================
             STUDENT STUDY
         ===================================================== */}
 
@@ -591,6 +637,7 @@ function AppRoutes() {
         <Route
           path="/student/quiz/:subjectId"
           element={
+
             <ProtectedRoute
               allowedRole="student"
             >
@@ -698,7 +745,7 @@ function AppRoutes() {
     </BrowserRouter>
 
   );
-
 }
+
 
 export default AppRoutes;
