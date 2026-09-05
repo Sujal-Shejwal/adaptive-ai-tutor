@@ -1555,7 +1555,7 @@ function QuizPage() {
 
   if (
     !quiz ||
-    questions.length === 0
+    (questions.length === 0 && !showResult)
   ) {
     return (
       <div className="min-h-full bg-slate-50 px-6 pb-10 pt-20">

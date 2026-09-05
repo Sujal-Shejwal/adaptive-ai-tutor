@@ -1,10 +1,15 @@
 package com.adaptiveaitutor.backend.service;
 
+import java.time.LocalDateTime;
+
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
+import com.adaptiveaitutor.backend.entity.StudentProfile;
 import com.adaptiveaitutor.backend.entity.User;
 import com.adaptiveaitutor.backend.exception.EmailAlreadyExistsException;
+import com.adaptiveaitutor.backend.repository.StudentProfileRepository;
 import com.adaptiveaitutor.backend.repository.UserRepository;
 
 @Service
@@ -12,14 +17,20 @@ public class UserService {
 
     private final UserRepository userRepository;
 
+    private final StudentProfileRepository studentProfileRepository;
+
     private final PasswordEncoder passwordEncoder;
 
     public UserService(
             UserRepository userRepository,
+            StudentProfileRepository studentProfileRepository,
             PasswordEncoder passwordEncoder) {
 
         this.userRepository =
                 userRepository;
+
+        this.studentProfileRepository =
+                studentProfileRepository;
 
         this.passwordEncoder =
                 passwordEncoder;
@@ -91,6 +102,36 @@ public class UserService {
             );
         }
 
+        // -------------------------------------------------
+        // CHECK TEMPORARY PASSWORD EXPIRY
+        // -------------------------------------------------
+
+        if ("student".equalsIgnoreCase(
+                user.getRole()
+        )) {
+
+            StudentProfile profile =
+                    studentProfileRepository
+                            .findByUserId(
+                                    user.getId()
+                            )
+                            .orElse(null);
+
+            if (
+                    profile != null &&
+                    profile.isMustChangePassword() &&
+                    profile.getTemporaryPasswordExpiresAt() != null &&
+                    LocalDateTime.now().isAfter(
+                            profile.getTemporaryPasswordExpiresAt()
+                    )
+            ) {
+
+                throw new RuntimeException(
+                        "Temporary password has expired"
+                );
+            }
+        }
+
         return user;
     }
 
@@ -109,6 +150,18 @@ public class UserService {
                                         "User not found"
                                 )
                 );
+    }
+
+    // =====================================================
+    // GET STUDENT LOGIN DETAILS
+    // =====================================================
+
+    public StudentProfile getStudentProfile(
+            Long userId) {
+
+        return studentProfileRepository
+                .findByUserId(userId)
+                .orElse(null);
     }
 
     // =====================================================
@@ -206,6 +259,7 @@ public class UserService {
     // CHANGE PASSWORD
     // =====================================================
 
+    @Transactional
     public void changePassword(
             Long userId,
             String currentPassword,
@@ -276,11 +330,42 @@ public class UserService {
         );
 
         // -------------------------------------------------
-        // SAVE
+        // SAVE USER
         // -------------------------------------------------
 
         userRepository.save(
                 user
         );
+
+        // -------------------------------------------------
+        // COMPLETE FIRST-LOGIN PASSWORD CHANGE
+        // -------------------------------------------------
+
+        if ("student".equalsIgnoreCase(
+                user.getRole()
+        )) {
+
+            StudentProfile profile =
+                    studentProfileRepository
+                            .findByUserId(
+                                    user.getId()
+                            )
+                            .orElse(null);
+
+            if (profile != null) {
+
+                profile.setMustChangePassword(
+                        false
+                );
+
+                profile.setTemporaryPasswordExpiresAt(
+                        null
+                );
+
+                studentProfileRepository.save(
+                        profile
+                );
+            }
+        }
     }
 }

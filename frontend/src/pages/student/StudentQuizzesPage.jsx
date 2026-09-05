@@ -1,14 +1,19 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, {
+    useCallback,
+    useEffect,
+    useState,
+} from "react";
 
 import {
     ArrowLeft,
     CalendarClock,
     CheckCircle2,
+    ClipboardCheck,
     Clock3,
-    FileQuestion,
+    Eye,
     Loader2,
     RefreshCw,
-    ClipboardCheck,
+    Users,
 } from "lucide-react";
 
 import {
@@ -16,16 +21,27 @@ import {
     useNavigate,
 } from "react-router-dom";
 
-const API_BASE = "http://localhost:8080";
+const API_BASE =
+    "http://localhost:8080";
+
+// =====================================================
+// FORMAT DEADLINE
+// =====================================================
 
 function formatDeadline(dateValue) {
+
     if (!dateValue) {
         return "No deadline";
     }
 
-    const date = new Date(dateValue);
+    const date =
+        new Date(dateValue);
 
-    if (Number.isNaN(date.getTime())) {
+    if (
+        Number.isNaN(
+            date.getTime()
+        )
+    ) {
         return "Invalid deadline";
     }
 
@@ -41,9 +57,38 @@ function formatDeadline(dateValue) {
     );
 }
 
+// =====================================================
+// CHECK WHETHER QUIZ IS EXPIRED
+// =====================================================
+
+function isExpired(dateValue) {
+
+    if (!dateValue) {
+        return false;
+    }
+
+    const dueDate =
+        new Date(dateValue);
+
+    if (
+        Number.isNaN(
+            dueDate.getTime()
+        )
+    ) {
+        return false;
+    }
+
+    return new Date() >= dueDate;
+}
+
+// =====================================================
+// STUDENT QUIZZES PAGE
+// =====================================================
+
 function StudentQuizzesPage() {
 
-    const navigate = useNavigate();
+    const navigate =
+        useNavigate();
 
     const [quizzes, setQuizzes] =
         useState([]);
@@ -59,285 +104,456 @@ function StudentQuizzesPage() {
 
     const studentId =
         Number(
-            localStorage.getItem("userId")
+            localStorage.getItem(
+                "userId"
+            )
         );
 
     // =====================================================
-    // LOAD AVAILABLE QUIZZES
+    // LOAD CLASSROOM QUIZZES
     // =====================================================
 
-    const loadQuizzes = useCallback(
-        async (isRefresh = false) => {
+    const loadQuizzes =
+        useCallback(
+            async (
+                isRefresh = false
+            ) => {
 
-            try {
+                try {
 
-                if (isRefresh) {
-                    setRefreshing(true);
-                } else {
-                    setLoading(true);
-                }
+                    if (isRefresh) {
+                        setRefreshing(true);
+                    } else {
+                        setLoading(true);
+                    }
 
-                setError("");
+                    setError("");
 
-                if (!studentId) {
-                    throw new Error(
-                        "Student account not found. Please login again."
-                    );
-                }
+                    // -----------------------------------------
+                    // VALIDATE STUDENT
+                    // -----------------------------------------
 
-                // -------------------------------------------------
-                // 1. GET ALL QUIZZES
-                // -------------------------------------------------
+                    if (!studentId) {
 
-                const quizResponse =
-                    await fetch(
-                        `${API_BASE}/api/quizzes`
-                    );
+                        throw new Error(
+                            "Student account not found. Please login again."
+                        );
+                    }
 
-                if (!quizResponse.ok) {
-                    throw new Error(
-                        "Failed to load quizzes."
-                    );
-                }
+                    // -----------------------------------------
+                    // GET CLASSROOM ASSIGNMENTS
+                    // -----------------------------------------
 
-                const quizData =
-                    await quizResponse.json();
-
-                if (
-                    !Array.isArray(
-                        quizData
-                    )
-                ) {
-                    throw new Error(
-                        "Invalid quizzes response."
-                    );
-                }
-
-                // -------------------------------------------------
-                // 2. CHECK EVERY QUIZ
-                // -------------------------------------------------
-
-                const checkedQuizzes =
-                    await Promise.all(
-                        quizData.map(
-                            async (quiz) => {
-
-                                if (!quiz?.id) {
-                                    return null;
-                                }
-
-                                // ---------------------------------
-                                // CHECK GLOBAL DEADLINE
-                                // ---------------------------------
-
-                                if (
-                                    quiz.dueAt
-                                ) {
-
-                                    const dueDate =
-                                        new Date(
-                                            quiz.dueAt
-                                        );
-
-                                    if (
-                                        !Number.isNaN(
-                                            dueDate.getTime()
-                                        ) &&
-                                        new Date() >= dueDate
-                                    ) {
-                                        return null;
-                                    }
-                                }
-
-                                try {
-
-                                    // ---------------------------------
-                                    // LOAD QUESTIONS
-                                    // ---------------------------------
-
-                                    const questionResponse =
-                                        await fetch(
-                                            `${API_BASE}/api/quizzes/${quiz.id}/questions`
-                                        );
-
-                                    if (
-                                        !questionResponse.ok
-                                    ) {
-                                        return null;
-                                    }
-
-                                    const questions =
-                                        await questionResponse.json();
-
-                                    if (
-                                        !Array.isArray(
-                                            questions
-                                        ) ||
-                                        questions.length === 0
-                                    ) {
-                                        return null;
-                                    }
-
-                                    // ---------------------------------
-                                    // CHECK STUDENT SUBMISSION
-                                    // ---------------------------------
-
-                                    const submissionResponse =
-                                        await fetch(
-                                            `${API_BASE}/api/quiz-attempts/quiz/${quiz.id}/student/${studentId}`
-                                        );
-
-                                    if (
-                                        !submissionResponse.ok
-                                    ) {
-                                        return null;
-                                    }
-
-                                    const submissionData =
-                                        await submissionResponse.json();
-
-                                    if (
-                                        submissionData?.submitted ===
-                                        true
-                                    ) {
-                                        return null;
-                                    }
-
-                                    return {
-                                        ...quiz,
-                                        questionCount:
-                                            questions.length,
-                                    };
-
-                                } catch (
-                                    quizError
-                                ) {
-
-                                    console.error(
-                                        `Unable to check quiz ${quiz.id}:`,
-                                        quizError
-                                    );
-
-                                    return null;
-                                }
-                            }
-                        )
-                    );
-
-                // -------------------------------------------------
-                // 3. KEEP CURRENTLY AVAILABLE QUIZZES
-                // -------------------------------------------------
-
-                const availableQuizzes =
-                    checkedQuizzes
-                        .filter(
-                            (quiz) =>
-                                quiz !== null
-                        )
-                        .sort(
-                            (a, b) => {
-
-                                const aDue =
-                                    a.dueAt
-                                        ? new Date(
-                                            a.dueAt
-                                        ).getTime()
-                                        : Number.MAX_SAFE_INTEGER;
-
-                                const bDue =
-                                    b.dueAt
-                                        ? new Date(
-                                            b.dueAt
-                                        ).getTime()
-                                        : Number.MAX_SAFE_INTEGER;
-
-                                if (
-                                    aDue !== bDue
-                                ) {
-                                    return (
-                                        aDue -
-                                        bDue
-                                    );
-                                }
-
-                                return (
-                                    Number(b.id) -
-                                    Number(a.id)
-                                );
+                    const response =
+                        await fetch(
+                            `${API_BASE}/api/quiz-assignments/student/${studentId}`,
+                            {
+                                cache: "no-store",
                             }
                         );
 
-                setQuizzes(
-                    availableQuizzes
-                );
+                    if (!response.ok) {
 
-            } catch (loadError) {
+                        const message =
+                            await response.text();
 
-                console.error(
-                    "Available quizzes error:",
+                        throw new Error(
+                            message ||
+                            "Unable to load classroom quizzes."
+                        );
+                    }
+
+                    const assignments =
+                        await response.json();
+
+                    if (
+                        !Array.isArray(
+                            assignments
+                        )
+                    ) {
+
+                        throw new Error(
+                            "Invalid classroom quiz response."
+                        );
+                    }
+
+                    // -----------------------------------------
+                    // PROCESS ASSIGNMENTS
+                    // -----------------------------------------
+
+                    const processedQuizzes =
+                        await Promise.all(
+                            assignments.map(
+                                async (
+                                    assignment
+                                ) => {
+
+                                    // -----------------------------
+                                    // BASIC VALIDATION
+                                    // -----------------------------
+
+                                    if (
+                                        !assignment ||
+                                        !assignment.quizId
+                                    ) {
+                                        return null;
+                                    }
+
+                                    // -----------------------------
+                                    // ACTIVE ASSIGNMENT ONLY
+                                    // -----------------------------
+
+                                    if (
+                                        assignment.status &&
+                                        assignment.status.toUpperCase() !==
+                                            "ACTIVE"
+                                    ) {
+                                        return null;
+                                    }
+
+                                    // -----------------------------
+                                    // CHECK SUBMISSION
+                                    // -----------------------------
+
+                                    let submitted =
+                                        false;
+
+                                    let result =
+                                        null;
+
+                                    try {
+
+                                        const submissionResponse =
+                                            await fetch(
+                                                `${API_BASE}/api/quiz-attempts/quiz/${assignment.quizId}/student/${studentId}`,
+                                                {
+                                                    cache: "no-store",
+                                                }
+                                            );
+
+                                        if (
+                                            submissionResponse.ok
+                                        ) {
+
+                                            const submissionData =
+                                                await submissionResponse.json();
+
+                                            submitted =
+                                                submissionData?.submitted ===
+                                                true;
+
+                                            if (
+                                                submitted
+                                            ) {
+
+                                                result =
+                                                    {
+                                                        score:
+                                                            submissionData.score,
+
+                                                        totalQuestions:
+                                                            submissionData.totalQuestions,
+
+                                                        correctAnswers:
+                                                            submissionData.correctAnswers,
+
+                                                        submittedAt:
+                                                            submissionData.submittedAt,
+                                                    };
+                                            }
+                                        }
+
+                                    } catch (
+                                        submissionError
+                                    ) {
+
+                                        console.error(
+                                            `Unable to check submission for quiz ${assignment.quizId}:`,
+                                            submissionError
+                                        );
+                                    }
+
+                                    // -----------------------------
+                                    // EXPIRED + NOT SUBMITTED
+                                    //
+                                    // Do not show expired quizzes.
+                                    // Completed quizzes remain visible
+                                    // even when their deadline has passed.
+                                    // -----------------------------
+
+                                    if (
+                                        !submitted &&
+                                        isExpired(
+                                            assignment.dueAt
+                                        )
+                                    ) {
+
+                                        return null;
+                                    }
+
+                                    // -----------------------------
+                                    // RETURN QUIZ
+                                    // -----------------------------
+
+                                    return {
+
+                                        ...assignment,
+
+                                        id:
+                                            assignment.quizId,
+
+                                        title:
+                                            assignment.quizTitle,
+
+                                        submitted,
+
+                                        result,
+                                    };
+                                }
+                            )
+                        );
+
+                    // -----------------------------------------
+                    // REMOVE NULL VALUES
+                    // -----------------------------------------
+
+                    const validQuizzes =
+                        processedQuizzes
+                            .filter(
+                                (
+                                    quiz
+                                ) =>
+                                    quiz !==
+                                    null
+                            );
+
+                    // -----------------------------------------
+                    // SORT
+                    //
+                    // Uncompleted quizzes first.
+                    // Completed quizzes after them.
+                    // -----------------------------------------
+
+                    validQuizzes.sort(
+                        (
+                            a,
+                            b
+                        ) => {
+
+                            if (
+                                a.submitted !==
+                                b.submitted
+                            ) {
+
+                                return a.submitted
+                                    ? 1
+                                    : -1;
+                            }
+
+                            const aDue =
+                                a.dueAt
+                                    ? new Date(
+                                        a.dueAt
+                                    ).getTime()
+                                    : Number.MAX_SAFE_INTEGER;
+
+                            const bDue =
+                                b.dueAt
+                                    ? new Date(
+                                        b.dueAt
+                                    ).getTime()
+                                    : Number.MAX_SAFE_INTEGER;
+
+                            if (
+                                aDue !==
+                                bDue
+                            ) {
+
+                                return (
+                                    aDue -
+                                    bDue
+                                );
+                            }
+
+                            return (
+                                Number(
+                                    b.quizId
+                                ) -
+                                Number(
+                                    a.quizId
+                                )
+                            );
+                        }
+                    );
+
+                    setQuizzes(
+                        validQuizzes
+                    );
+
+                } catch (
                     loadError
-                );
+                ) {
 
-                setError(
-                    loadError.message ||
-                    "Unable to load available quizzes."
-                );
+                    console.error(
+                        "Classroom quizzes error:",
+                        loadError
+                    );
 
-                setQuizzes([]);
+                    setError(
+                        loadError.message ||
+                        "Unable to load classroom quizzes."
+                    );
 
-            } finally {
+                    setQuizzes([]);
 
-                setLoading(false);
-                setRefreshing(false);
-            }
-        },
-        [studentId]
-    );
+                } finally {
+
+                    setLoading(false);
+                    setRefreshing(false);
+                }
+            },
+            [studentId]
+        );
 
     // =====================================================
     // INITIAL LOAD
     // =====================================================
 
-    useEffect(() => {
-        loadQuizzes();
-    }, [loadQuizzes]);
+    useEffect(
+        () => {
+
+            loadQuizzes();
+
+        },
+        [loadQuizzes]
+    );
 
     // =====================================================
     // REFRESH
     // =====================================================
 
-    const handleRefresh = () => {
-        loadQuizzes(true);
-    };
+    const handleRefresh =
+        () => {
+
+            loadQuizzes(
+                true
+            );
+        };
+
+    // =====================================================
+    // OPEN QUIZ / RESULT
+    // =====================================================
+
+    const handleOpenQuiz =
+        (
+            quiz
+        ) => {
+
+            if (
+                !quiz ||
+                !quiz.quizId ||
+                !quiz.subjectId
+            ) {
+
+                setError(
+                    "Quiz information is incomplete."
+                );
+
+                return;
+            }
+
+            // ---------------------------------------------
+            // OPEN EXISTING QUIZ PAGE
+            // ---------------------------------------------
+
+            navigate(
+                `/student/quiz/${quiz.subjectId}?quizId=${quiz.quizId}&classroomId=${quiz.classroomId}`
+            );
+        };
 
     // =====================================================
     // RENDER
     // =====================================================
 
     return (
-        <div className="min-h-full bg-slate-50 px-6 pb-10 pt-20">
 
-            <div className="mx-auto max-w-5xl">
+        <div
+            className="
+                min-h-full
+                bg-slate-50
+                px-6
+                pb-10
+                pt-20
+            "
+        >
+
+            <div
+                className="
+                    mx-auto
+                    max-w-5xl
+                "
+            >
 
                 {/* ================================================= */}
                 {/* HEADER */}
                 {/* ================================================= */}
 
-                <div className="mb-8 flex flex-wrap items-start justify-between gap-4">
+                <div
+                    className="
+                        mb-8
+                        flex
+                        flex-wrap
+                        items-start
+                        justify-between
+                        gap-4
+                    "
+                >
 
                     <div>
 
                         <Link
                             to="/student/dashboard"
-                            className="mb-4 inline-flex items-center gap-2 text-sm font-medium text-slate-500 transition hover:text-blue-600"
+                            className="
+                                mb-4
+                                inline-flex
+                                items-center
+                                gap-2
+                                text-sm
+                                font-medium
+                                text-slate-500
+                                transition
+                                hover:text-blue-600
+                            "
                         >
-                            <ArrowLeft size={17} />
+
+                            <ArrowLeft
+                                size={17}
+                            />
+
                             Back to Dashboard
+
                         </Link>
 
-                        <div className="flex items-center gap-3">
+                        <div
+                            className="
+                                flex
+                                items-center
+                                gap-3
+                            "
+                        >
 
-                            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-100 text-blue-600">
+                            <div
+                                className="
+                                    flex
+                                    h-11
+                                    w-11
+                                    items-center
+                                    justify-center
+                                    rounded-xl
+                                    bg-blue-100
+                                    text-blue-600
+                                "
+                            >
 
                                 <ClipboardCheck
                                     size={23}
@@ -347,12 +563,25 @@ function StudentQuizzesPage() {
 
                             <div>
 
-                                <h1 className="text-3xl font-bold text-slate-900">
-                                    Available Quizzes
+                                <h1
+                                    className="
+                                        text-3xl
+                                        font-bold
+                                        text-slate-900
+                                    "
+                                >
+                                    Classroom Quizzes
                                 </h1>
 
-                                <p className="mt-1 text-sm text-slate-500">
-                                    Quizzes that are currently open for you.
+                                <p
+                                    className="
+                                        mt-1
+                                        text-sm
+                                        text-slate-500
+                                    "
+                                >
+                                    Quizzes assigned to
+                                    your enrolled classrooms.
                                 </p>
 
                             </div>
@@ -363,20 +592,48 @@ function StudentQuizzesPage() {
 
                     <button
                         type="button"
-                        onClick={handleRefresh}
-                        disabled={refreshing}
-                        className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                        onClick={
+                            handleRefresh
+                        }
+                        disabled={
+                            refreshing
+                        }
+                        className="
+                            inline-flex
+                            items-center
+                            gap-2
+                            rounded-xl
+                            border
+                            border-slate-200
+                            bg-white
+                            px-4
+                            py-3
+                            text-sm
+                            font-semibold
+                            text-slate-700
+                            shadow-sm
+                            transition
+                            hover:bg-slate-50
+                            disabled:cursor-not-allowed
+                            disabled:opacity-60
+                        "
                     >
 
                         {refreshing ? (
+
                             <Loader2
                                 size={17}
-                                className="animate-spin"
+                                className="
+                                    animate-spin
+                                "
                             />
+
                         ) : (
+
                             <RefreshCw
                                 size={17}
                             />
+
                         )}
 
                         Refresh
@@ -391,9 +648,22 @@ function StudentQuizzesPage() {
 
                 {error && (
 
-                    <div className="mb-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                    <div
+                        className="
+                            mb-6
+                            rounded-xl
+                            border
+                            border-red-200
+                            bg-red-50
+                            px-4
+                            py-3
+                            text-sm
+                            text-red-700
+                        "
+                    >
                         {error}
                     </div>
+
                 )}
 
                 {/* ================================================= */}
@@ -402,18 +672,39 @@ function StudentQuizzesPage() {
 
                 {loading && (
 
-                    <div className="rounded-2xl border border-slate-200 bg-white p-12 text-center shadow-sm">
+                    <div
+                        className="
+                            rounded-2xl
+                            border
+                            border-slate-200
+                            bg-white
+                            p-12
+                            text-center
+                            shadow-sm
+                        "
+                    >
 
                         <Loader2
                             size={30}
-                            className="mx-auto animate-spin text-blue-600"
+                            className="
+                                mx-auto
+                                animate-spin
+                                text-blue-600
+                            "
                         />
 
-                        <p className="mt-4 text-sm text-slate-500">
-                            Checking available quizzes...
+                        <p
+                            className="
+                                mt-4
+                                text-sm
+                                text-slate-500
+                            "
+                        >
+                            Loading your classroom quizzes...
                         </p>
 
                     </div>
+
                 )}
 
                 {/* ================================================= */}
@@ -423,9 +714,31 @@ function StudentQuizzesPage() {
                 {!loading &&
                     quizzes.length === 0 && (
 
-                        <div className="rounded-2xl border border-slate-200 bg-white p-12 text-center shadow-sm">
+                        <div
+                            className="
+                                rounded-2xl
+                                border
+                                border-slate-200
+                                bg-white
+                                p-12
+                                text-center
+                                shadow-sm
+                            "
+                        >
 
-                            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-blue-50 text-blue-600">
+                            <div
+                                className="
+                                    mx-auto
+                                    flex
+                                    h-16
+                                    w-16
+                                    items-center
+                                    justify-center
+                                    rounded-full
+                                    bg-blue-50
+                                    text-blue-600
+                                "
+                            >
 
                                 <ClipboardCheck
                                     size={30}
@@ -433,16 +746,33 @@ function StudentQuizzesPage() {
 
                             </div>
 
-                            <h2 className="mt-5 text-xl font-semibold text-slate-900">
+                            <h2
+                                className="
+                                    mt-5
+                                    text-xl
+                                    font-semibold
+                                    text-slate-900
+                                "
+                            >
                                 No Quiz Available
                             </h2>
 
-                            <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-slate-500">
-                                There are no open quizzes available right now.
-                                Check again later.
+                            <p
+                                className="
+                                    mx-auto
+                                    mt-2
+                                    max-w-md
+                                    text-sm
+                                    leading-6
+                                    text-slate-500
+                                "
+                            >
+                                There are no open classroom
+                                quizzes assigned to you right now.
                             </p>
 
                         </div>
+
                     )}
 
                 {/* ================================================= */}
@@ -452,42 +782,152 @@ function StudentQuizzesPage() {
                 {!loading &&
                     quizzes.length > 0 && (
 
-                        <div className="space-y-4">
+                        <div
+                            className="
+                                space-y-4
+                            "
+                        >
 
                             {quizzes.map(
-                                (quiz) => (
+                                (
+                                    quiz
+                                ) => (
 
                                     <div
-                                        key={quiz.id}
-                                        className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:shadow-md"
+                                        key={
+                                            quiz.assignmentId
+                                        }
+                                        className="
+                                            rounded-2xl
+                                            border
+                                            border-slate-200
+                                            bg-white
+                                            p-5
+                                            shadow-sm
+                                            transition
+                                            hover:shadow-md
+                                        "
                                     >
 
-                                        <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
+                                        <div
+                                            className="
+                                                flex
+                                                flex-col
+                                                gap-5
+                                                md:flex-row
+                                                md:items-center
+                                                md:justify-between
+                                            "
+                                        >
 
-                                            <div className="min-w-0">
+                                            {/* ================================================= */}
+                                            {/* QUIZ INFORMATION */}
+                                            {/* ================================================= */}
 
-                                                <div className="flex items-start gap-3">
+                                            <div
+                                                className="
+                                                    min-w-0
+                                                "
+                                            >
 
-                                                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-blue-100 text-blue-600">
+                                                <div
+                                                    className="
+                                                        flex
+                                                        items-start
+                                                        gap-3
+                                                    "
+                                                >
 
-                                                        <ClipboardCheck
-                                                            size={22}
-                                                        />
+                                                    <div
+                                                        className={`
+                                                            flex
+                                                            h-11
+                                                            w-11
+                                                            shrink-0
+                                                            items-center
+                                                            justify-center
+                                                            rounded-xl
+                                                            ${
+                                                                quiz.submitted
+                                                                    ? "bg-green-100 text-green-600"
+                                                                    : "bg-blue-100 text-blue-600"
+                                                            }
+                                                        `}
+                                                    >
+
+                                                        {quiz.submitted ? (
+
+                                                            <CheckCircle2
+                                                                size={22}
+                                                            />
+
+                                                        ) : (
+
+                                                            <ClipboardCheck
+                                                                size={22}
+                                                            />
+
+                                                        )}
 
                                                     </div>
 
-                                                    <div className="min-w-0">
+                                                    <div
+                                                        className="
+                                                            min-w-0
+                                                        "
+                                                    >
 
-                                                        <h2 className="truncate text-lg font-bold text-slate-900">
-                                                            {
-                                                                quiz.title ||
-                                                                "Untitled Quiz"
-                                                            }
-                                                        </h2>
+                                                        <div
+                                                            className="
+                                                                flex
+                                                                flex-wrap
+                                                                items-center
+                                                                gap-2
+                                                            "
+                                                        >
 
-                                                        <p className="mt-1 text-sm text-slate-500">
+                                                            <h2
+                                                                className="
+                                                                    text-lg
+                                                                    font-bold
+                                                                    text-slate-900
+                                                                "
+                                                            >
+                                                                {
+                                                                    quiz.quizTitle ||
+                                                                    "Untitled Quiz"
+                                                                }
+                                                            </h2>
+
+                                                            {quiz.submitted && (
+
+                                                                <span
+                                                                    className="
+                                                                        rounded-full
+                                                                        bg-green-100
+                                                                        px-2.5
+                                                                        py-1
+                                                                        text-xs
+                                                                        font-semibold
+                                                                        text-green-700
+                                                                    "
+                                                                >
+                                                                    COMPLETED
+                                                                </span>
+
+                                                            )}
+
+                                                        </div>
+
+                                                        <p
+                                                            className="
+                                                                mt-1
+                                                                text-sm
+                                                                text-slate-500
+                                                            "
+                                                        >
                                                             {
-                                                                quiz.subject?.name ||
+                                                                quiz.subjectName ||
                                                                 "Subject"
                                                             }
                                                         </p>
@@ -496,22 +936,63 @@ function StudentQuizzesPage() {
 
                                                 </div>
 
-                                                <div className="mt-4 flex flex-wrap gap-2">
+                                                {/* ================================================= */}
+                                                {/* DETAILS */}
+                                                {/* ================================================= */}
 
-                                                    <span className="inline-flex items-center gap-1.5 rounded-lg bg-slate-50 px-3 py-1.5 text-xs font-medium text-slate-600">
+                                                <div
+                                                    className="
+                                                        mt-4
+                                                        flex
+                                                        flex-wrap
+                                                        gap-2
+                                                    "
+                                                >
 
-                                                        <FileQuestion
+                                                    {/* CLASSROOM */}
+
+                                                    <span
+                                                        className="
+                                                            inline-flex
+                                                            items-center
+                                                            gap-1.5
+                                                            rounded-lg
+                                                            bg-blue-50
+                                                            px-3
+                                                            py-1.5
+                                                            text-xs
+                                                            font-medium
+                                                            text-blue-700
+                                                        "
+                                                    >
+
+                                                        <Users
                                                             size={14}
                                                         />
 
                                                         {
-                                                            quiz.questionCount
-                                                        }{" "}
-                                                        questions
+                                                            quiz.classroomName ||
+                                                            "Classroom"
+                                                        }
 
                                                     </span>
 
-                                                    <span className="inline-flex items-center gap-1.5 rounded-lg bg-slate-50 px-3 py-1.5 text-xs font-medium text-slate-600">
+                                                    {/* DURATION */}
+
+                                                    <span
+                                                        className="
+                                                            inline-flex
+                                                            items-center
+                                                            gap-1.5
+                                                            rounded-lg
+                                                            bg-slate-50
+                                                            px-3
+                                                            py-1.5
+                                                            text-xs
+                                                            font-medium
+                                                            text-slate-600
+                                                        "
+                                                    >
 
                                                         <Clock3
                                                             size={14}
@@ -525,15 +1006,31 @@ function StudentQuizzesPage() {
 
                                                     </span>
 
+                                                    {/* DEADLINE */}
+
                                                     {quiz.dueAt && (
 
-                                                        <span className="inline-flex items-center gap-1.5 rounded-lg bg-blue-50 px-3 py-1.5 text-xs font-medium text-blue-700">
+                                                        <span
+                                                            className="
+                                                                inline-flex
+                                                                items-center
+                                                                gap-1.5
+                                                                rounded-lg
+                                                                bg-amber-50
+                                                                px-3
+                                                                py-1.5
+                                                                text-xs
+                                                                font-medium
+                                                                text-amber-700
+                                                            "
+                                                        >
 
                                                             <CalendarClock
                                                                 size={14}
                                                             />
 
                                                             Due{" "}
+
                                                             {
                                                                 formatDeadline(
                                                                     quiz.dueAt
@@ -541,29 +1038,106 @@ function StudentQuizzesPage() {
                                                             }
 
                                                         </span>
+
                                                     )}
+
+                                                    {/* SCORE */}
+
+                                                    {quiz.submitted &&
+                                                        quiz.result && (
+
+                                                            <span
+                                                                className="
+                                                                    inline-flex
+                                                                    items-center
+                                                                    gap-1.5
+                                                                    rounded-lg
+                                                                    bg-green-50
+                                                                    px-3
+                                                                    py-1.5
+                                                                    text-xs
+                                                                    font-semibold
+                                                                    text-green-700
+                                                                "
+                                                            >
+
+                                                                <CheckCircle2
+                                                                    size={14}
+                                                                />
+
+                                                                Score:{" "}
+                                                                {
+                                                                    quiz.result.score
+                                                                }%
+
+                                                            </span>
+
+                                                        )}
 
                                                 </div>
 
                                             </div>
 
-                                            <div className="shrink-0">
+                                            {/* ================================================= */}
+                                            {/* ACTION */}
+                                            {/* ================================================= */}
+
+                                            <div
+                                                className="
+                                                    shrink-0
+                                                "
+                                            >
 
                                                 <button
                                                     type="button"
                                                     onClick={() =>
-                                                        navigate(
-                                                            `/student/quiz/${quiz.subject?.id}?quizId=${quiz.id}`
+                                                        handleOpenQuiz(
+                                                            quiz
                                                         )
                                                     }
-                                                    className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-blue-700 md:w-auto"
+                                                    className={`
+                                                        inline-flex
+                                                        w-full
+                                                        items-center
+                                                        justify-center
+                                                        gap-2
+                                                        rounded-xl
+                                                        px-5
+                                                        py-3
+                                                        text-sm
+                                                        font-semibold
+                                                        text-white
+                                                        transition
+                                                        md:w-auto
+                                                        ${
+                                                            quiz.submitted
+                                                                ? "bg-slate-700 hover:bg-slate-800"
+                                                                : "bg-blue-600 hover:bg-blue-700"
+                                                        }
+                                                    `}
                                                 >
 
-                                                    <CheckCircle2
-                                                        size={17}
-                                                    />
+                                                    {quiz.submitted ? (
 
-                                                    Start Quiz
+                                                        <>
+                                                            <Eye
+                                                                size={17}
+                                                            />
+
+                                                            View Result
+                                                        </>
+
+                                                    ) : (
+
+                                                        <>
+                                                            <ClipboardCheck
+                                                                size={17}
+                                                            />
+
+                                                            Start Quiz
+                                                        </>
+
+                                                    )}
 
                                                 </button>
 
@@ -572,10 +1146,12 @@ function StudentQuizzesPage() {
                                         </div>
 
                                     </div>
+
                                 )
                             )}
 
                         </div>
+
                     )}
 
             </div>

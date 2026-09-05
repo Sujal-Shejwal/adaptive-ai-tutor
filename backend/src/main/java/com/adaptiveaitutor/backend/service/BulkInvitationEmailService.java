@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service;
 
 import com.adaptiveaitutor.backend.dto.BulkInvitationResult;
 import com.adaptiveaitutor.backend.dto.BulkInvitationStudent;
+import com.adaptiveaitutor.backend.dto.StudentOnboardingResult;
 import com.adaptiveaitutor.backend.entity.ClassroomInvitation;
 
 @Service
@@ -18,15 +19,28 @@ public class BulkInvitationEmailService {
 
     private final ClassroomInvitationService invitationService;
 
+    private final StudentOnboardingService studentOnboardingService;
+
     @Value("${spring.mail.username:}")
     private String senderEmail;
 
+    // =====================================================
+    // CONSTRUCTOR
+    // =====================================================
+
     public BulkInvitationEmailService(
             JavaMailSender mailSender,
-            ClassroomInvitationService invitationService) {
+            ClassroomInvitationService invitationService,
+            StudentOnboardingService studentOnboardingService
+    ) {
 
         this.mailSender = mailSender;
-        this.invitationService = invitationService;
+
+        this.invitationService =
+                invitationService;
+
+        this.studentOnboardingService =
+                studentOnboardingService;
     }
 
     // =====================================================
@@ -37,7 +51,8 @@ public class BulkInvitationEmailService {
             Long classroomId,
             Long teacherId,
             List<BulkInvitationStudent> students,
-            String frontendBaseUrl) {
+            String frontendBaseUrl
+    ) {
 
         BulkInvitationResult result =
                 new BulkInvitationResult();
@@ -46,7 +61,10 @@ public class BulkInvitationEmailService {
         // EMPTY LIST
         // -------------------------------------------------
 
-        if (students == null || students.isEmpty()) {
+        if (
+                students == null ||
+                students.isEmpty()
+        ) {
 
             result.setTotal(0);
             result.setSent(0);
@@ -63,13 +81,17 @@ public class BulkInvitationEmailService {
         // PROCESS EVERY STUDENT
         // -------------------------------------------------
 
-        for (BulkInvitationStudent student : students) {
+        for (
+                BulkInvitationStudent student :
+                students
+        ) {
 
             String name =
                     student == null ||
                     student.getName() == null
                             ? ""
-                            : student.getName().trim();
+                            : student.getName()
+                                    .trim();
 
             String email =
                     student == null ||
@@ -79,9 +101,9 @@ public class BulkInvitationEmailService {
                                     .trim()
                                     .toLowerCase();
 
-            // -------------------------------------------------
+            // =================================================
             // VALIDATE NAME
-            // -------------------------------------------------
+            // =================================================
 
             if (name.isBlank()) {
 
@@ -102,9 +124,9 @@ public class BulkInvitationEmailService {
                 continue;
             }
 
-            // -------------------------------------------------
+            // =================================================
             // VALIDATE EMAIL
-            // -------------------------------------------------
+            // =================================================
 
             if (email.isBlank()) {
 
@@ -144,11 +166,28 @@ public class BulkInvitationEmailService {
                 continue;
             }
 
-            // -------------------------------------------------
-            // SEND INVITATION
-            // -------------------------------------------------
+            // =================================================
+            // CREATE ACCOUNT + INVITATION + EMAIL
+            // =================================================
 
             try {
+
+                // -------------------------------------------------
+                // STEP 1: CREATE / REUSE STUDENT ACCOUNT
+                // -------------------------------------------------
+
+                StudentOnboardingResult onboardingResult =
+                        studentOnboardingService
+                                .onboardStudent(
+                                        classroomId,
+                                        teacherId,
+                                        name,
+                                        email
+                                );
+
+                // -------------------------------------------------
+                // STEP 2: CREATE SECURE INVITATION
+                // -------------------------------------------------
 
                 ClassroomInvitation invitation =
                         invitationService.createInvitation(
@@ -156,11 +195,19 @@ public class BulkInvitationEmailService {
                                 teacherId
                         );
 
+                // -------------------------------------------------
+                // STEP 3: BUILD INVITATION LINK
+                // -------------------------------------------------
+
                 String invitationLink =
                         buildInvitationLink(
                                 frontendBaseUrl,
                                 invitation.getToken()
                         );
+
+                // -------------------------------------------------
+                // STEP 4: GET CLASSROOM INFORMATION
+                // -------------------------------------------------
 
                 String classroomName =
                         invitation
@@ -173,20 +220,37 @@ public class BulkInvitationEmailService {
                                 .getJoinCode();
 
                 // -------------------------------------------------
-                // SEND EMAIL
+                // STEP 5: SEND EMAIL
                 // -------------------------------------------------
 
                 sendInvitationEmail(
-                        name,
-                        email,
+                        onboardingResult,
                         classroomName,
                         joinCode,
                         invitationLink
                 );
 
+                // -------------------------------------------------
+                // SUCCESS
+                // -------------------------------------------------
+
                 result.setSent(
                         result.getSent() + 1
                 );
+
+                String successMessage;
+
+                if (
+                        onboardingResult.isNewAccount()
+                ) {
+
+                    successMessage =
+                            "Student account created and invitation sent successfully.";
+                } else {
+
+                    successMessage =
+                            "Existing student account linked and invitation sent successfully.";
+                }
 
                 result.getResults().add(
                         new BulkInvitationResult
@@ -194,11 +258,13 @@ public class BulkInvitationEmailService {
                                         name,
                                         email,
                                         "SENT",
-                                        "Invitation sent successfully."
+                                        successMessage
                                 )
                 );
 
-            } catch (Exception exception) {
+            } catch (
+                    Exception exception
+            ) {
 
                 exception.printStackTrace();
 
@@ -228,11 +294,11 @@ public class BulkInvitationEmailService {
     // =====================================================
 
     private void sendInvitationEmail(
-            String studentName,
-            String studentEmail,
+            StudentOnboardingResult onboardingResult,
             String classroomName,
             String joinCode,
-            String invitationLink) {
+            String invitationLink
+    ) {
 
         SimpleMailMessage message =
                 new SimpleMailMessage();
@@ -256,7 +322,7 @@ public class BulkInvitationEmailService {
         // -------------------------------------------------
 
         message.setTo(
-                studentEmail
+                onboardingResult.getEmail()
         );
 
         // -------------------------------------------------
@@ -264,7 +330,7 @@ public class BulkInvitationEmailService {
         // -------------------------------------------------
 
         message.setSubject(
-                "Invitation to join "
+                "Student Account & Classroom Invitation - "
                         + classroomName
                         + " - Adaptive AI Tutor"
         );
@@ -275,7 +341,7 @@ public class BulkInvitationEmailService {
 
         message.setText(
                 buildEmailBody(
-                        studentName,
+                        onboardingResult,
                         classroomName,
                         joinCode,
                         invitationLink
@@ -292,29 +358,84 @@ public class BulkInvitationEmailService {
     }
 
     // =====================================================
-    // EMAIL BODY
+    // BUILD EMAIL BODY
     // =====================================================
 
     private String buildEmailBody(
-            String studentName,
+            StudentOnboardingResult onboardingResult,
             String classroomName,
             String joinCode,
-            String invitationLink) {
+            String invitationLink
+    ) {
+
+        String credentialSection;
+
+        // =================================================
+        // NEW STUDENT ACCOUNT
+        // =================================================
+
+        if (
+                onboardingResult.isNewAccount()
+        ) {
+
+            credentialSection =
+                    """
+                    Your Student Account Details:
+
+                    Student ID:
+                    %s
+
+                    Temporary Password:
+                    %s
+
+                    IMPORTANT:
+                    This temporary password expires in 24 hours.
+                    You must change your password after signing in.
+
+                    """
+                            .formatted(
+                                    onboardingResult
+                                            .getStudentId(),
+                                    onboardingResult
+                                            .getTemporaryPassword()
+                            );
+
+        } else {
+
+            // =================================================
+            // EXISTING STUDENT ACCOUNT
+            // =================================================
+
+            credentialSection =
+                    """
+                    Your Student Account:
+
+                    Student ID:
+                    %s
+
+                    This email belongs to an existing student account.
+                    Please sign in using your existing password.
+
+                    """
+                            .formatted(
+                                    onboardingResult
+                                            .getStudentId()
+                            );
+        }
 
         return """
                 Hello %s,
 
-                You have been invited to join:
+                You have been added to the following classroom:
 
                 %s
 
                 on the Adaptive AI Tutor platform.
 
-                Open your invitation link:
+                %s
+                Open your secure invitation link:
 
                 %s
-
-                After opening the link, log in or create your student account.
 
                 Classroom Join Code:
 
@@ -322,16 +443,19 @@ public class BulkInvitationEmailService {
 
                 The invitation link is valid for 24 hours.
 
-                Please do not share this invitation with other people.
+                Please do not share your login credentials or
+                invitation link with other people.
 
                 Thank you,
                 Adaptive AI Tutor
-                """.formatted(
-                studentName,
-                classroomName,
-                invitationLink,
-                joinCode
-        );
+                """
+                .formatted(
+                        onboardingResult.getName(),
+                        classroomName,
+                        credentialSection,
+                        invitationLink,
+                        joinCode
+                );
     }
 
     // =====================================================
@@ -340,9 +464,14 @@ public class BulkInvitationEmailService {
 
     private String buildInvitationLink(
             String frontendBaseUrl,
-            String token) {
+            String token
+    ) {
 
         String baseUrl;
+
+        // -------------------------------------------------
+        // DEFAULT LOCALHOST URL
+        // -------------------------------------------------
 
         if (
                 frontendBaseUrl == null ||
@@ -363,6 +492,14 @@ public class BulkInvitationEmailService {
                             );
         }
 
+        // -------------------------------------------------
+        // TOKEN-ONLY URL
+        // -------------------------------------------------
+        //
+        // IMPORTANT:
+        // Password is NEVER placed in this URL.
+        //
+
         return baseUrl
                 + "/student/invite/"
                 + token;
@@ -373,7 +510,8 @@ public class BulkInvitationEmailService {
     // =====================================================
 
     private boolean isValidEmail(
-            String email) {
+            String email
+    ) {
 
         return email.matches(
                 "^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+$"

@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.adaptiveaitutor.backend.dto.LoginResponse;
+import com.adaptiveaitutor.backend.entity.StudentProfile;
 import com.adaptiveaitutor.backend.entity.User;
 import com.adaptiveaitutor.backend.exception.EmailAlreadyExistsException;
 import com.adaptiveaitutor.backend.service.UserService;
@@ -84,12 +85,49 @@ public class UserController {
                             user.getPassword()
                     );
 
+            // ---------------------------------------------
+            // DEFAULT LOGIN VALUES
+            // ---------------------------------------------
+
+            String studentId = null;
+
+            boolean mustChangePassword = false;
+
+            // ---------------------------------------------
+            // LOAD STUDENT PROFILE
+            // ---------------------------------------------
+
+            if ("student".equalsIgnoreCase(
+                    loggedInUser.getRole()
+            )) {
+
+                StudentProfile profile =
+                        userService.getStudentProfile(
+                                loggedInUser.getId()
+                        );
+
+                if (profile != null) {
+
+                    studentId =
+                            profile.getStudentId();
+
+                    mustChangePassword =
+                            profile.isMustChangePassword();
+                }
+            }
+
+            // ---------------------------------------------
+            // BUILD LOGIN RESPONSE
+            // ---------------------------------------------
+
             LoginResponse response =
                     new LoginResponse(
                             loggedInUser.getId(),
                             loggedInUser.getName(),
                             loggedInUser.getEmail(),
-                            loggedInUser.getRole()
+                            loggedInUser.getRole(),
+                            studentId,
+                            mustChangePassword
                     );
 
             return ResponseEntity.ok(
@@ -97,6 +135,31 @@ public class UserController {
             );
 
         } catch (RuntimeException exception) {
+
+            String message =
+                    exception.getMessage();
+
+            // -------------------------------------------------
+            // EXPIRED TEMPORARY PASSWORD
+            // -------------------------------------------------
+
+            if (
+                    message != null &&
+                    message.equals(
+                            "Temporary password has expired"
+                    )
+            ) {
+
+                return ResponseEntity
+                        .status(403)
+                        .body(
+                                message
+                        );
+            }
+
+            // -------------------------------------------------
+            // NORMAL LOGIN FAILURE
+            // -------------------------------------------------
 
             return ResponseEntity
                     .status(401)
@@ -121,12 +184,41 @@ public class UserController {
                             userId
                     );
 
+            String studentId = null;
+
+            boolean mustChangePassword = false;
+
+            // -------------------------------------------------
+            // LOAD STUDENT PROFILE
+            // -------------------------------------------------
+
+            if ("student".equalsIgnoreCase(
+                    user.getRole()
+            )) {
+
+                StudentProfile profile =
+                        userService.getStudentProfile(
+                                user.getId()
+                        );
+
+                if (profile != null) {
+
+                    studentId =
+                            profile.getStudentId();
+
+                    mustChangePassword =
+                            profile.isMustChangePassword();
+                }
+            }
+
             LoginResponse response =
                     new LoginResponse(
                             user.getId(),
                             user.getName(),
                             user.getEmail(),
-                            user.getRole()
+                            user.getRole(),
+                            studentId,
+                            mustChangePassword
                     );
 
             return ResponseEntity.ok(
@@ -159,12 +251,41 @@ public class UserController {
                             request.getEmail()
                     );
 
+            String studentId = null;
+
+            boolean mustChangePassword = false;
+
+            // -------------------------------------------------
+            // LOAD STUDENT PROFILE
+            // -------------------------------------------------
+
+            if ("student".equalsIgnoreCase(
+                    updatedUser.getRole()
+            )) {
+
+                StudentProfile profile =
+                        userService.getStudentProfile(
+                                updatedUser.getId()
+                        );
+
+                if (profile != null) {
+
+                    studentId =
+                            profile.getStudentId();
+
+                    mustChangePassword =
+                            profile.isMustChangePassword();
+                }
+            }
+
             LoginResponse response =
                     new LoginResponse(
                             updatedUser.getId(),
                             updatedUser.getName(),
                             updatedUser.getEmail(),
-                            updatedUser.getRole()
+                            updatedUser.getRole(),
+                            studentId,
+                            mustChangePassword
                     );
 
             return ResponseEntity.ok(
