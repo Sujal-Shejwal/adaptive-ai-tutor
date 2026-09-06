@@ -2866,14 +2866,17 @@ export default function TeacherClassroomsPage() {
                                   const student =
                                     enrollment?.student;
 
-                                  const studentId =
+                                  const studentUserId =
                                     student?.id;
+
+                                  const studentId =
+                                    student?.studentId;
 
                                   const studentName =
                                     student?.name ||
                                     "Student";
 
-                                  const studentKey = `${classroom.id}-${studentId}`;
+                                  const studentKey = `${classroom.id}-${studentUserId}`;
 
                                   return (
                                     <div
@@ -2924,7 +2927,7 @@ export default function TeacherClassroomsPage() {
                                             onClick={() =>
                                               handleRemoveStudent(
                                                 classroom.id,
-                                                studentId,
+                                                studentUserId,
                                                 studentName
                                               )
                                             }

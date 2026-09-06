@@ -18,10 +18,13 @@ import {
 
 import {
   useEffect,
+  useRef,
   useState,
 } from "react";
 
-import subjects from "../../data/subjects";
+import staticSubjects from "../../data/subjects";
+
+const API_BASE = "http://localhost:8080";
 
 function QuizPage() {
   const { subjectId } = useParams();
@@ -33,41 +36,37 @@ function QuizPage() {
     searchParams.get("quizId");
 
   // =====================================================
-  // FRONTEND SUBJECT
+  // SUBJECT STATE
   // =====================================================
 
-  const frontendSubject = subjects.find(
-    (item) =>
-      String(item.id).toLowerCase() ===
-      String(subjectId).toLowerCase()
-  );
-
   const [displaySubject, setDisplaySubject] =
-    useState(
-      frontendSubject || null
-    );
+    useState(null);
+
+  const [subjectsLoaded, setSubjectsLoaded] =
+    useState(false);
 
   // =====================================================
   // QUIZ STATE
   // =====================================================
 
-  const [quiz, setQuiz] = useState(null);
+  const [quiz, setQuiz] =
+    useState(null);
 
-  const [questions, setQuestions] = useState([]);
+  const [questions, setQuestions] =
+    useState([]);
 
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] =
+    useState(true);
 
-  const [error, setError] = useState("");
+  const [error, setError] =
+    useState("");
 
   // =====================================================
-  // SUBMISSION / DEADLINE STATE
+  // SUBMISSION STATE
   // =====================================================
 
   const [alreadySubmitted, setAlreadySubmitted] =
     useState(false);
-
-  const [submittedResult, setSubmittedResult] =
-    useState(null);
 
   const [quizExpired, setQuizExpired] =
     useState(false);
@@ -105,11 +104,50 @@ function QuizPage() {
     useState(false);
 
   // =====================================================
-  // QUIZ TIMER
+  // TIMER
   // =====================================================
 
   const [timeLeft, setTimeLeft] =
     useState(0);
+
+  // =====================================================
+  // REFS FOR TIMER / SUBMISSION SAFETY
+  // =====================================================
+
+  const answersRef =
+    useRef({});
+
+  const currentQuestionRef =
+    useRef(0);
+
+  const selectedAnswerRef =
+    useRef(null);
+
+  const submittingRef =
+    useRef(false);
+
+  // =====================================================
+  // SYNC REFS
+  // =====================================================
+
+  useEffect(() => {
+    answersRef.current = answers;
+  }, [answers]);
+
+  useEffect(() => {
+    currentQuestionRef.current =
+      currentQuestion;
+  }, [currentQuestion]);
+
+  useEffect(() => {
+    selectedAnswerRef.current =
+      selectedAnswer;
+  }, [selectedAnswer]);
+
+  useEffect(() => {
+    submittingRef.current =
+      submitting;
+  }, [submitting]);
 
   // =====================================================
   // FORMAT TIMER
@@ -138,10 +176,12 @@ function QuizPage() {
   };
 
   // =====================================================
-  // FORMAT DEADLINE
+  // FORMAT DATE
   // =====================================================
 
-  const formatDeadline = (dateValue) => {
+  const formatDeadline = (
+    dateValue
+  ) => {
     if (!dateValue) {
       return "No deadline";
     }
@@ -170,621 +210,815 @@ function QuizPage() {
   };
 
   // =====================================================
-  // LOAD QUIZ
+  // CURRENT STUDENT
+  // =====================================================
+
+  const getStudentId = () => {
+    const storedUserId =
+      localStorage.getItem("userId");
+
+    const studentId =
+      Number(storedUserId);
+
+    if (
+      !Number.isFinite(
+        studentId
+      ) ||
+      studentId <= 0
+    ) {
+      return null;
+    }
+
+    return studentId;
+  };
+
+  // =====================================================
+  // RESET PAGE STATE
+  // =====================================================
+
+  const resetPageState = () => {
+    setLoading(true);
+    setError("");
+
+    setDisplaySubject(null);
+    setQuiz(null);
+    setQuestions([]);
+
+    setAlreadySubmitted(false);
+    setQuizExpired(false);
+
+    setQuizStarted(false);
+
+    setCurrentQuestion(0);
+    setSelectedAnswer(null);
+
+    setAnswers({});
+    answersRef.current = {};
+
+    setShowAnswer(false);
+    setShowResult(false);
+
+    setResult(null);
+
+    setSubmitting(false);
+    submittingRef.current = false;
+
+    setTimeLeft(0);
+  };
+
+  // =====================================================
+  // FETCH JSON HELPER
+  // =====================================================
+
+  const fetchJson = async (
+    url,
+    options = {}
+  ) => {
+    const response =
+      await fetch(
+        url,
+        options
+      );
+
+    const data =
+      await response
+        .json()
+        .catch(() => null);
+
+    if (!response.ok) {
+      const message =
+        data?.message ||
+        data?.error ||
+        `Request failed with status ${response.status}.`;
+
+      throw new Error(
+        message
+      );
+    }
+
+    return data;
+  };
+
+  // =====================================================
+  // LOAD BACKEND SUBJECTS
+  // =====================================================
+
+  const loadBackendSubjects =
+    async () => {
+      const data =
+        await fetchJson(
+          `${API_BASE}/api/subjects`
+        );
+
+      if (
+        !Array.isArray(data)
+      ) {
+        throw new Error(
+          "Invalid subjects response."
+        );
+      }
+
+      return data;
+    };
+
+  // =====================================================
+  // RESOLVE SUBJECT
+  // =====================================================
+
+  const resolveSubject = (
+    backendSubjects
+  ) => {
+    const normalizedRoute =
+      String(
+        subjectId ?? ""
+      )
+        .trim()
+        .toLowerCase();
+
+    if (
+      !normalizedRoute
+    ) {
+      return null;
+    }
+
+    // ---------------------------------------------
+    // Backend ID / CODE / NAME
+    // ---------------------------------------------
+
+    const backendMatch =
+      backendSubjects.find(
+        (item) => {
+          const id =
+            String(
+              item?.id ?? ""
+            )
+              .trim()
+              .toLowerCase();
+
+          const code =
+            String(
+              item?.code ?? ""
+            )
+              .trim()
+              .toLowerCase();
+
+          const name =
+            String(
+              item?.name ?? ""
+            )
+              .trim()
+              .toLowerCase();
+
+          return (
+            id ===
+              normalizedRoute ||
+            code ===
+              normalizedRoute ||
+            name ===
+              normalizedRoute
+          );
+        }
+      );
+
+    if (
+      backendMatch
+    ) {
+      return backendMatch;
+    }
+
+    // ---------------------------------------------
+    // Static fallback
+    // ---------------------------------------------
+
+    const staticMatch =
+      staticSubjects.find(
+        (item) =>
+          String(
+            item?.id ?? ""
+          )
+            .trim()
+            .toLowerCase() ===
+          normalizedRoute
+      );
+
+    return (
+      staticMatch ||
+      null
+    );
+  };
+
+  // =====================================================
+  // FORMAT QUESTIONS
+  // =====================================================
+
+  const formatQuestions = (
+    questionData
+  ) => {
+    if (
+      !Array.isArray(
+        questionData
+      )
+    ) {
+      return [];
+    }
+
+    return questionData
+      .map(
+        (question) => ({
+          id:
+            question?.id,
+
+          question:
+            String(
+              question?.question ??
+                ""
+            ),
+
+          options: [
+            question?.option1,
+            question?.option2,
+            question?.option3,
+            question?.option4,
+          ].map(
+            (value) =>
+              String(
+                value ?? ""
+              )
+          ),
+
+          correctAnswer:
+            Number(
+              question?.correctAnswer
+            ),
+        })
+      )
+      .filter(
+        (question) =>
+          question.id != null &&
+          question.question.trim() !== "" &&
+          question.options.length ===
+            4 &&
+          question.options.every(
+            (option) =>
+              option.trim() !== ""
+          ) &&
+          Number.isInteger(
+            question.correctAnswer
+          ) &&
+          question.correctAnswer >= 0 &&
+          question.correctAnswer <= 3
+      );
+  };
+
+  // =====================================================
+  // LOAD SUBMISSION STATUS
+  // =====================================================
+
+  const loadSubmissionStatus =
+    async (
+      quizId,
+      studentId
+    ) => {
+      const data =
+        await fetchJson(
+          `${API_BASE}/api/quiz-attempts/quiz/${quizId}/student/${studentId}`
+        );
+
+      return data;
+    };
+
+  // =====================================================
+  // APPLY PREVIOUS SUBMISSION
+  // =====================================================
+
+  const applyPreviousSubmission = (
+    submissionData,
+    quizId,
+    studentId
+  ) => {
+    const previousResult = {
+      id:
+        submissionData?.attemptId ??
+        submissionData?.id,
+
+      quizId:
+        quizId,
+
+      studentId:
+        studentId,
+
+      score:
+        Number(
+          submissionData?.score
+        ) || 0,
+
+      totalQuestions:
+        Number(
+          submissionData?.totalQuestions
+        ) || 0,
+
+      correctAnswers:
+        Number(
+          submissionData?.correctAnswers
+        ) || 0,
+
+      submittedAt:
+        submissionData?.submittedAt,
+    };
+
+    setAlreadySubmitted(
+      true
+    );
+
+    setResult(
+      previousResult
+    );
+
+    setShowResult(
+      true
+    );
+
+    setQuizStarted(
+      false
+    );
+
+    setShowAnswer(
+      false
+    );
+
+    setSelectedAnswer(
+      null
+    );
+
+    return previousResult;
+  };
+
+  // =====================================================
+  // CHECK DEADLINE
+  // =====================================================
+
+  const isDeadlinePassed = (
+    dueAt
+  ) => {
+    if (!dueAt) {
+      return false;
+    }
+
+    const dueDate =
+      new Date(dueAt);
+
+    if (
+      Number.isNaN(
+        dueDate.getTime()
+      )
+    ) {
+      return false;
+    }
+
+    return (
+      new Date().getTime() >=
+      dueDate.getTime()
+    );
+  };
+
+  // =====================================================
+  // LOAD SPECIFIC QUIZ
+  // =====================================================
+
+  const loadSpecificQuiz = async (
+    backendSubjects
+  ) => {
+    const selectedQuiz =
+      await fetchJson(
+        `${API_BASE}/api/quizzes/${requestedQuizId}`
+      );
+
+    if (
+      !selectedQuiz?.id
+    ) {
+      throw new Error(
+        "Invalid quiz data."
+      );
+    }
+
+    // ---------------------------------------------
+    // RESOLVE QUIZ SUBJECT
+    // ---------------------------------------------
+
+    const quizSubject =
+      selectedQuiz?.subject;
+
+    let resolvedSubject =
+      null;
+
+    if (
+      quizSubject
+    ) {
+      resolvedSubject =
+        backendSubjects.find(
+          (item) =>
+            String(
+              item?.id ?? ""
+            ).toLowerCase() ===
+              String(
+                quizSubject?.id ?? ""
+              ).toLowerCase() ||
+            String(
+              item?.name ?? ""
+            ).toLowerCase() ===
+              String(
+                quizSubject?.name ?? ""
+              ).toLowerCase() ||
+            String(
+              item?.code ?? ""
+            ).toLowerCase() ===
+              String(
+                quizSubject?.code ?? ""
+              ).toLowerCase()
+        );
+    }
+
+    if (
+      !resolvedSubject
+    ) {
+      resolvedSubject =
+        resolveSubject(
+          backendSubjects
+        );
+    }
+
+    if (
+      !resolvedSubject &&
+      quizSubject
+    ) {
+      resolvedSubject =
+        {
+          id:
+            quizSubject?.id,
+
+          name:
+            quizSubject?.name ||
+            "Subject",
+
+          code:
+            quizSubject?.code ||
+            "",
+        };
+    }
+
+    if (
+      !resolvedSubject
+    ) {
+      throw new Error(
+        "The subject for this quiz could not be found."
+      );
+    }
+
+    setDisplaySubject(
+      resolvedSubject
+    );
+
+    setQuiz(
+      selectedQuiz
+    );
+
+    // ---------------------------------------------
+    // QUESTIONS
+    // ---------------------------------------------
+
+    const questionData =
+      await fetchJson(
+        `${API_BASE}/api/quizzes/${selectedQuiz.id}/questions`
+      );
+
+    const formattedQuestions =
+      formatQuestions(
+        questionData
+      );
+
+    if (
+      formattedQuestions.length ===
+      0
+    ) {
+      throw new Error(
+        "This quiz has no valid questions."
+      );
+    }
+
+    setQuestions(
+      formattedQuestions
+    );
+
+    // ---------------------------------------------
+    // STUDENT
+    // ---------------------------------------------
+
+    const studentId =
+      getStudentId();
+
+    if (!studentId) {
+      throw new Error(
+        "Student account not found. Please log in again."
+      );
+    }
+
+    // ---------------------------------------------
+    // SUBMISSION STATUS
+    // ---------------------------------------------
+
+    const submissionData =
+      await loadSubmissionStatus(
+        selectedQuiz.id,
+        studentId
+      );
+
+    if (
+      submissionData?.submitted ===
+      true
+    ) {
+      applyPreviousSubmission(
+        submissionData,
+        selectedQuiz.id,
+        studentId
+      );
+
+      return;
+    }
+
+    // ---------------------------------------------
+    // DEADLINE
+    // ---------------------------------------------
+
+    if (
+      isDeadlinePassed(
+        selectedQuiz?.dueAt
+      )
+    ) {
+      setQuizExpired(
+        true
+      );
+
+      return;
+    }
+
+    // ---------------------------------------------
+    // TIMER
+    // ---------------------------------------------
+
+    const duration =
+      Number(
+        selectedQuiz?.duration
+      );
+
+    setTimeLeft(
+      duration > 0
+        ? duration * 60
+        : 5 * 60
+    );
+  };
+
+  // =====================================================
+  // LOAD SUBJECT QUIZ
+  // =====================================================
+
+  const loadSubjectQuiz = async (
+    backendSubjects
+  ) => {
+    // ---------------------------------------------
+    // RESOLVE SUBJECT FROM BACKEND
+    // ---------------------------------------------
+
+    const resolvedSubject =
+      resolveSubject(
+        backendSubjects
+      );
+
+    if (
+      !resolvedSubject
+    ) {
+      throw new Error(
+        "Subject not found."
+      );
+    }
+
+    setDisplaySubject(
+      resolvedSubject
+    );
+
+    // ---------------------------------------------
+    // LOAD QUIZZES
+    // ---------------------------------------------
+
+    const quizData =
+      await fetchJson(
+        `${API_BASE}/api/quizzes/subject/${resolvedSubject.id}`
+      );
+
+    if (
+      !Array.isArray(
+        quizData
+      ) ||
+      quizData.length === 0
+    ) {
+      setQuiz(null);
+      setQuestions([]);
+      return;
+    }
+
+    // ---------------------------------------------
+    // NEWEST FIRST
+    // ---------------------------------------------
+
+    const sortedQuizzes =
+      [...quizData].sort(
+        (a, b) =>
+          Number(
+            b?.id || 0
+          ) -
+          Number(
+            a?.id || 0
+          )
+      );
+
+    let selectedQuiz =
+      null;
+
+    let selectedQuestions =
+      [];
+
+    // ---------------------------------------------
+    // FIND LATEST QUIZ WITH VALID QUESTIONS
+    // ---------------------------------------------
+
+    for (
+      const candidateQuiz of
+        sortedQuizzes
+    ) {
+      try {
+        const candidateQuestions =
+          await fetchJson(
+            `${API_BASE}/api/quizzes/${candidateQuiz.id}/questions`
+          );
+
+        const formatted =
+          formatQuestions(
+            candidateQuestions
+          );
+
+        if (
+          formatted.length > 0
+        ) {
+          selectedQuiz =
+            candidateQuiz;
+
+          selectedQuestions =
+            formatted;
+
+          break;
+        }
+      } catch (
+        questionError
+      ) {
+        console.error(
+          `Could not load questions for quiz ${candidateQuiz?.id}:`,
+          questionError
+        );
+      }
+    }
+
+    // ---------------------------------------------
+    // NO VALID QUIZ
+    // ---------------------------------------------
+
+    if (
+      !selectedQuiz
+    ) {
+      setQuiz(null);
+      setQuestions([]);
+      return;
+    }
+
+    setQuiz(
+      selectedQuiz
+    );
+
+    setQuestions(
+      selectedQuestions
+    );
+
+    // ---------------------------------------------
+    // STUDENT
+    // ---------------------------------------------
+
+    const studentId =
+      getStudentId();
+
+    if (!studentId) {
+      throw new Error(
+        "Student account not found. Please log in again."
+      );
+    }
+
+    // ---------------------------------------------
+    // SUBMISSION STATUS
+    // ---------------------------------------------
+
+    const submissionData =
+      await loadSubmissionStatus(
+        selectedQuiz.id,
+        studentId
+      );
+
+    if (
+      submissionData?.submitted ===
+      true
+    ) {
+      applyPreviousSubmission(
+        submissionData,
+        selectedQuiz.id,
+        studentId
+      );
+
+      return;
+    }
+
+    // ---------------------------------------------
+    // DEADLINE
+    // ---------------------------------------------
+
+    if (
+      isDeadlinePassed(
+        selectedQuiz?.dueAt
+      )
+    ) {
+      setQuizExpired(
+        true
+      );
+
+      return;
+    }
+
+    // ---------------------------------------------
+    // TIMER
+    // ---------------------------------------------
+
+    const duration =
+      Number(
+        selectedQuiz?.duration
+      );
+
+    setTimeLeft(
+      duration > 0
+        ? duration * 60
+        : 5 * 60
+    );
+  };
+
+  // =====================================================
+  // MAIN QUIZ LOADER
   // =====================================================
 
   useEffect(() => {
-    let cancelled = false;
+    let cancelled =
+      false;
 
-    const loadQuiz = async () => {
+    const loadQuiz =
+      async () => {
+        resetPageState();
 
-      try {
-
-        setLoading(true);
-        setError("");
-        setQuiz(null);
-        setQuestions([]);
-        setAlreadySubmitted(false);
-        setSubmittedResult(null);
-        setQuizExpired(false);
-        setQuizStarted(false);
-        setCurrentQuestion(0);
-        setSelectedAnswer(null);
-        setAnswers({});
-        setShowAnswer(false);
-        setShowResult(false);
-        setResult(null);
-
-        // =================================================
-        // SPECIFIC QUIZ MODE
-        // =================================================
-
-        if (requestedQuizId) {
-
-          const quizResponse =
-            await fetch(
-              `http://localhost:8080/api/quizzes/${requestedQuizId}`
-            );
-
-          if (!quizResponse.ok) {
-            throw new Error(
-              "Quiz not found."
-            );
-          }
-
-          const selectedQuiz =
-            await quizResponse.json();
-
-          if (!selectedQuiz?.id) {
-            throw new Error(
-              "Invalid quiz data."
-            );
-          }
-
-          setQuiz(
-            selectedQuiz
-          );
-
-          // ---------------------------------------------
-          // SUBJECT
-          // ---------------------------------------------
-
-          const quizSubject =
-            selectedQuiz.subject;
+        try {
+          const backendSubjects =
+            await loadBackendSubjects();
 
           if (
-            quizSubject?.id ||
-            quizSubject?.name
+            cancelled
           ) {
+            return;
+          }
 
-            const matchedSubject =
-              subjects.find(
-                (item) =>
-                  String(item.id).toLowerCase() ===
-                    String(
-                      quizSubject.id ?? ""
-                    ).toLowerCase() ||
-                  String(item.name).toLowerCase() ===
-                    String(
-                      quizSubject.name ?? ""
-                    ).toLowerCase()
-              );
+          setSubjectsLoaded(
+            true
+          );
 
-            setDisplaySubject(
-              matchedSubject ||
-              {
-                id:
-                  quizSubject.id,
-
-                name:
-                  quizSubject.name ||
-                  "Subject",
-              }
+          if (
+            requestedQuizId
+          ) {
+            await loadSpecificQuiz(
+              backendSubjects
             );
-
           } else {
-
-            setDisplaySubject(
-              frontendSubject ||
-              null
+            await loadSubjectQuiz(
+              backendSubjects
             );
           }
-
-          // ---------------------------------------------
-          // QUESTIONS
-          // ---------------------------------------------
-
-          const questionResponse =
-            await fetch(
-              `http://localhost:8080/api/quizzes/${selectedQuiz.id}/questions`
-            );
-
-          if (!questionResponse.ok) {
-            throw new Error(
-              "Failed to load quiz questions."
-            );
-          }
-
-          const questionData =
-            await questionResponse.json();
-
+        } catch (
+          loadError
+        ) {
           if (
-            !Array.isArray(
-              questionData
-            ) ||
-            questionData.length === 0
+            cancelled
           ) {
-
-            throw new Error(
-              "This quiz has no questions."
-            );
-          }
-
-          // ---------------------------------------------
-          // CURRENT STUDENT
-          // ---------------------------------------------
-
-          const studentId =
-            Number(
-              localStorage.getItem(
-                "userId"
-              )
-            );
-
-          if (!studentId) {
-
-            throw new Error(
-              "Student account not found."
-            );
-          }
-
-          // ---------------------------------------------
-          // SUBMISSION STATUS
-          // ---------------------------------------------
-
-          const submissionResponse =
-            await fetch(
-              `http://localhost:8080/api/quiz-attempts/quiz/${selectedQuiz.id}/student/${studentId}`
-            );
-
-          if (!submissionResponse.ok) {
-
-            throw new Error(
-              "Unable to check quiz submission status."
-            );
-          }
-
-          const submissionData =
-            await submissionResponse.json();
-
-          if (cancelled) {
             return;
           }
-
-          if (
-            submissionData?.submitted ===
-            true
-          ) {
-
-            setAlreadySubmitted(
-              true
-            );
-
-            const previousResult = {
-              id:
-                submissionData.attemptId,
-
-              quizId:
-                selectedQuiz.id,
-
-              studentId,
-
-              score:
-                submissionData.score,
-
-              totalQuestions:
-                submissionData.totalQuestions,
-
-              correctAnswers:
-                submissionData.correctAnswers,
-
-              submittedAt:
-                submissionData.submittedAt,
-            };
-
-            setSubmittedResult(
-              previousResult
-            );
-
-            setResult(
-              previousResult
-            );
-
-            setShowResult(
-              true
-            );
-
-            return;
-          }
-
-          // ---------------------------------------------
-          // DEADLINE
-          // ---------------------------------------------
-
-          if (
-            selectedQuiz.dueAt
-          ) {
-
-            const dueDate =
-              new Date(
-                selectedQuiz.dueAt
-              );
-
-            if (
-              !Number.isNaN(
-                dueDate.getTime()
-              ) &&
-              new Date() >=
-                dueDate
-            ) {
-
-              setQuizExpired(
-                true
-              );
-
-              return;
-            }
-          }
-
-          // ---------------------------------------------
-          // FORMAT QUESTIONS
-          // ---------------------------------------------
-
-          const formattedQuestions =
-            questionData.map(
-              (question) => ({
-                id:
-                  question.id,
-
-                question:
-                  question.question,
-
-                options: [
-                  question.option1,
-                  question.option2,
-                  question.option3,
-                  question.option4,
-                ],
-
-                correctAnswer:
-                  question.correctAnswer,
-              })
-            );
-
-          setQuestions(
-            formattedQuestions
-          );
-
-          setTimeLeft(
-            Number(
-              selectedQuiz.duration
-            ) > 0
-              ? Number(
-                  selectedQuiz.duration
-                ) * 60
-              : 5 * 60
-          );
-
-          return;
-        }
-
-        // =================================================
-        // SUBJECT MODE
-        // =================================================
-
-        if (!frontendSubject) {
-
-          throw new Error(
-            "Subject not found."
-          );
-        }
-
-        const subjectResponse =
-          await fetch(
-            "http://localhost:8080/api/subjects"
-          );
-
-        if (!subjectResponse.ok) {
-
-          throw new Error(
-            "Failed to load subjects."
-          );
-        }
-
-        const backendSubjects =
-          await subjectResponse.json();
-
-        const normalizedSubjectId =
-          String(
-            subjectId
-          ).toLowerCase();
-
-        const normalizedName =
-          String(
-            frontendSubject.name || ""
-          ).toLowerCase();
-
-        const matchedSubject =
-          backendSubjects.find(
-            (item) => {
-
-              const code =
-                String(
-                  item.code || ""
-                ).toLowerCase();
-
-              const id =
-                String(
-                  item.id || ""
-                ).toLowerCase();
-
-              const name =
-                String(
-                  item.name || ""
-                ).toLowerCase();
-
-              return (
-                code ===
-                  normalizedSubjectId ||
-                id ===
-                  normalizedSubjectId ||
-                name ===
-                  normalizedName
-              );
-            }
-          );
-
-        if (!matchedSubject) {
-
-          throw new Error(
-            `No backend subject found for "${displaySubject?.name || quiz?.subject?.name || "Subject"}".`
-          );
-        }
-
-        setDisplaySubject(
-          frontendSubject
-        );
-
-        const quizResponse =
-          await fetch(
-            `http://localhost:8080/api/quizzes/subject/${matchedSubject.id}`
-          );
-
-        if (!quizResponse.ok) {
-
-          throw new Error(
-            "Failed to load quizzes."
-          );
-        }
-
-        const quizData =
-          await quizResponse.json();
-
-        if (
-          !Array.isArray(
-            quizData
-          ) ||
-          quizData.length === 0
-        ) {
-
-          if (!cancelled) {
-            setQuiz(null);
-            setQuestions([]);
-          }
-
-          return;
-        }
-
-        const sortedQuizzes =
-          [...quizData].sort(
-            (a, b) =>
-              Number(b.id) -
-              Number(a.id)
-          );
-
-        let selectedQuiz = null;
-        let selectedQuestions = [];
-
-        for (
-          const candidateQuiz
-          of sortedQuizzes
-        ) {
-
-          try {
-
-            const candidateQuestionResponse =
-              await fetch(
-                `http://localhost:8080/api/quizzes/${candidateQuiz.id}/questions`
-              );
-
-            if (
-              !candidateQuestionResponse.ok
-            ) {
-              continue;
-            }
-
-            const candidateQuestionData =
-              await candidateQuestionResponse.json();
-
-            if (
-              Array.isArray(
-                candidateQuestionData
-              ) &&
-              candidateQuestionData.length >
-                0
-            ) {
-
-              selectedQuiz =
-                candidateQuiz;
-
-              selectedQuestions =
-                candidateQuestionData;
-
-              break;
-            }
-
-          } catch (
-            questionError
-          ) {
-
-            console.error(
-              `Could not load questions for quiz ${candidateQuiz.id}:`,
-              questionError
-            );
-          }
-        }
-
-        if (!selectedQuiz) {
-
-          if (!cancelled) {
-
-            setQuiz(null);
-            setQuestions([]);
-          }
-
-          return;
-        }
-
-        if (cancelled) {
-          return;
-        }
-
-        setQuiz(
-          selectedQuiz
-        );
-
-        const studentId =
-          Number(
-            localStorage.getItem(
-              "userId"
-            )
-          );
-
-        if (!studentId) {
-
-          throw new Error(
-            "Student account not found."
-          );
-        }
-
-        const submissionResponse =
-          await fetch(
-            `http://localhost:8080/api/quiz-attempts/quiz/${selectedQuiz.id}/student/${studentId}`
-          );
-
-        if (!submissionResponse.ok) {
-
-          throw new Error(
-            "Unable to check quiz submission status."
-          );
-        }
-
-        const submissionData =
-          await submissionResponse.json();
-
-        if (cancelled) {
-          return;
-        }
-
-        if (
-          submissionData.submitted ===
-          true
-        ) {
-
-          setAlreadySubmitted(
-            true
-          );
-
-          const previousResult = {
-            id:
-              submissionData.attemptId,
-
-            quizId:
-              selectedQuiz.id,
-
-            studentId,
-
-            score:
-              submissionData.score,
-
-            totalQuestions:
-              submissionData.totalQuestions,
-
-            correctAnswers:
-              submissionData.correctAnswers,
-
-            submittedAt:
-              submissionData.submittedAt,
-          };
-
-          setSubmittedResult(
-            previousResult
-          );
-
-          setResult(
-            previousResult
-          );
-
-          setShowResult(
-            true
-          );
-
-          return;
-        }
-
-        if (
-          selectedQuiz.dueAt
-        ) {
-
-          const dueDate =
-            new Date(
-              selectedQuiz.dueAt
-            );
-
-          if (
-            !Number.isNaN(
-              dueDate.getTime()
-            ) &&
-            new Date() >=
-              dueDate
-          ) {
-
-            setQuizExpired(
-              true
-            );
-
-            return;
-          }
-        }
-
-        const formattedQuestions =
-          selectedQuestions.map(
-            (question) => ({
-              id:
-                question.id,
-
-              question:
-                question.question,
-
-              options: [
-                question.option1,
-                question.option2,
-                question.option3,
-                question.option4,
-              ],
-
-              correctAnswer:
-                question.correctAnswer,
-            })
-          );
-
-        setQuestions(
-          formattedQuestions
-        );
-
-        setTimeLeft(
-          Number(
-            selectedQuiz.duration
-          ) > 0
-            ? Number(
-                selectedQuiz.duration
-              ) * 60
-            : 5 * 60
-        );
-
-      } catch (loadError) {
-
-        if (!cancelled) {
 
           console.error(
             "Quiz loading error:",
@@ -792,25 +1026,25 @@ function QuizPage() {
           );
 
           setError(
-            loadError.message ||
-            "Unable to load quiz. Please try again."
+            loadError?.message ||
+              "Unable to load quiz. Please try again."
           );
+        } finally {
+          if (
+            !cancelled
+          ) {
+            setLoading(
+              false
+            );
+          }
         }
-
-      } finally {
-
-        if (!cancelled) {
-          setLoading(false);
-        }
-      }
-    };
+      };
 
     loadQuiz();
 
     return () => {
       cancelled = true;
     };
-
   }, [
     subjectId,
     requestedQuizId,
@@ -820,174 +1054,366 @@ function QuizPage() {
   // START QUIZ
   // =====================================================
 
-  const handleStartQuiz = () => {
-    if (!quiz) {
-      return;
-    }
+  const handleStartQuiz =
+    () => {
+      if (
+        !quiz ||
+        questions.length ===
+          0
+      ) {
+        return;
+      }
 
-    // -----------------------------------------------
-    // Check global deadline one more time
-    // -----------------------------------------------
+      if (
+        alreadySubmitted
+      ) {
+        return;
+      }
 
-    if (
-      quiz.dueAt &&
-      new Date() >=
-        new Date(
-          quiz.dueAt
+      if (
+        isDeadlinePassed(
+          quiz?.dueAt
         )
-    ) {
-      setQuizExpired(
+      ) {
+        setQuizExpired(
+          true
+        );
+
+        return;
+      }
+
+      setQuizStarted(
         true
       );
 
-      return;
-    }
+      setCurrentQuestion(
+        0
+      );
 
-    // -----------------------------------------------
-    // Check already submitted
-    // -----------------------------------------------
+      currentQuestionRef.current =
+        0;
 
-    if (
-      alreadySubmitted
-    ) {
-      return;
-    }
+      setSelectedAnswer(
+        null
+      );
 
-    // -----------------------------------------------
-    // Start
-    // -----------------------------------------------
+      selectedAnswerRef.current =
+        null;
 
-    setQuizStarted(
-      true
-    );
+      setAnswers({});
 
-    setCurrentQuestion(
-      0
-    );
+      answersRef.current =
+        {};
 
-    setSelectedAnswer(
-      null
-    );
+      setShowAnswer(
+        false
+      );
 
-    setAnswers({});
+      setShowResult(
+        false
+      );
 
-    setShowAnswer(
-      false
-    );
+      setResult(
+        null
+      );
 
-    setShowResult(
-      false
-    );
+      setError("");
 
-    setSubmitting(
-      false
-    );
+      const duration =
+        Number(
+          quiz?.duration
+        );
 
-    setTimeLeft(
-      Number(
-        quiz.duration
-      ) > 0
-        ? Number(
-            quiz.duration
-          ) * 60
-        : 5 * 60
-    );
-  };
+      setTimeLeft(
+        duration > 0
+          ? duration * 60
+          : 5 * 60
+      );
+    };
 
   // =====================================================
   // SELECT ANSWER
   // =====================================================
 
-  const handleSelectAnswer = (
-    answerIndex
-  ) => {
-    if (
-      showAnswer ||
-      submitting
-    ) {
-      return;
-    }
+  const handleSelectAnswer =
+    (answerIndex) => {
+      if (
+        showAnswer ||
+        submitting
+      ) {
+        return;
+      }
 
-    setSelectedAnswer(
-      answerIndex
-    );
-  };
+      if (
+        !Number.isInteger(
+          answerIndex
+        ) ||
+        answerIndex < 0 ||
+        answerIndex > 3
+      ) {
+        return;
+      }
+
+      setSelectedAnswer(
+        answerIndex
+      );
+
+      selectedAnswerRef.current =
+        answerIndex;
+    };
 
   // =====================================================
   // CHECK ANSWER
   // =====================================================
 
-  const handleCheckAnswer = () => {
-    if (
-      selectedAnswer ===
-      null ||
-      selectedAnswer ===
-      undefined
-    ) {
-      return;
-    }
+  const handleCheckAnswer =
+    () => {
+      if (
+        selectedAnswer ===
+          null ||
+        selectedAnswer ===
+          undefined
+      ) {
+        return;
+      }
 
-    const question =
-      questions[
-        currentQuestion
-      ];
+      const question =
+        questions[
+          currentQuestion
+        ];
 
-    if (!question) {
-      return;
-    }
+      if (!question) {
+        return;
+      }
 
-    // Save selected answer immediately.
-    setAnswers(
-      (previous) => ({
-        ...previous,
+      const updatedAnswers =
+        {
+          ...answersRef.current,
+          [question.id]:
+            selectedAnswer,
+        };
 
-        [question.id]:
-          selectedAnswer,
-      })
-    );
+      setAnswers(
+        updatedAnswers
+      );
 
-    setShowAnswer(
-      true
-    );
-  };
+      answersRef.current =
+        updatedAnswers;
+
+      setShowAnswer(
+        true
+      );
+    };
 
   // =====================================================
   // SUBMIT QUIZ
   // =====================================================
 
-  const handleSubmitQuiz = async (
-    finalAnswers = answers
-  ) => {
-    if (
-      submitting ||
-      alreadySubmitted
-    ) {
-      return;
-    }
+  const handleSubmitQuiz =
+    async (
+      providedAnswers
+    ) => {
+      if (
+        submittingRef.current ||
+        alreadySubmitted ||
+        !quiz
+      ) {
+        return;
+      }
 
-    if (!quiz) {
-      return;
-    }
+      const studentId =
+        getStudentId();
 
-    try {
-      setSubmitting(
-        true
-      );
+      if (!studentId) {
+        setError(
+          "Student account not found. Please log in again."
+        );
 
-      setError("");
+        return;
+      }
 
-      // -------------------------------------------------
-      // CHECK DEADLINE BEFORE API CALL
-      // -------------------------------------------------
+      // ---------------------------------------------
+      // FINAL ANSWERS
+      // ---------------------------------------------
+
+      const finalAnswers =
+        {
+          ...(providedAnswers ||
+            answersRef.current),
+        };
+
+      // Save currently selected answer as well.
+      const currentQ =
+        questions[
+          currentQuestionRef.current
+        ];
+
+      const currentSelected =
+        selectedAnswerRef.current;
 
       if (
-        quiz.dueAt &&
-        new Date() >=
-          new Date(
-            quiz.dueAt
-          )
+        currentQ &&
+        currentSelected !==
+          null &&
+        currentSelected !==
+          undefined &&
+        Number.isInteger(
+          currentSelected
+        )
       ) {
-        setQuizExpired(
+        finalAnswers[
+          currentQ.id
+        ] =
+          currentSelected;
+      }
+
+      try {
+        setSubmitting(
+          true
+        );
+
+        submittingRef.current =
+          true;
+
+        setError("");
+
+        // ---------------------------------------------
+        // DEADLINE CHECK
+        // ---------------------------------------------
+
+        if (
+          isDeadlinePassed(
+            quiz?.dueAt
+          )
+        ) {
+          setQuizExpired(
+            true
+          );
+
+          setQuizStarted(
+            false
+          );
+
+          return;
+        }
+
+        // ---------------------------------------------
+        // SUBMIT
+        // ---------------------------------------------
+
+        const response =
+          await fetch(
+            `${API_BASE}/api/quiz-attempts/quiz/${quiz.id}/submit`,
+            {
+              method:
+                "POST",
+
+              headers: {
+                "Content-Type":
+                  "application/json",
+              },
+
+              body:
+                JSON.stringify({
+                  studentId:
+                    studentId,
+
+                  answers:
+                    finalAnswers,
+                }),
+            }
+          );
+
+        const responseData =
+          await response
+            .json()
+            .catch(
+              () => null
+            );
+
+        // ---------------------------------------------
+        // DUPLICATE SUBMISSION
+        // ---------------------------------------------
+
+        if (
+          response.status ===
+          409
+        ) {
+          const submissionData =
+            await loadSubmissionStatus(
+              quiz.id,
+              studentId
+            );
+
+          if (
+            submissionData?.submitted
+          ) {
+            applyPreviousSubmission(
+              submissionData,
+              quiz.id,
+              studentId
+            );
+
+            return;
+          }
+        }
+
+        // ---------------------------------------------
+        // OTHER ERRORS
+        // ---------------------------------------------
+
+        if (
+          !response.ok
+        ) {
+          throw new Error(
+            responseData?.message ||
+              responseData?.error ||
+              "Unable to submit quiz."
+          );
+        }
+
+        // ---------------------------------------------
+        // RESULT
+        // ---------------------------------------------
+
+        const finalResult = {
+          id:
+            responseData?.id,
+
+          quizId:
+            responseData?.quizId ??
+            quiz.id,
+
+          studentId:
+            responseData?.studentId ??
+            studentId,
+
+          score:
+            Number(
+              responseData?.score
+            ) || 0,
+
+          totalQuestions:
+            Number(
+              responseData?.totalQuestions
+            ) ||
+            questions.length,
+
+          correctAnswers:
+            Number(
+              responseData?.correctAnswers
+            ) || 0,
+
+          submittedAt:
+            responseData?.submittedAt ||
+            new Date().toISOString(),
+        };
+
+        setResult(
+          finalResult
+        );
+
+        setAlreadySubmitted(
           true
         );
 
@@ -995,253 +1421,139 @@ function QuizPage() {
           false
         );
 
+        setShowResult(
+          true
+        );
+
+        setShowAnswer(
+          false
+        );
+
+        setSelectedAnswer(
+          null
+        );
+
+        selectedAnswerRef.current =
+          null;
+
+        setAnswers(
+          finalAnswers
+        );
+
+        answersRef.current =
+          finalAnswers;
+      } catch (
+        submitError
+      ) {
+        console.error(
+          "Quiz submission error:",
+          submitError
+        );
+
+        setError(
+          submitError?.message ||
+            "Unable to submit quiz."
+        );
+      } finally {
         setSubmitting(
           false
         );
 
-        return;
+        submittingRef.current =
+          false;
       }
-
-      // -------------------------------------------------
-      // GET STUDENT ID
-      // -------------------------------------------------
-
-      const studentId =
-        Number(
-          localStorage.getItem(
-            "userId"
-          )
-        );
-
-      if (!studentId) {
-        throw new Error(
-          "Student account not found."
-        );
-      }
-
-      // -------------------------------------------------
-      // SUBMIT TO BACKEND
-      // -------------------------------------------------
-
-      const response =
-        await fetch(
-          `http://localhost:8080/api/quiz-attempts/quiz/${quiz.id}/submit`,
-          {
-            method: "POST",
-
-            headers: {
-              "Content-Type":
-                "application/json",
-            },
-
-            body:
-              JSON.stringify({
-                studentId:
-                  studentId,
-
-                answers:
-                  finalAnswers,
-              }),
-          }
-        );
-
-      // -------------------------------------------------
-      // HANDLE BACKEND ERROR
-      // -------------------------------------------------
-
-      if (
-        !response.ok
-      ) {
-        let message =
-          "Unable to submit quiz.";
-
-        try {
-          const errorData =
-            await response.json();
-
-          if (
-            errorData?.message
-          ) {
-            message =
-              errorData.message;
-          } else if (
-            errorData?.error
-          ) {
-            message =
-              errorData.error;
-          }
-        } catch {
-          // Ignore JSON parse errors.
-        }
-
-        if (
-          response.status ===
-          500
-        ) {
-          message =
-            "Quiz could not be submitted.";
-        }
-
-        throw new Error(
-          message
-        );
-      }
-
-      // -------------------------------------------------
-      // GET RESULT
-      // -------------------------------------------------
-
-      const submittedAttempt =
-        await response.json();
-
-      const finalResult = {
-        id:
-          submittedAttempt.id,
-
-        quizId:
-          submittedAttempt.quizId,
-
-        studentId:
-          submittedAttempt.studentId,
-
-        score:
-          submittedAttempt.score,
-
-        totalQuestions:
-          submittedAttempt.totalQuestions,
-
-        correctAnswers:
-          submittedAttempt.correctAnswers,
-
-        submittedAt:
-          submittedAttempt.submittedAt,
-      };
-
-      // -------------------------------------------------
-      // SAVE RESULT TO STATE
-      // -------------------------------------------------
-
-      setResult(
-        finalResult
-      );
-
-      setAlreadySubmitted(
-        true
-      );
-
-      setSubmittedResult(
-        finalResult
-      );
-
-      setQuizStarted(
-        false
-      );
-
-      setShowResult(
-        true
-      );
-
-      setShowAnswer(
-        false
-      );
-
-      setSelectedAnswer(
-        null
-      );
-    } catch (submitError) {
-      console.error(
-        "Quiz submission error:",
-        submitError
-      );
-
-      setError(
-        submitError.message ||
-          "Unable to submit quiz."
-      );
-    } finally {
-      setSubmitting(
-        false
-      );
-    }
-  };
+    };
 
   // =====================================================
   // NEXT QUESTION
   // =====================================================
 
-  const handleNextQuestion = () => {
-    if (
-      submitting
-    ) {
-      return;
-    }
+  const handleNextQuestion =
+    () => {
+      if (
+        submitting ||
+        !questions.length
+      ) {
+        return;
+      }
 
-    const question =
-      questions[
-        currentQuestion
-      ];
+      const question =
+        questions[
+          currentQuestion
+        ];
 
-    if (!question) {
-      return;
-    }
+      if (!question) {
+        return;
+      }
 
-    // -------------------------------------------------
-    // Keep current answer because React state updates
-    // are asynchronous.
-    // -------------------------------------------------
+      // ---------------------------------------------
+      // SAVE CURRENT ANSWER
+      // ---------------------------------------------
 
-    const updatedAnswers = {
-      ...answers,
-    };
+      const updatedAnswers =
+        {
+          ...answersRef.current,
+        };
 
-    if (
-      selectedAnswer !==
-      null &&
-      selectedAnswer !==
-      undefined
-    ) {
-      updatedAnswers[
-        question.id
-      ] =
-        selectedAnswer;
-    }
+      if (
+        selectedAnswer !==
+          null &&
+        selectedAnswer !==
+          undefined
+      ) {
+        updatedAnswers[
+          question.id
+        ] =
+          selectedAnswer;
+      }
 
-    setAnswers(
-      updatedAnswers
-    );
-
-    // -------------------------------------------------
-    // LAST QUESTION
-    // -------------------------------------------------
-
-    if (
-      currentQuestion ===
-      questions.length - 1
-    ) {
-      handleSubmitQuiz(
+      setAnswers(
         updatedAnswers
       );
 
-      return;
-    }
+      answersRef.current =
+        updatedAnswers;
 
-    // -------------------------------------------------
-    // NEXT QUESTION
-    // -------------------------------------------------
+      // ---------------------------------------------
+      // LAST QUESTION
+      // ---------------------------------------------
 
-    setCurrentQuestion(
-      (previous) =>
-        previous + 1
-    );
+      if (
+        currentQuestion ===
+        questions.length - 1
+      ) {
+        handleSubmitQuiz(
+          updatedAnswers
+        );
 
-    setSelectedAnswer(
-      null
-    );
+        return;
+      }
 
-    setShowAnswer(
-      false
-    );
-  };
+      // ---------------------------------------------
+      // NEXT
+      // ---------------------------------------------
+
+      const nextIndex =
+        currentQuestion + 1;
+
+      setCurrentQuestion(
+        nextIndex
+      );
+
+      currentQuestionRef.current =
+        nextIndex;
+
+      setSelectedAnswer(
+        null
+      );
+
+      selectedAnswerRef.current =
+        null;
+
+      setShowAnswer(
+        false
+      );
+    };
 
   // =====================================================
   // DEADLINE WATCHER
@@ -1251,33 +1563,35 @@ function QuizPage() {
     if (
       !quiz ||
       alreadySubmitted ||
-      quizStarted ||
       quizExpired
     ) {
       return;
     }
 
-    if (!quiz.dueAt) {
+    if (
+      !quiz?.dueAt
+    ) {
       return;
     }
 
     const interval =
       setInterval(() => {
-        const dueDate =
-          new Date(
-            quiz.dueAt
-          );
-
         if (
-          !Number.isNaN(
-            dueDate.getTime()
-          ) &&
-          new Date() >=
-            dueDate
+          isDeadlinePassed(
+            quiz.dueAt
+          )
         ) {
           setQuizExpired(
             true
           );
+
+          if (
+            !submittingRef.current
+          ) {
+            setQuizStarted(
+              false
+            );
+          }
         }
       }, 1000);
 
@@ -1289,7 +1603,6 @@ function QuizPage() {
   }, [
     quiz,
     alreadySubmitted,
-    quizStarted,
     quizExpired,
   ]);
 
@@ -1308,44 +1621,34 @@ function QuizPage() {
 
     const timer =
       setInterval(() => {
-        // -------------------------------------------------
+        // ---------------------------------------------
         // GLOBAL DEADLINE
-        // -------------------------------------------------
+        // ---------------------------------------------
 
         if (
-          quiz?.dueAt
+          quiz?.dueAt &&
+          isDeadlinePassed(
+            quiz.dueAt
+          )
         ) {
-          const dueDate =
-            new Date(
-              quiz.dueAt
-            );
+          clearInterval(
+            timer
+          );
 
-          if (
-            !Number.isNaN(
-              dueDate.getTime()
-            ) &&
-            new Date() >=
-              dueDate
-          ) {
-            clearInterval(
-              timer
-            );
+          setQuizExpired(
+            true
+          );
 
-            setQuizExpired(
-              true
-            );
+          setQuizStarted(
+            false
+          );
 
-            setQuizStarted(
-              false
-            );
-
-            return;
-          }
+          return;
         }
 
-        // -------------------------------------------------
-        // QUIZ DURATION TIMER
-        // -------------------------------------------------
+        // ---------------------------------------------
+        // QUIZ DURATION
+        // ---------------------------------------------
 
         setTimeLeft(
           (previousTime) => {
@@ -1357,10 +1660,34 @@ function QuizPage() {
                 timer
               );
 
-              // Submit all answers that are currently
-              // stored in state.
+              const finalAnswers =
+                {
+                  ...answersRef.current,
+                };
+
+              const currentQ =
+                questions[
+                  currentQuestionRef.current
+                ];
+
+              const selected =
+                selectedAnswerRef.current;
+
+              if (
+                currentQ &&
+                selected !==
+                  null &&
+                selected !==
+                  undefined
+              ) {
+                finalAnswers[
+                  currentQ.id
+                ] =
+                  selected;
+              }
+
               handleSubmitQuiz(
-                answers
+                finalAnswers
               );
 
               return 0;
@@ -1383,56 +1710,20 @@ function QuizPage() {
     showResult,
     alreadySubmitted,
     quiz,
-    answers,
+    questions,
   ]);
-
-  // =====================================================
-  // SUBJECT NOT FOUND
-  // =====================================================
-
-  if (
-    !displaySubject &&
-    !requestedQuizId
-  ) {
-    return (
-      <div className="min-h-full bg-slate-50 px-6 pb-10 pt-20">
-
-        <div className="mx-auto max-w-3xl rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
-
-          <h1 className="text-2xl font-bold text-slate-900">
-            Subject Not Found
-          </h1>
-
-          <p className="mt-2 text-sm text-slate-500">
-            The subject you are trying to access does not exist.
-          </p>
-
-          <Link
-            to="/student/quizzes"
-            className="mt-5 inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-blue-700"
-          >
-            <ArrowLeft size={16} />
-            Back to Subjects
-          </Link>
-
-        </div>
-
-      </div>
-    );
-  }
 
   // =====================================================
   // LOADING
   // =====================================================
 
   if (
-    loading
+    loading ||
+    !subjectsLoaded
   ) {
     return (
       <div className="min-h-full bg-slate-50 px-6 pb-10 pt-20">
-
         <div className="mx-auto max-w-3xl rounded-2xl border border-slate-200 bg-white p-12 text-center shadow-sm">
-
           <Loader2
             size={30}
             className="mx-auto animate-spin text-blue-600"
@@ -1441,9 +1732,7 @@ function QuizPage() {
           <p className="mt-4 text-sm text-slate-500">
             Loading quiz...
           </p>
-
         </div>
-
       </div>
     );
   }
@@ -1457,15 +1746,17 @@ function QuizPage() {
   ) {
     return (
       <div className="min-h-full bg-slate-50 px-6 pb-10 pt-20">
-
         <div className="mx-auto max-w-3xl">
 
           <Link
             to="/student/quizzes"
             className="mb-6 inline-flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-blue-600"
           >
-            <ArrowLeft size={17} />
-            Back to Subjects
+            <ArrowLeft
+              size={17}
+            />
+
+            Back to Quizzes
           </Link>
 
           <div className="rounded-2xl border border-red-200 bg-red-50 p-10 text-center">
@@ -1478,16 +1769,24 @@ function QuizPage() {
               {error}
             </p>
 
+            <button
+              type="button"
+              onClick={() =>
+                window.location.reload()
+              }
+              className="mt-6 rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white hover:bg-blue-700"
+            >
+              Try Again
+            </button>
+
           </div>
-
         </div>
-
       </div>
     );
   }
 
   // =====================================================
-  // QUIZ EXPIRED
+  // EXPIRED
   // =====================================================
 
   if (
@@ -1505,14 +1804,19 @@ function QuizPage() {
             to="/student/quizzes"
             className="mb-6 inline-flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-blue-600"
           >
-            <ArrowLeft size={17} />
-            Back to Subjects
+            <ArrowLeft
+              size={17}
+            />
+
+            Back to Quizzes
           </Link>
 
           <div className="rounded-2xl border border-red-200 bg-white p-10 text-center shadow-sm">
 
             <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-red-100 text-red-500">
-              <CalendarClock size={30} />
+              <CalendarClock
+                size={30}
+              />
             </div>
 
             <p className="mt-6 text-sm font-medium text-slate-500">
@@ -1532,19 +1836,18 @@ function QuizPage() {
             </p>
 
             <div className="mx-auto mt-6 inline-flex items-center gap-2 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">
-              <Clock3 size={16} />
+              <Clock3
+                size={16}
+              />
 
               Deadline:{" "}
-
               {formatDeadline(
                 quiz.dueAt
               )}
             </div>
 
           </div>
-
         </div>
-
       </div>
     );
   }
@@ -1555,7 +1858,11 @@ function QuizPage() {
 
   if (
     !quiz ||
-    (questions.length === 0 && !showResult)
+    (
+      questions.length ===
+        0 &&
+      !showResult
+    )
   ) {
     return (
       <div className="min-h-full bg-slate-50 px-6 pb-10 pt-20">
@@ -1566,14 +1873,19 @@ function QuizPage() {
             to="/student/quizzes"
             className="mb-6 inline-flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-blue-600"
           >
-            <ArrowLeft size={17} />
-            Back to Subjects
+            <ArrowLeft
+              size={17}
+            />
+
+            Back to Quizzes
           </Link>
 
           <div className="rounded-2xl border border-slate-200 bg-white p-10 text-center shadow-sm">
 
-            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-green-100 text-green-600">
-              <ClipboardCheck size={26} />
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-blue-50 text-blue-600">
+              <ClipboardCheck
+                size={26}
+              />
             </div>
 
             <h2 className="mt-5 text-xl font-semibold text-slate-900">
@@ -1582,13 +1894,15 @@ function QuizPage() {
 
             <p className="mx-auto mt-2 max-w-md text-sm text-slate-500">
               There is currently no quiz available for{" "}
-              {displaySubject?.name || quiz?.subject?.name || "Subject"}.
+              <span className="font-medium text-slate-700">
+                {displaySubject?.name ||
+                  "this subject"}
+              </span>
+              .
             </p>
 
           </div>
-
         </div>
-
       </div>
     );
   }
@@ -1601,12 +1915,12 @@ function QuizPage() {
     showResult &&
     result
   ) {
-    const score =
+    const correct =
       Number(
         result.correctAnswers
       ) || 0;
 
-    const totalQuestions =
+    const total =
       Number(
         result.totalQuestions
       ) || 0;
@@ -1640,29 +1954,24 @@ function QuizPage() {
             to="/student/quizzes"
             className="mb-6 inline-flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-blue-600"
           >
-            <ArrowLeft size={17} />
-            Back to Subjects
+            <ArrowLeft
+              size={17}
+            />
+
+            Back to Quizzes
           </Link>
 
           <div className="rounded-2xl border border-slate-200 bg-white px-8 py-10 shadow-sm">
 
-            {/* SUBMITTED STATUS */}
+            <div className="mb-6 rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-center">
+              <p className="text-sm font-semibold text-green-700">
+                Quiz Already Submitted
+              </p>
 
-            {alreadySubmitted && (
-              <div className="mb-6 rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-center">
-
-                <p className="text-sm font-semibold text-green-700">
-                  Quiz Already Submitted
-                </p>
-
-                <p className="mt-1 text-xs text-green-600">
-                  This quiz cannot be attempted again.
-                </p>
-
-              </div>
-            )}
-
-            {/* SCORE CIRCLE */}
+              <p className="mt-1 text-xs text-green-600">
+                This quiz cannot be attempted again.
+              </p>
+            </div>
 
             <div className="flex justify-center">
 
@@ -1681,19 +1990,13 @@ function QuizPage() {
                   </span>
 
                 </div>
-
               </div>
-
             </div>
-
-            {/* RESULT TITLE */}
 
             <div className="mt-7 text-center">
 
               <h1 className="text-2xl font-bold text-slate-900">
-                {alreadySubmitted
-                  ? "Submission Complete"
-                  : resultTitle}
+                Submission Complete
               </h1>
 
               <p className="mt-2 text-sm text-slate-500">
@@ -1701,13 +2004,13 @@ function QuizPage() {
                 You answered{" "}
 
                 <span className="font-semibold text-slate-900">
-                  {score}
+                  {correct}
                 </span>{" "}
 
                 out of{" "}
 
                 <span className="font-semibold text-slate-900">
-                  {totalQuestions}
+                  {total}
                 </span>{" "}
 
                 questions correctly.
@@ -1716,44 +2019,35 @@ function QuizPage() {
 
               {result.submittedAt && (
                 <p className="mt-2 text-xs text-slate-400">
-
                   Submitted{" "}
-
                   {formatDeadline(
                     result.submittedAt
                   )}
-
                 </p>
               )}
 
             </div>
 
-            {/* RESULT STATS */}
-
             <div className="mt-8 grid grid-cols-3 gap-4">
 
               <div className="rounded-xl bg-green-50 px-3 py-5 text-center">
-
                 <p className="text-2xl font-bold text-green-600">
-                  {score}
+                  {correct}
                 </p>
 
                 <p className="mt-1 text-xs text-slate-500">
                   Correct
                 </p>
-
               </div>
 
               <div className="rounded-xl bg-red-50 px-3 py-5 text-center">
 
                 <p className="text-2xl font-bold text-red-500">
-
                   {Math.max(
                     0,
-                    totalQuestions -
-                      score
+                    total -
+                      correct
                   )}
-
                 </p>
 
                 <p className="mt-1 text-xs text-slate-500">
@@ -1776,99 +2070,19 @@ function QuizPage() {
 
             </div>
 
-            {/* RESULT BUTTONS */}
-
-            <div
-              className={`mt-8 ${
-                alreadySubmitted
-                  ? ""
-                  : "grid grid-cols-2 gap-3"
-              }`}
+            <Link
+              to="/student/progress"
+              className="mt-8 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3 text-sm font-medium text-white hover:bg-blue-700"
             >
+              <BarChart3
+                size={16}
+              />
 
-              {!alreadySubmitted && (
-                <button
-                  type="button"
-                  onClick={() => {
-
-                    setQuizStarted(
-                      false
-                    );
-
-                    setCurrentQuestion(
-                      0
-                    );
-
-                    setSelectedAnswer(
-                      null
-                    );
-
-                    setAnswers(
-                      {}
-                    );
-
-                    setShowAnswer(
-                      false
-                    );
-
-                    setShowResult(
-                      false
-                    );
-
-                    setResult(
-                      null
-                    );
-
-                    setError(
-                      ""
-                    );
-
-                    setSubmitting(
-                      false
-                    );
-
-                    setTimeLeft(
-                      Number(
-                        quiz.duration
-                      ) > 0
-                        ? Number(
-                            quiz.duration
-                          ) * 60
-                        : 5 * 60
-                    );
-
-                  }}
-                  className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 px-4 py-3 text-sm font-medium text-slate-700 hover:bg-slate-50"
-                >
-
-                  <RotateCcw size={16} />
-
-                  Retry Quiz
-
-                </button>
-              )}
-
-              <Link
-                to="/student/progress"
-                className={`inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3 text-sm font-medium text-white hover:bg-blue-700 ${
-                  alreadySubmitted
-                    ? "w-full"
-                    : ""
-                }`}
-              >
-
-                <BarChart3 size={16} />
-
-                View Progress
-
-              </Link>
-
-            </div>
+              View Progress
+            </Link>
 
           </div>
-
         </div>
-
       </div>
     );
   }
@@ -1889,14 +2103,19 @@ function QuizPage() {
             to="/student/quizzes"
             className="mb-6 inline-flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-blue-600"
           >
-            <ArrowLeft size={17} />
-            Back to Subjects
+            <ArrowLeft
+              size={17}
+            />
+
+            Back to Quizzes
           </Link>
 
           <div className="rounded-2xl border border-slate-200 bg-white px-8 py-10 text-center shadow-sm">
 
             <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-green-100 text-green-600">
-              <ClipboardCheck size={30} />
+              <ClipboardCheck
+                size={30}
+              />
             </div>
 
             <p className="mt-6 text-sm text-slate-500">
@@ -1909,13 +2128,17 @@ function QuizPage() {
 
             <p className="mx-auto mt-3 max-w-md text-sm leading-6 text-slate-500">
               Test your knowledge of{" "}
-              {displaySubject?.name || quiz?.subject?.name || "Subject"}.
+              <span className="font-medium text-slate-700">
+                {displaySubject?.name ||
+                  quiz?.subject?.name ||
+                  "this subject"}
+              </span>
+              .
             </p>
 
             <div className="mx-auto mt-8 flex max-w-md justify-center gap-4">
 
               <div className="flex-1 rounded-xl bg-slate-50 px-4 py-4">
-
                 <p className="text-xl font-bold text-slate-900">
                   {questions.length}
                 </p>
@@ -1923,35 +2146,37 @@ function QuizPage() {
                 <p className="mt-1 text-xs text-slate-500">
                   Questions
                 </p>
-
               </div>
 
               <div className="flex-1 rounded-xl bg-slate-50 px-4 py-4">
 
                 <p className="text-xl font-bold text-slate-900">
-                  {quiz.duration || 5} min
+                  {Number(
+                    quiz.duration
+                  ) > 0
+                    ? Number(
+                        quiz.duration
+                      )
+                    : 5}{" "}
+                  min
                 </p>
 
                 <p className="mt-1 text-xs text-slate-500">
                   Time Limit
                 </p>
-
               </div>
 
             </div>
 
-            {/* DEADLINE */}
-
             <div className="mx-auto mt-5 inline-flex items-center gap-2 rounded-xl bg-blue-50 px-4 py-3 text-sm text-blue-600">
-
-              <CalendarClock size={16} />
+              <CalendarClock
+                size={16}
+              />
 
               Submit before{" "}
-
               {formatDeadline(
                 quiz.dueAt
               )}
-
             </div>
 
             <button
@@ -1965,9 +2190,7 @@ function QuizPage() {
             </button>
 
           </div>
-
         </div>
-
       </div>
     );
   }
@@ -1982,9 +2205,10 @@ function QuizPage() {
     ];
 
   const progress =
-    questions.length
+    questions.length > 0
       ? (
-          (currentQuestion + 1) /
+          (currentQuestion +
+            1) /
           questions.length
         ) * 100
       : 0;
@@ -1993,7 +2217,9 @@ function QuizPage() {
   // QUESTION SAFETY
   // =====================================================
 
-  if (!question) {
+  if (
+    !question
+  ) {
     return (
       <div className="min-h-full bg-slate-50 px-6 pb-10 pt-20">
 
@@ -2007,8 +2233,18 @@ function QuizPage() {
             The selected quiz question could not be loaded.
           </p>
 
-        </div>
+          <Link
+            to="/student/quizzes"
+            className="mt-6 inline-flex items-center gap-2 rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white hover:bg-blue-700"
+          >
+            <ArrowLeft
+              size={16}
+            />
 
+            Back to Quizzes
+          </Link>
+
+        </div>
       </div>
     );
   }
@@ -2034,15 +2270,18 @@ function QuizPage() {
 
             <p className="mt-1 text-sm text-slate-500">
               Test your knowledge of{" "}
-              {displaySubject?.name || quiz?.subject?.name || "Subject"}
+              {displaySubject?.name ||
+                quiz?.subject?.name ||
+                "Subject"}
             </p>
 
           </div>
 
           <div className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700">
 
-            {currentQuestion + 1} /{" "}
-
+            {currentQuestion +
+              1}{" "}
+            /{" "}
             {questions.length}
 
           </div>
@@ -2073,7 +2312,9 @@ function QuizPage() {
             }`}
           >
 
-            <Clock3 size={16} />
+            <Clock3
+              size={16}
+            />
 
             {formatTime(
               timeLeft
@@ -2088,7 +2329,9 @@ function QuizPage() {
         {quiz.dueAt && (
           <div className="mt-3 flex items-center justify-center gap-2 text-xs text-slate-400">
 
-            <CalendarClock size={14} />
+            <CalendarClock
+              size={14}
+            />
 
             Submission deadline:{" "}
 
@@ -2104,17 +2347,13 @@ function QuizPage() {
         <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
 
           <span className="inline-flex rounded-lg bg-blue-100 px-3 py-1.5 text-xs font-medium text-blue-600">
-
             Question{" "}
-
-            {currentQuestion + 1}
-
+            {currentQuestion +
+              1}
           </span>
 
           <h2 className="mt-5 text-lg font-semibold leading-7 text-slate-900">
-
             {question.question}
-
           </h2>
 
           {/* OPTIONS */}
@@ -2192,11 +2431,9 @@ function QuizPage() {
                             : "bg-slate-100 text-slate-500"
                       }`}
                     >
-
                       {String.fromCharCode(
                         65 + index
                       )}
-
                     </span>
 
                     <span className="flex-1 text-sm font-medium">
@@ -2223,7 +2460,6 @@ function QuizPage() {
             )}
 
           </div>
-
         </div>
 
         {/* ACTION */}
@@ -2285,7 +2521,6 @@ function QuizPage() {
         </div>
 
       </div>
-
     </div>
   );
 }

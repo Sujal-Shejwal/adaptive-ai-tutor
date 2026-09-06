@@ -15,19 +15,31 @@ public class Subject {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, unique = true)
+    @Column(
+            nullable = false,
+            unique = true
+    )
     private String name;
 
-    @Column(nullable = false)
+    @Column(
+            nullable = false
+    )
     private String code;
 
-    @Column(nullable = false)
+    @Column(
+            nullable = false,
+            columnDefinition = "TEXT"
+    )
     private String description;
 
     public Subject() {
     }
 
-    public Subject(String name, String code, String description) {
+    public Subject(
+            String name,
+            String code,
+            String description
+    ) {
         this.name = name;
         this.code = code;
         this.description = description;

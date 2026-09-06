@@ -21,25 +21,12 @@ import {
     useState,
 } from "react";
 
-import subjects from "../../data/subjects";
 
 
 /* ========================================================= */
 /* RECENT CONVERSATIONS */
 /* ========================================================= */
 
-
-
-/* ========================================================= */
-/* SUBJECT SHORT NAMES */
-/* ========================================================= */
-
-const subjectShortNames = {
-    dbms: "DBMS",
-    os: "OS",
-    cn: "CN",
-    java: "Java",
-};
 
 
 /* ========================================================= */
@@ -447,14 +434,112 @@ function AIChatPage() {
         localStorage.getItem("userId")
     );
 
+    const [subjects, setSubjects] =
+        useState([]);
+
+    const [subjectsLoading, setSubjectsLoading] =
+        useState(true);
+
+    /* ===================================================== */
+    /* LOAD SUBJECTS FROM BACKEND */
+    /* ===================================================== */
+
+    useEffect(() => {
+        let cancelled = false;
+
+        const loadSubjects = async () => {
+            try {
+                setSubjectsLoading(true);
+
+                const response =
+                    await fetch(
+                        `${API_BASE}/api/subjects`
+                    );
+
+                const data =
+                    await response
+                        .json()
+                        .catch(() => []);
+
+                if (!response.ok) {
+                    throw new Error(
+                        data?.message ||
+                        "Unable to load subjects."
+                    );
+                }
+
+                if (!cancelled) {
+                    setSubjects(
+                        Array.isArray(data)
+                            ? data
+                            : []
+                    );
+                }
+
+            } catch (error) {
+
+                console.error(
+                    "Subject loading error:",
+                    error
+                );
+
+                if (!cancelled) {
+                    setSubjects([]);
+                }
+
+            } finally {
+
+                if (!cancelled) {
+                    setSubjectsLoading(false);
+                }
+            }
+        };
+
+        loadSubjects();
+
+        return () => {
+            cancelled = true;
+        };
+
+    }, []);
+
 
     /* ===================================================== */
     /* CURRENT SUBJECT */
     /* ===================================================== */
 
-    const subject = subjects.find(
-        (item) => item.id === subjectId
-    );
+    const normalizedSubjectRoute =
+        String(subjectId || "")
+            .trim()
+            .toLowerCase();
+
+    const subject = subjects.find((item) => {
+        const id =
+            String(item?.id ?? "")
+                .trim()
+                .toLowerCase();
+
+        const code =
+            String(item?.code ?? "")
+                .trim()
+                .toLowerCase();
+
+        const name =
+            String(item?.name ?? "")
+                .trim()
+                .toLowerCase();
+
+        return (
+            id === normalizedSubjectRoute ||
+            code === normalizedSubjectRoute ||
+            name === normalizedSubjectRoute
+        );
+    });
+
+    const resolvedSubjectName =
+        subject?.name ||
+        subject?.code ||
+        "AI";
 
 
     /* ===================================================== */
@@ -587,69 +672,190 @@ function AIChatPage() {
     /* LOAD CONVERSATION MESSAGES */
     /* ===================================================== */
 
+    const getConversationCacheKey =
+        (conversationId) =>
+            `adaptiveAiChat_${studentId}_${conversationId}`;
+
+    const saveConversationCache =
+        (conversationId, chatMessages) => {
+            try {
+                localStorage.setItem(
+                    getConversationCacheKey(
+                        conversationId
+                    ),
+                    JSON.stringify(
+                        Array.isArray(chatMessages)
+                            ? chatMessages
+                            : []
+                    )
+                );
+            } catch (error) {
+                console.warn(
+                    "Unable to cache conversation:",
+                    error
+                );
+            }
+        };
+
+    const getConversationCache =
+        (conversationId) => {
+            try {
+                const raw =
+                    localStorage.getItem(
+                        getConversationCacheKey(
+                            conversationId
+                        )
+                    );
+
+                if (!raw) {
+                    return [];
+                }
+
+                const parsed =
+                    JSON.parse(raw);
+
+                return Array.isArray(parsed)
+                    ? parsed
+                    : [];
+
+            } catch {
+                return [];
+            }
+        };
+
+    const normalizeConversationMessages =
+        (payload) => {
+
+            const rawMessages =
+                Array.isArray(payload)
+                    ? payload
+                    : Array.isArray(
+                          payload?.messages
+                      )
+                        ? payload.messages
+                        : Array.isArray(
+                              payload?.data
+                          )
+                            ? payload.data
+                            : Array.isArray(
+                                  payload?.content
+                              )
+                                ? payload.content
+                                : [];
+
+            return rawMessages
+                .filter(
+                    (item) =>
+                        item &&
+                        typeof item ===
+                            "object" &&
+                        item.content != null
+                )
+                .map(
+                    (item) => ({
+                        id:
+                            item.id ||
+                            `cached-${Date.now()}-${Math.random()}`,
+
+                        type:
+                            String(
+                                item.role || ""
+                            ).toLowerCase() ===
+                            "user"
+                                ? "user"
+                                : "ai",
+
+                        text:
+                            String(
+                                item.content
+                            ),
+
+                        time:
+                            formatTime(
+                                item.createdAt
+                            ),
+                    })
+                );
+        };
+
     const loadConversationMessages =
         async (
             conversationId
         ) => {
 
-            const response =
-                await fetch(
-                    `${API_BASE}/api/conversations/${conversationId}/messages`
-                );
+            let serverMessages = [];
 
-            const data =
-                await response
-                    .json()
-                    .catch(
-                        () => []
+            try {
+
+                const response =
+                    await fetch(
+                        `${API_BASE}/api/conversations/${conversationId}/messages`
                     );
 
-            if (!response.ok) {
+                const data =
+                    await response
+                        .json()
+                        .catch(
+                            () => []
+                        );
 
-                throw new Error(
-                    data?.message ||
-                    "Unable to load conversation messages."
+                if (!response.ok) {
+                    throw new Error(
+                        data?.message ||
+                        "Unable to load conversation messages."
+                    );
+                }
+
+                serverMessages =
+                    normalizeConversationMessages(
+                        data
+                    );
+
+            } catch (error) {
+
+                console.error(
+                    "Conversation message loading error:",
+                    error
                 );
             }
 
-            const mappedMessages =
-                Array.isArray(data)
-                    ? data.map(
-                          (item) => ({
-                              id:
-                                  item.id,
-
-                              type:
-                                  item.role ===
-                                  "user"
-                                      ? "user"
-                                      : "ai",
-
-                              text:
-                                  item.content,
-
-                              time:
-                                  formatTime(
-                                      item.createdAt
-                                  ),
-                          })
-                      )
-                    : [];
-
             if (
-                mappedMessages.length === 0
+                serverMessages.length > 0
             ) {
 
                 setMessages(
-                    createWelcomeMessage()
+                    serverMessages
                 );
 
-            } else {
+                saveConversationCache(
+                    conversationId,
+                    serverMessages
+                );
+
+                return serverMessages;
+            }
+
+            const cachedMessages =
+                getConversationCache(
+                    conversationId
+                );
+
+            if (
+                cachedMessages.length > 0
+            ) {
 
                 setMessages(
-                    mappedMessages
+                    cachedMessages
                 );
+
+                return cachedMessages;
             }
+
+            setMessages(
+                createWelcomeMessage()
+            );
+
+            return [];
         };
 
 
@@ -659,7 +865,7 @@ function AIChatPage() {
 
     useEffect(() => {
 
-        if (!subject) {
+        if (subjectsLoading || !subject) {
             return;
         }
 
@@ -704,15 +910,54 @@ function AIChatPage() {
                     }
 
                     const subjectName =
-                        subjectShortNames[subjectId] ||
-                        "AI";
+                        resolvedSubjectName;
 
                     const filtered =
                         Array.isArray(data)
                             ? data.filter(
-                                  (item) =>
-                                      item.subject ===
-                                      subjectName
+                                  (item) => {
+
+                                      const conversationSubject =
+                                          String(
+                                              item?.subject ||
+                                              ""
+                                          )
+                                              .trim()
+                                              .toLowerCase();
+
+                                      const fullName =
+                                          String(
+                                              subject?.name ||
+                                              ""
+                                          )
+                                              .trim()
+                                              .toLowerCase();
+
+                                      const code =
+                                          String(
+                                              subject?.code ||
+                                              ""
+                                          )
+                                              .trim()
+                                              .toLowerCase();
+
+                                      const resolvedName =
+                                          String(
+                                              subjectName ||
+                                              ""
+                                          )
+                                              .trim()
+                                              .toLowerCase();
+
+                                      return (
+                                          conversationSubject ===
+                                          fullName ||
+                                          conversationSubject ===
+                                          code ||
+                                          conversationSubject ===
+                                          resolvedName
+                                      );
+                                  }
                               )
                             : [];
 
@@ -747,11 +992,37 @@ function AIChatPage() {
                         mapped.length > 0
                     ) {
 
+                        const storedConversationId =
+                            localStorage.getItem(
+                                `adaptiveAiConversation_${studentId}_${subjectId}`
+                            );
+
+                        const storedConversation =
+                            storedConversationId
+                                ? mapped.find(
+                                      (item) =>
+                                          String(
+                                              item.id
+                                          ) ===
+                                          String(
+                                              storedConversationId
+                                          )
+                                  )
+                                : null;
+
                         const firstConversation =
+                            storedConversation ||
                             mapped[0];
 
                         setSelectedConversationId(
                             firstConversation.id
+                        );
+
+                        localStorage.setItem(
+                            `adaptiveAiConversation_${studentId}_${subjectId}`,
+                            String(
+                                firstConversation.id
+                            )
                         );
 
                         await loadConversationMessages(
@@ -792,6 +1063,11 @@ function AIChatPage() {
                             created.id
                         );
 
+                        localStorage.setItem(
+                            `adaptiveAiConversation_${studentId}_${subjectId}`,
+                            String(created.id)
+                        );
+
                         setMessages(
                             createWelcomeMessage()
                         );
@@ -830,14 +1106,47 @@ function AIChatPage() {
             cancelled = true;
         };
 
-    }, [subjectId]);
+    }, [
+        subjectId,
+        subject,
+        subjectsLoading,
+        resolvedSubjectName,
+    ]);
+
+
+    /* ===================================================== */
+    /* LOADING SUBJECT */
+    /* ===================================================== */
+
+    if (subjectsLoading) {
+
+        return (
+            <div className="min-h-full bg-slate-50 px-6 pb-10 pt-20">
+
+                <div className="rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
+
+                    <div className="flex items-center gap-3">
+
+                        <div className="h-5 w-5 animate-spin rounded-full border-2 border-blue-600 border-t-transparent" />
+
+                        <p className="text-sm font-medium text-slate-600">
+                            Loading subject...
+                        </p>
+
+                    </div>
+
+                </div>
+
+            </div>
+        );
+    }
 
 
     /* ===================================================== */
     /* INVALID SUBJECT */
     /* ===================================================== */
 
-    if (!subject) {
+    if (!subjectsLoading && !subject) {
 
         return (
             <div className="min-h-full bg-slate-50 px-6 pb-10 pt-20">
@@ -877,8 +1186,7 @@ function AIChatPage() {
             try {
 
                 const subjectName =
-                    subjectShortNames[subjectId] ||
-                    "AI";
+                    resolvedSubjectName;
 
                 const created =
                     await createConversation(
@@ -909,6 +1217,11 @@ function AIChatPage() {
 
                 setSelectedConversationId(
                     created.id
+                );
+
+                localStorage.setItem(
+                    `adaptiveAiConversation_${studentId}_${subjectId}`,
+                    String(created.id)
                 );
 
                 setMessages(
@@ -952,6 +1265,11 @@ function AIChatPage() {
 
             setSelectedConversationId(
                 conversation.id
+            );
+
+            localStorage.setItem(
+                `adaptiveAiConversation_${studentId}_${subjectId}`,
+                String(conversation.id)
             );
 
             setOpenMenuId(null);
@@ -1015,8 +1333,7 @@ function AIChatPage() {
                 if (!conversationId) {
 
                     const subjectName =
-                        subjectShortNames[subjectId] ||
-                        "AI";
+                        resolvedSubjectName;
 
                     const created =
                         await createConversation(
@@ -1051,6 +1368,11 @@ function AIChatPage() {
                     setSelectedConversationId(
                         created.id
                     );
+
+                    localStorage.setItem(
+                        `adaptiveAiConversation_${studentId}_${subjectId}`,
+                        String(created.id)
+                    );
                 }
 
                 // -----------------------------------------
@@ -1072,10 +1394,19 @@ function AIChatPage() {
                 };
 
                 setMessages(
-                    (previousMessages) => [
-                        ...previousMessages,
-                        userMessage,
-                    ]
+                    (previousMessages) => {
+                        const updatedMessages = [
+                            ...previousMessages,
+                            userMessage,
+                        ];
+
+                        saveConversationCache(
+                            conversationId,
+                            updatedMessages
+                        );
+
+                        return updatedMessages;
+                    }
                 );
 
                 setMessage("");
@@ -1157,10 +1488,35 @@ function AIChatPage() {
                 };
 
                 setMessages(
-                    (previousMessages) => [
-                        ...previousMessages,
-                        aiMessage,
-                    ]
+                    (previousMessages) => {
+                        const updatedMessages =
+                            previousMessages.map(
+                                (item) =>
+                                    item.id ===
+                                    userMessage.id
+                                        ? {
+                                              ...item,
+                                              id:
+                                                  data?.userMessageId ||
+                                                  item.id,
+                                          }
+                                        : item
+                            );
+
+                        updatedMessages.push({
+                            ...aiMessage,
+                            id:
+                                data?.assistantMessageId ||
+                                aiMessage.id,
+                        });
+
+                        saveConversationCache(
+                            conversationId,
+                            updatedMessages
+                        );
+
+                        return updatedMessages;
+                    }
                 );
 
                 // -----------------------------------------
@@ -1600,8 +1956,7 @@ function AIChatPage() {
                     } else {
 
                         const subjectName =
-                            subjectShortNames[subjectId] ||
-                            "AI";
+                            resolvedSubjectName;
 
                         const created =
                             await createConversation(

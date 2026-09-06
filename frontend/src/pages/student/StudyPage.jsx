@@ -115,18 +115,48 @@ function StudyPage() {
 
                 const subjectsData = await subjectResponse.json();
 
-                const foundSubject = subjectsData.find(
-                    (item) =>
-                        String(item.id) === String(subjectId)
-                );
+                if (!Array.isArray(subjectsData)) {
+                    throw new Error("Invalid subjects response");
+                }
+
+                const normalizedSubjectRoute =
+                    String(subjectId || "")
+                        .trim()
+                        .toLowerCase();
+
+                const foundSubject = subjectsData.find((item) => {
+                    const id =
+                        String(item?.id ?? "")
+                            .trim()
+                            .toLowerCase();
+
+                    const code =
+                        String(item?.code ?? "")
+                            .trim()
+                            .toLowerCase();
+
+                    const name =
+                        String(item?.name ?? "")
+                            .trim()
+                            .toLowerCase();
+
+                    return (
+                        id === normalizedSubjectRoute ||
+                        code === normalizedSubjectRoute ||
+                        name === normalizedSubjectRoute
+                    );
+                });
 
                 if (!foundSubject) {
                     setError(true);
                     return;
                 }
 
+                // Always use the real database subject ID for child resources.
+                const resolvedSubjectId = foundSubject.id;
+
                 const unitsResponse = await fetch(
-                    `http://localhost:8080/api/units/subject/${subjectId}`
+                    `http://localhost:8080/api/units/subject/${resolvedSubjectId}`
                 );
 
                 if (!unitsResponse.ok) {
@@ -379,8 +409,13 @@ function StudyPage() {
     };
 
 
+    const subjectCode =
+        String(subject?.code || "")
+            .trim()
+            .toUpperCase();
+
     const subjectColor =
-        colorMap[subject.code] || "blue";
+        colorMap[subjectCode] || "blue";
 
 
     const styles =
@@ -452,7 +487,7 @@ function StudyPage() {
                             className={`flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl text-lg font-bold ${styles.icon}`}
                         >
 
-                            {subject.code}
+                            {subject.code || subject.name?.slice(0, 3).toUpperCase()}
 
                         </div>
 

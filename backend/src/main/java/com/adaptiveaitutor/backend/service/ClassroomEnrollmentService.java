@@ -1,15 +1,21 @@
 package com.adaptiveaitutor.backend.service;
 
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.adaptiveaitutor.backend.entity.Classroom;
 import com.adaptiveaitutor.backend.entity.ClassroomEnrollment;
+import com.adaptiveaitutor.backend.entity.StudentProfile;
 import com.adaptiveaitutor.backend.entity.User;
 import com.adaptiveaitutor.backend.repository.ClassroomEnrollmentRepository;
 import com.adaptiveaitutor.backend.repository.ClassroomRepository;
+import com.adaptiveaitutor.backend.repository.StudentProfileRepository;
 import com.adaptiveaitutor.backend.repository.UserRepository;
 
 @Service
@@ -18,11 +24,13 @@ public class ClassroomEnrollmentService {
     private final ClassroomEnrollmentRepository enrollmentRepository;
     private final ClassroomRepository classroomRepository;
     private final UserRepository userRepository;
+    private final StudentProfileRepository studentProfileRepository;
 
     public ClassroomEnrollmentService(
             ClassroomEnrollmentRepository enrollmentRepository,
             ClassroomRepository classroomRepository,
-            UserRepository userRepository) {
+            UserRepository userRepository,
+            StudentProfileRepository studentProfileRepository) {
 
         this.enrollmentRepository =
                 enrollmentRepository;
@@ -32,6 +40,9 @@ public class ClassroomEnrollmentService {
 
         this.userRepository =
                 userRepository;
+
+        this.studentProfileRepository =
+                studentProfileRepository;
     }
 
     // =====================================================
@@ -107,16 +118,91 @@ public class ClassroomEnrollmentService {
     // GET CLASSROOM STUDENTS
     // =====================================================
 
-    public List<ClassroomEnrollment>
+    public List<Map<String, Object>>
             getClassroomStudents(
                     Long classroomId) {
 
         getClassroom(classroomId);
 
-        return enrollmentRepository
-                .findByClassroomId(
-                        classroomId
+        List<ClassroomEnrollment> enrollments =
+                enrollmentRepository
+                        .findByClassroomId(
+                                classroomId
+                        );
+
+        List<Map<String, Object>> response =
+                new ArrayList<>();
+
+        for (ClassroomEnrollment enrollment :
+                enrollments) {
+
+            Map<String, Object> enrollmentData =
+                    new HashMap<>();
+
+            enrollmentData.put(
+                    "id",
+                    enrollment.getId()
+            );
+
+            enrollmentData.put(
+                    "status",
+                    enrollment.getStatus()
+            );
+
+            User student =
+                    enrollment.getStudent();
+
+            Map<String, Object> studentData =
+                    new HashMap<>();
+
+            if (student != null) {
+
+                // Internal database User ID.
+                // Keep this because frontend uses it
+                // for operations such as removing a student.
+                studentData.put(
+                        "id",
+                        student.getId()
                 );
+
+                studentData.put(
+                        "name",
+                        student.getName()
+                );
+
+                studentData.put(
+                        "email",
+                        student.getEmail()
+                );
+
+                // Real Student ID from StudentProfile.
+                Optional<StudentProfile> profile =
+                        studentProfileRepository
+                                .findByUserId(
+                                        student.getId()
+                                );
+
+                studentData.put(
+                        "studentId",
+                        profile
+                                .map(
+                                        StudentProfile::getStudentId
+                                )
+                                .orElse(null)
+                );
+            }
+
+            enrollmentData.put(
+                    "student",
+                    studentData
+            );
+
+            response.add(
+                    enrollmentData
+            );
+        }
+
+        return response;
     }
 
     // =====================================================
