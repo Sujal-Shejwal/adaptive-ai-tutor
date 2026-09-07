@@ -7,10 +7,14 @@ import java.util.Map;
 
 import org.springframework.stereotype.Service;
 
+import com.adaptiveaitutor.backend.entity.ClassroomEnrollment;
 import com.adaptiveaitutor.backend.entity.Quiz;
+import com.adaptiveaitutor.backend.entity.QuizAssignment;
 import com.adaptiveaitutor.backend.entity.QuizAttempt;
 import com.adaptiveaitutor.backend.entity.QuizQuestion;
 import com.adaptiveaitutor.backend.entity.User;
+import com.adaptiveaitutor.backend.repository.ClassroomEnrollmentRepository;
+import com.adaptiveaitutor.backend.repository.QuizAssignmentRepository;
 import com.adaptiveaitutor.backend.repository.QuizAttemptRepository;
 import com.adaptiveaitutor.backend.repository.QuizQuestionRepository;
 import com.adaptiveaitutor.backend.repository.QuizRepository;
@@ -23,12 +27,16 @@ public class QuizAttemptService {
     private final QuizRepository quizRepository;
     private final QuizQuestionRepository quizQuestionRepository;
     private final UserRepository userRepository;
+    private final ClassroomEnrollmentRepository classroomEnrollmentRepository;
+    private final QuizAssignmentRepository quizAssignmentRepository;
 
     public QuizAttemptService(
             QuizAttemptRepository quizAttemptRepository,
             QuizRepository quizRepository,
             QuizQuestionRepository quizQuestionRepository,
-            UserRepository userRepository) {
+            UserRepository userRepository,
+            ClassroomEnrollmentRepository classroomEnrollmentRepository,
+            QuizAssignmentRepository quizAssignmentRepository) {
 
         this.quizAttemptRepository =
                 quizAttemptRepository;
@@ -41,6 +49,12 @@ public class QuizAttemptService {
 
         this.userRepository =
                 userRepository;
+
+        this.classroomEnrollmentRepository =
+                classroomEnrollmentRepository;
+
+        this.quizAssignmentRepository =
+                quizAssignmentRepository;
     }
 
     // =====================================================
@@ -52,6 +66,10 @@ public class QuizAttemptService {
             Long studentId,
             Map<Long, Integer> answers) {
 
+        // -------------------------------------------------
+        // FIND QUIZ
+        // -------------------------------------------------
+
         Quiz quiz =
                 quizRepository
                         .findById(quizId)
@@ -60,6 +78,10 @@ public class QuizAttemptService {
                                         "Quiz not found"
                                 )
                         );
+
+        // -------------------------------------------------
+        // FIND STUDENT
+        // -------------------------------------------------
 
         User student =
                 userRepository
@@ -70,6 +92,10 @@ public class QuizAttemptService {
                                 )
                         );
 
+        // -------------------------------------------------
+        // CHECK STUDENT ROLE
+        // -------------------------------------------------
+
         if (!"student".equalsIgnoreCase(
                 student.getRole())) {
 
@@ -77,6 +103,73 @@ public class QuizAttemptService {
                     "Only students can submit quizzes"
             );
         }
+
+        // -------------------------------------------------
+        // CHECK CLASSROOM ENROLLMENT + QUIZ ASSIGNMENT
+        //
+        // A student can submit this quiz only when:
+        // 1. The student is enrolled in a classroom.
+        // 2. The quiz is assigned to that classroom.
+        // 3. The assignment is ACTIVE.
+        //
+        // This supports the same quiz being assigned
+        // to multiple classrooms.
+        // -------------------------------------------------
+
+        List<ClassroomEnrollment> enrollments =
+                classroomEnrollmentRepository
+                        .findByStudentId(studentId);
+
+        boolean classroomQuizAccess = false;
+
+        for (ClassroomEnrollment enrollment :
+                enrollments) {
+
+            if (enrollment == null ||
+                    enrollment.getClassroom() == null) {
+
+                continue;
+            }
+
+            Long classroomId =
+                    enrollment.getClassroom().getId();
+
+            if (classroomId == null) {
+                continue;
+            }
+
+            QuizAssignment assignment =
+                    quizAssignmentRepository
+                            .findByClassroomIdAndQuizId(
+                                    classroomId,
+                                    quizId
+                            )
+                            .orElse(null);
+
+            if (assignment == null) {
+                continue;
+            }
+
+            if (!"ACTIVE".equalsIgnoreCase(
+                    assignment.getStatus())) {
+
+                continue;
+            }
+
+            classroomQuizAccess = true;
+            break;
+        }
+
+        if (!classroomQuizAccess) {
+
+            throw new RuntimeException(
+                    "You are not enrolled in a classroom where this quiz is assigned"
+            );
+        }
+
+        // -------------------------------------------------
+        // CHECK DUPLICATE SUBMISSION
+        // -------------------------------------------------
 
         if (quizAttemptRepository
                 .existsByQuizIdAndStudentId(
@@ -104,6 +197,10 @@ public class QuizAttemptService {
             );
         }
 
+        // -------------------------------------------------
+        // GET QUESTIONS
+        // -------------------------------------------------
+
         List<QuizQuestion> questions =
                 quizQuestionRepository
                         .findByQuizId(quizId);
@@ -115,15 +212,21 @@ public class QuizAttemptService {
             );
         }
 
+        // -------------------------------------------------
+        // CALCULATE SCORE
+        // -------------------------------------------------
+
         int correctAnswers = 0;
 
         for (QuizQuestion question :
                 questions) {
 
             Integer selectedAnswer =
-                    answers.get(
-                            question.getId()
-                    );
+                    answers != null
+                            ? answers.get(
+                                    question.getId()
+                            )
+                            : null;
 
             if (selectedAnswer != null &&
                     selectedAnswer.equals(
@@ -140,10 +243,14 @@ public class QuizAttemptService {
         int score =
                 (int) Math.round(
                         (
-                            (double) correctAnswers
-                                / totalQuestions
+                                (double) correctAnswers
+                                        / totalQuestions
                         ) * 100
                 );
+
+        // -------------------------------------------------
+        // CREATE ATTEMPT
+        // -------------------------------------------------
 
         QuizAttempt attempt =
                 new QuizAttempt(
@@ -154,6 +261,10 @@ public class QuizAttemptService {
                         correctAnswers,
                         LocalDateTime.now()
                 );
+
+        // -------------------------------------------------
+        // SAVE ATTEMPT
+        // -------------------------------------------------
 
         return quizAttemptRepository.save(
                 attempt

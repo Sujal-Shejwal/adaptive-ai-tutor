@@ -22,7 +22,7 @@ function ProfilePage() {
         fullName: "",
         email: "",
         phone: "",
-        rollNumber: "",
+        studentId: "",
         department: "",
         year: "",
         role: "Student",
@@ -158,10 +158,17 @@ function ProfilePage() {
                     email:
                         data.email || "",
 
-                    phone: "",
-                    rollNumber: "",
-                    department: "",
-                    year: "",
+                    phone:
+                        data.phone || "",
+
+                    studentId:
+                        data.studentId || "",
+
+                    department:
+                        data.department || "",
+
+                    year:
+                        data.year || "",
 
                     role:
                         data.role?.toLowerCase() ===
@@ -506,6 +513,12 @@ function ProfilePage() {
                             JSON.stringify({
                                 name,
                                 email,
+                                phone:
+                                    editForm.phone?.trim() || "",
+                                department:
+                                    editForm.department?.trim() || "",
+                                year:
+                                    editForm.year?.trim() || "",
                             }),
                     }
                 );
@@ -537,6 +550,22 @@ function ProfilePage() {
                 email:
                     data?.email ||
                     email,
+                phone:
+                    data?.phone ||
+                    editForm.phone ||
+                    "",
+                studentId:
+                    data?.studentId ||
+                    profile.studentId ||
+                    "",
+                department:
+                    data?.department ||
+                    editForm.department ||
+                    "",
+                year:
+                    data?.year ||
+                    editForm.year ||
+                    "",
             };
 
             setProfile(
@@ -1170,10 +1199,10 @@ function ProfilePage() {
                                     <input
                                         type="text"
                                         name="phone"
-                                        value=""
-                                        placeholder="Not available yet"
-                                        disabled
-                                        className="mt-2 w-full cursor-not-allowed rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-400 outline-none"
+                                        value={editForm.phone}
+                                        onChange={handleProfileChange}
+                                        placeholder="Enter phone number"
+                                        className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none focus:border-blue-500"
                                     />
 
                                 ) : (
@@ -1187,11 +1216,11 @@ function ProfilePage() {
                             </div>
 
 
-                            {/* Roll Number */}
+                            {/* Student ID */}
                             <div>
 
                                 <label className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-                                    Roll Number
+                                    Student ID
                                 </label>
 
 
@@ -1199,9 +1228,9 @@ function ProfilePage() {
 
                                     <input
                                         type="text"
-                                        name="rollNumber"
-                                        value=""
-                                        placeholder="Not available yet"
+                                        name="studentId"
+                                        value={editForm.studentId || ""}
+                                        placeholder="Student ID"
                                         disabled
                                         className="mt-2 w-full cursor-not-allowed rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-400 outline-none"
                                     />
@@ -1209,7 +1238,7 @@ function ProfilePage() {
                                 ) : (
 
                                     <div className="mt-2 rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-500">
-                                        {profile.rollNumber || "Not available yet"}
+                                        {profile.studentId || "Not available yet"}
                                     </div>
 
                                 )}
@@ -1230,10 +1259,10 @@ function ProfilePage() {
                                     <input
                                         type="text"
                                         name="department"
-                                        value=""
-                                        placeholder="Not available yet"
-                                        disabled
-                                        className="mt-2 w-full cursor-not-allowed rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-400 outline-none"
+                                        value={editForm.department}
+                                        onChange={handleProfileChange}
+                                        placeholder="Enter department"
+                                        className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none focus:border-blue-500"
                                     />
 
                                 ) : (
@@ -1260,10 +1289,10 @@ function ProfilePage() {
                                     <input
                                         type="text"
                                         name="year"
-                                        value=""
-                                        placeholder="Not available yet"
-                                        disabled
-                                        className="mt-2 w-full cursor-not-allowed rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-400 outline-none"
+                                        value={editForm.year}
+                                        onChange={handleProfileChange}
+                                        placeholder="Enter year"
+                                        className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none focus:border-blue-500"
                                     />
 
                                 ) : (

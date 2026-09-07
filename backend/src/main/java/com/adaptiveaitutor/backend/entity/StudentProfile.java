@@ -19,8 +19,6 @@ public class StudentProfile {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    // Links this profile to the existing User account.
-    // One student profile belongs to one User.
     @OneToOne
     @JoinColumn(
             name = "user_id",
@@ -29,7 +27,6 @@ public class StudentProfile {
     )
     private User user;
 
-    // Human-readable student identifier.
     @Column(
             name = "student_id",
             nullable = false,
@@ -37,14 +34,21 @@ public class StudentProfile {
     )
     private String studentId;
 
-    // True until the student changes the temporary password.
+    @Column(name = "phone")
+    private String phone;
+
+    @Column(name = "department")
+    private String department;
+
+    @Column(name = "year")
+    private String year;
+
     @Column(
             name = "must_change_password",
             nullable = false
     )
     private boolean mustChangePassword = true;
 
-    // Temporary credential expiration time.
     @Column(name = "temporary_password_expires_at")
     private LocalDateTime temporaryPasswordExpiresAt;
 
@@ -86,6 +90,30 @@ public class StudentProfile {
 
     public void setStudentId(String studentId) {
         this.studentId = studentId;
+    }
+
+    public String getPhone() {
+        return phone;
+    }
+
+    public void setPhone(String phone) {
+        this.phone = phone;
+    }
+
+    public String getDepartment() {
+        return department;
+    }
+
+    public void setDepartment(String department) {
+        this.department = department;
+    }
+
+    public String getYear() {
+        return year;
+    }
+
+    public void setYear(String year) {
+        this.year = year;
     }
 
     public boolean isMustChangePassword() {

@@ -256,6 +256,66 @@ public class UserService {
     }
 
     // =====================================================
+    // UPDATE STUDENT PROFILE DETAILS
+    // =====================================================
+
+    public User updateProfile(
+            Long userId,
+            String name,
+            String email,
+            String phone,
+            String department,
+            String year) {
+
+        User user =
+                updateProfile(
+                        userId,
+                        name,
+                        email
+                );
+
+        // Extra profile fields belong to StudentProfile.
+        if ("student".equalsIgnoreCase(
+                user.getRole()
+        )) {
+
+            StudentProfile profile =
+                    studentProfileRepository
+                            .findByUserId(userId)
+                            .orElseThrow(() ->
+                                    new RuntimeException(
+                                            "Student profile not found"
+                                    )
+                            );
+
+            profile.setPhone(
+                    normalizeOptional(phone)
+            );
+
+            profile.setDepartment(
+                    normalizeOptional(department)
+            );
+
+            profile.setYear(
+                    normalizeOptional(year)
+            );
+
+            studentProfileRepository.save(profile);
+        }
+
+        return user;
+    }
+
+    private String normalizeOptional(String value) {
+        if (value == null) {
+            return null;
+        }
+
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? null : trimmed;
+    }
+
+    // =====================================================
     // CHANGE PASSWORD
     // =====================================================
 

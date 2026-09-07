@@ -457,7 +457,8 @@ function ProgressPage() {
 
           const subjectId =
             Number(
-              quiz.subjectId
+              quiz?.subject?.id ??
+              quiz?.subjectId
             );
 
           const score =
@@ -638,6 +639,7 @@ function ProgressPage() {
                     item.id
                   ) ===
                   Number(
+                    quiz?.subject?.id ??
                     quiz?.subjectId
                   )
               );

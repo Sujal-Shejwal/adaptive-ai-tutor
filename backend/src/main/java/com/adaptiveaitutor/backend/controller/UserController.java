@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.adaptiveaitutor.backend.dto.LoginResponse;
+import com.adaptiveaitutor.backend.dto.ProfileResponse;
 import com.adaptiveaitutor.backend.entity.StudentProfile;
 import com.adaptiveaitutor.backend.entity.User;
 import com.adaptiveaitutor.backend.exception.EmailAlreadyExistsException;
@@ -185,7 +186,9 @@ public class UserController {
                     );
 
             String studentId = null;
-
+            String phone = null;
+            String department = null;
+            String year = null;
             boolean mustChangePassword = false;
 
             // -------------------------------------------------
@@ -202,22 +205,25 @@ public class UserController {
                         );
 
                 if (profile != null) {
-
-                    studentId =
-                            profile.getStudentId();
-
+                    studentId = profile.getStudentId();
                     mustChangePassword =
                             profile.isMustChangePassword();
+                    phone = profile.getPhone();
+                    department = profile.getDepartment();
+                    year = profile.getYear();
                 }
             }
 
-            LoginResponse response =
-                    new LoginResponse(
+            ProfileResponse response =
+                    new ProfileResponse(
                             user.getId(),
                             user.getName(),
                             user.getEmail(),
                             user.getRole(),
                             studentId,
+                            phone,
+                            department,
+                            year,
                             mustChangePassword
                     );
 
@@ -248,11 +254,16 @@ public class UserController {
                     userService.updateProfile(
                             userId,
                             request.getName(),
-                            request.getEmail()
+                            request.getEmail(),
+                            request.getPhone(),
+                            request.getDepartment(),
+                            request.getYear()
                     );
 
             String studentId = null;
-
+            String phone = null;
+            String department = null;
+            String year = null;
             boolean mustChangePassword = false;
 
             // -------------------------------------------------
@@ -269,22 +280,25 @@ public class UserController {
                         );
 
                 if (profile != null) {
-
-                    studentId =
-                            profile.getStudentId();
-
+                    studentId = profile.getStudentId();
                     mustChangePassword =
                             profile.isMustChangePassword();
+                    phone = profile.getPhone();
+                    department = profile.getDepartment();
+                    year = profile.getYear();
                 }
             }
 
-            LoginResponse response =
-                    new LoginResponse(
+            ProfileResponse response =
+                    new ProfileResponse(
                             updatedUser.getId(),
                             updatedUser.getName(),
                             updatedUser.getEmail(),
                             updatedUser.getRole(),
                             studentId,
+                            phone,
+                            department,
+                            year,
                             mustChangePassword
                     );
 
@@ -357,6 +371,12 @@ public class UserController {
 
         private String email;
 
+        private String phone;
+
+        private String department;
+
+        private String year;
+
         public UpdateProfileRequest() {
         }
 
@@ -380,6 +400,39 @@ public class UserController {
 
             this.email =
                     email;
+        }
+
+        public String getPhone() {
+            return phone;
+        }
+
+        public void setPhone(
+                String phone) {
+
+            this.phone =
+                    phone;
+        }
+
+        public String getDepartment() {
+            return department;
+        }
+
+        public void setDepartment(
+                String department) {
+
+            this.department =
+                    department;
+        }
+
+        public String getYear() {
+            return year;
+        }
+
+        public void setYear(
+                String year) {
+
+            this.year =
+                    year;
         }
     }
 

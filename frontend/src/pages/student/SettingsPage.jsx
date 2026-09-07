@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 
 import {
+    useEffect,
     useState,
 } from "react";
 
@@ -25,57 +26,211 @@ function SettingsPage() {
 
     const navigate = useNavigate();
 
+    // =====================================================
+    // DEFAULT SETTINGS
+    // =====================================================
 
-    /* ===================================================== */
-    /* NOTIFICATIONS                                         */
-    /* ===================================================== */
-
-    const [notifications, setNotifications] = useState({
+    const defaultNotifications = {
         quizReminders: true,
         newContentAlerts: true,
         teacherAnnouncements: true,
         weeklyProgressReports: false,
-    });
+    };
 
-
-    /* ===================================================== */
-    /* LEARNING PREFERENCES                                  */
-    /* ===================================================== */
-
-    const [learningPreferences, setLearningPreferences] = useState({
+    const defaultLearningPreferences = {
         answerStyle: "Detailed",
         studyReminder: true,
         recommendations: true,
-    });
+    };
 
-
-    /* ===================================================== */
-    /* ACCOUNT PREFERENCES                                   */
-    /* ===================================================== */
-
-    const [accountSettings, setAccountSettings] = useState({
+    const defaultAccountSettings = {
         language: "English (India)",
         timeZone: "Asia/Kolkata (IST UTC+5:30)",
         academicYear: "2026–2027",
-    });
+    };
 
-
-    /* ===================================================== */
-    /* PRIVACY                                               */
-    /* ===================================================== */
-
-    const [privacySettings, setPrivacySettings] = useState({
+    const defaultPrivacySettings = {
         saveChatHistory: true,
         personalizedData: true,
-    });
+    };
 
+
+    // =====================================================
+    // STATE
+    // =====================================================
+
+    const [notifications, setNotifications] = useState(
+        defaultNotifications
+    );
+
+    const [learningPreferences, setLearningPreferences] = useState(
+        defaultLearningPreferences
+    );
+
+    const [accountSettings, setAccountSettings] = useState(
+        defaultAccountSettings
+    );
+
+    const [privacySettings, setPrivacySettings] = useState(
+        defaultPrivacySettings
+    );
 
     const [saved, setSaved] = useState(false);
+    const [loading, setLoading] = useState(true);
+    const [saving, setSaving] = useState(false);
+    const [error, setError] = useState("");
 
 
-    /* ===================================================== */
-    /* TOGGLE COMPONENT                                      */
-    /* ===================================================== */
+    // =====================================================
+    // GET CURRENT USER ID
+    // =====================================================
+
+    const getUserId = () => {
+
+        const directUserId = localStorage.getItem("userId");
+
+        if (directUserId) {
+            return directUserId;
+        }
+
+        const storedUser = localStorage.getItem("user");
+
+        if (storedUser) {
+            try {
+                const user = JSON.parse(storedUser);
+
+                return user?.id || user?.userId || null;
+            } catch (error) {
+                console.error(
+                    "Unable to read stored user:",
+                    error
+                );
+            }
+        }
+
+        return null;
+    };
+
+
+    // =====================================================
+    // LOAD SETTINGS FROM BACKEND
+    // =====================================================
+
+    useEffect(() => {
+
+        const loadSettings = async () => {
+
+            const userId = getUserId();
+
+            if (!userId) {
+                setError("User information not found. Please login again.");
+                setLoading(false);
+                return;
+            }
+
+            try {
+
+                setLoading(true);
+                setError("");
+
+                const response = await fetch(
+                    `http://localhost:8080/api/users/${userId}/settings`
+                );
+
+                if (!response.ok) {
+                    throw new Error(
+                        "Failed to load settings"
+                    );
+                }
+
+                const data = await response.json();
+
+
+                setNotifications({
+                    quizReminders:
+                        data.quizReminders ??
+                        defaultNotifications.quizReminders,
+
+                    newContentAlerts:
+                        data.newContentAlerts ??
+                        defaultNotifications.newContentAlerts,
+
+                    teacherAnnouncements:
+                        data.teacherAnnouncements ??
+                        defaultNotifications.teacherAnnouncements,
+
+                    weeklyProgressReports:
+                        data.weeklyProgressReports ??
+                        defaultNotifications.weeklyProgressReports,
+                });
+
+
+                setLearningPreferences({
+                    answerStyle:
+                        data.answerStyle ??
+                        defaultLearningPreferences.answerStyle,
+
+                    studyReminder:
+                        data.studyReminder ??
+                        defaultLearningPreferences.studyReminder,
+
+                    recommendations:
+                        data.recommendations ??
+                        defaultLearningPreferences.recommendations,
+                });
+
+
+                setAccountSettings({
+                    language:
+                        data.language ??
+                        defaultAccountSettings.language,
+
+                    timeZone:
+                        data.timeZone ??
+                        defaultAccountSettings.timeZone,
+
+                    academicYear:
+                        data.academicYear ??
+                        defaultAccountSettings.academicYear,
+                });
+
+
+                setPrivacySettings({
+                    saveChatHistory:
+                        data.saveChatHistory ??
+                        defaultPrivacySettings.saveChatHistory,
+
+                    personalizedData:
+                        data.personalizedData ??
+                        defaultPrivacySettings.personalizedData,
+                });
+
+            } catch (err) {
+
+                console.error(
+                    "Settings loading error:",
+                    err
+                );
+
+                setError(
+                    "Unable to load settings from the server."
+                );
+
+            } finally {
+
+                setLoading(false);
+            }
+        };
+
+
+        loadSettings();
+
+    }, []);
+
+
+    // =====================================================
+    // TOGGLE COMPONENT
+    // =====================================================
 
     const Toggle = ({
         enabled,
@@ -93,7 +248,6 @@ function SettingsPage() {
                         : "bg-slate-200"
                 }`}
             >
-
                 <span
                     className={`absolute top-1 h-4 w-4 rounded-full bg-white shadow-sm transition ${
                         enabled
@@ -101,70 +255,64 @@ function SettingsPage() {
                             : "left-1"
                     }`}
                 />
-
             </button>
         );
     };
 
 
-    /* ===================================================== */
-    /* NOTIFICATION TOGGLE                                  */
-    /* ===================================================== */
+    // =====================================================
+    // NOTIFICATION TOGGLE
+    // =====================================================
 
     const toggleNotification = (key) => {
 
-        setNotifications(
-            (previous) => ({
-                ...previous,
-                [key]: !previous[key],
-            })
-        );
+        setNotifications((previous) => ({
+            ...previous,
+            [key]: !previous[key],
+        }));
 
         setSaved(false);
+        setError("");
     };
 
 
-    /* ===================================================== */
-    /* LEARNING TOGGLE                                      */
-    /* ===================================================== */
+    // =====================================================
+    // LEARNING TOGGLE
+    // =====================================================
 
     const toggleLearningPreference = (key) => {
 
-        setLearningPreferences(
-            (previous) => ({
-                ...previous,
-                [key]: !previous[key],
-            })
-        );
+        setLearningPreferences((previous) => ({
+            ...previous,
+            [key]: !previous[key],
+        }));
 
         setSaved(false);
+        setError("");
     };
 
 
-    /* ===================================================== */
-    /* PRIVACY TOGGLE                                        */
-    /* ===================================================== */
+    // =====================================================
+    // PRIVACY TOGGLE
+    // =====================================================
 
     const togglePrivacy = (key) => {
 
-        setPrivacySettings(
-            (previous) => ({
-                ...previous,
-                [key]: !previous[key],
-            })
-        );
+        setPrivacySettings((previous) => ({
+            ...previous,
+            [key]: !previous[key],
+        }));
 
         setSaved(false);
+        setError("");
     };
 
 
-    /* ===================================================== */
-    /* ACCOUNT CHANGE                                       */
-    /* ===================================================== */
+    // =====================================================
+    // ACCOUNT CHANGE
+    // =====================================================
 
-    const handleAccountChange = (
-        event
-    ) => {
+    const handleAccountChange = (event) => {
 
         const {
             name,
@@ -172,72 +320,249 @@ function SettingsPage() {
         } = event.target;
 
 
-        setAccountSettings(
-            (previous) => ({
-                ...previous,
-                [name]: value,
-            })
-        );
-
+        setAccountSettings((previous) => ({
+            ...previous,
+            [name]: value,
+        }));
 
         setSaved(false);
+        setError("");
     };
 
 
-    /* ===================================================== */
-    /* LEARNING STYLE                                       */
-    /* ===================================================== */
+    // =====================================================
+    // LEARNING STYLE
+    // =====================================================
 
-    const handleAnswerStyleChange = (
-        event
-    ) => {
+    const handleAnswerStyleChange = (event) => {
 
-        setLearningPreferences(
-            (previous) => ({
-                ...previous,
-                answerStyle: event.target.value,
-            })
-        );
+        setLearningPreferences((previous) => ({
+            ...previous,
+            answerStyle: event.target.value,
+        }));
 
         setSaved(false);
+        setError("");
     };
 
 
-    /* ===================================================== */
-    /* SAVE SETTINGS                                        */
-    /* ===================================================== */
+    // =====================================================
+    // SAVE SETTINGS TO BACKEND
+    // =====================================================
 
-    const handleSave = () => {
+    const handleSave = async () => {
 
-        setSaved(true);
+        const userId = getUserId();
 
+        if (!userId) {
+            setError(
+                "User information not found. Please login again."
+            );
+            return;
+        }
 
-        setTimeout(() => {
+        try {
+
+            setSaving(true);
             setSaved(false);
-        }, 3000);
+            setError("");
+
+
+            const payload = {
+
+                // Notifications
+                quizReminders:
+                    notifications.quizReminders,
+
+                newContentAlerts:
+                    notifications.newContentAlerts,
+
+                teacherAnnouncements:
+                    notifications.teacherAnnouncements,
+
+                weeklyProgressReports:
+                    notifications.weeklyProgressReports,
+
+
+                // Learning Preferences
+                answerStyle:
+                    learningPreferences.answerStyle,
+
+                studyReminder:
+                    learningPreferences.studyReminder,
+
+                recommendations:
+                    learningPreferences.recommendations,
+
+
+                // Account Preferences
+                language:
+                    accountSettings.language,
+
+                timeZone:
+                    accountSettings.timeZone,
+
+                academicYear:
+                    accountSettings.academicYear,
+
+
+                // Privacy
+                saveChatHistory:
+                    privacySettings.saveChatHistory,
+
+                personalizedData:
+                    privacySettings.personalizedData,
+            };
+
+
+            const response = await fetch(
+                `http://localhost:8080/api/users/${userId}/settings`,
+                {
+                    method: "PUT",
+
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+
+                    body: JSON.stringify(payload),
+                }
+            );
+
+
+            if (!response.ok) {
+                throw new Error(
+                    "Failed to save settings"
+                );
+            }
+
+
+            const data = await response.json();
+
+
+            // Update UI with the values returned
+            // by the backend.
+
+            setNotifications({
+                quizReminders:
+                    data.quizReminders,
+
+                newContentAlerts:
+                    data.newContentAlerts,
+
+                teacherAnnouncements:
+                    data.teacherAnnouncements,
+
+                weeklyProgressReports:
+                    data.weeklyProgressReports,
+            });
+
+
+            setLearningPreferences({
+                answerStyle:
+                    data.answerStyle,
+
+                studyReminder:
+                    data.studyReminder,
+
+                recommendations:
+                    data.recommendations,
+            });
+
+
+            setAccountSettings({
+                language:
+                    data.language,
+
+                timeZone:
+                    data.timeZone,
+
+                academicYear:
+                    data.academicYear,
+            });
+
+
+            setPrivacySettings({
+                saveChatHistory:
+                    data.saveChatHistory,
+
+                personalizedData:
+                    data.personalizedData,
+            });
+
+
+            setSaved(true);
+
+            setTimeout(() => {
+                setSaved(false);
+            }, 3000);
+
+        } catch (err) {
+
+            console.error(
+                "Settings save error:",
+                err
+            );
+
+            setError(
+                "Unable to save settings. Please try again."
+            );
+
+        } finally {
+
+            setSaving(false);
+        }
     };
 
 
-    /* ===================================================== */
-    /* LOGOUT                                                */
-    /* ===================================================== */
+    // =====================================================
+    // LOGOUT
+    // =====================================================
 
     const handleLogout = () => {
 
-        /*
-         * Temporary frontend logout.
-         * Real token/session cleanup will be connected
-         * when authentication backend is implemented.
-         */
-
         localStorage.removeItem("token");
         localStorage.removeItem("user");
+        localStorage.removeItem("userId");
+        localStorage.removeItem("userName");
+        localStorage.removeItem("userEmail");
+        localStorage.removeItem("userRole");
 
         navigate("/login");
     };
 
 
+    // =====================================================
+    // LOADING
+    // =====================================================
+
+    if (loading) {
+
+        return (
+            <div className="min-h-full bg-slate-50 px-6 pb-10 pt-20">
+
+                <div className="mx-auto max-w-[675px]">
+
+                    <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm">
+
+                        <p className="text-sm text-slate-500">
+                            Loading settings...
+                        </p>
+
+                    </div>
+
+                </div>
+
+            </div>
+        );
+    }
+
+
+    // =====================================================
+    // PAGE
+    // =====================================================
+
     return (
+
         <div className="min-h-full bg-slate-50 px-6 pb-10 pt-20">
 
             <div className="mx-auto max-w-[675px]">
@@ -253,9 +578,7 @@ function SettingsPage() {
 
                         <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-100 text-blue-600">
 
-                            <Info
-                                size={20}
-                            />
+                            <Info size={20} />
 
                         </div>
 
@@ -275,6 +598,21 @@ function SettingsPage() {
                     </div>
 
                 </div>
+
+
+                {/* ================================================= */}
+                {/* ERROR */}
+                {/* ================================================= */}
+
+                {error && (
+
+                    <div className="mb-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
+
+                        {error}
+
+                    </div>
+
+                )}
 
 
                 {/* ================================================= */}
@@ -306,6 +644,7 @@ function SettingsPage() {
 
 
                         {/* Quiz Reminders */}
+
                         <div className="flex items-center justify-between gap-4">
 
                             <div>
@@ -336,6 +675,7 @@ function SettingsPage() {
 
 
                         {/* New Content */}
+
                         <div className="flex items-center justify-between gap-4">
 
                             <div>
@@ -366,6 +706,7 @@ function SettingsPage() {
 
 
                         {/* Teacher Announcements */}
+
                         <div className="flex items-center justify-between gap-4">
 
                             <div>
@@ -396,6 +737,7 @@ function SettingsPage() {
 
 
                         {/* Weekly Reports */}
+
                         <div className="flex items-center justify-between gap-4">
 
                             <div>
@@ -430,7 +772,7 @@ function SettingsPage() {
 
 
                 {/* ================================================= */}
-                {/* LEARNING PREFERENCES                            */}
+                {/* LEARNING PREFERENCES */}
                 {/* ================================================= */}
 
                 <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -458,6 +800,7 @@ function SettingsPage() {
 
 
                         {/* AI ANSWER STYLE */}
+
                         <div className="flex items-center justify-between gap-4 border-b border-slate-100 py-4">
 
                             <div>
@@ -511,6 +854,7 @@ function SettingsPage() {
 
 
                         {/* STUDY REMINDER */}
+
                         <div className="flex items-center justify-between gap-4 border-b border-slate-100 py-4">
 
                             <div>
@@ -541,6 +885,7 @@ function SettingsPage() {
 
 
                         {/* RECOMMENDATIONS */}
+
                         <div className="flex items-center justify-between gap-4 py-4">
 
                             <div>
@@ -575,7 +920,7 @@ function SettingsPage() {
 
 
                 {/* ================================================= */}
-                {/* ACCOUNT PREFERENCES                              */}
+                {/* ACCOUNT PREFERENCES */}
                 {/* ================================================= */}
 
                 <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -603,6 +948,7 @@ function SettingsPage() {
 
 
                         {/* LANGUAGE */}
+
                         <div className="flex items-center justify-between gap-4 py-4">
 
                             <div className="flex items-center gap-3">
@@ -652,15 +998,14 @@ function SettingsPage() {
 
 
                         {/* TIME ZONE */}
+
                         <div className="flex items-center justify-between gap-4 py-4">
 
                             <div className="flex items-center gap-3">
 
                                 <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-violet-50 text-violet-600">
 
-                                    <Clock3
-                                        size={17}
-                                    />
+                                    <Clock3 size={17} />
 
                                 </div>
 
@@ -709,6 +1054,7 @@ function SettingsPage() {
 
 
                         {/* ACADEMIC YEAR */}
+
                         <div className="flex items-center justify-between gap-4 py-4">
 
                             <div>
@@ -757,7 +1103,7 @@ function SettingsPage() {
 
 
                 {/* ================================================= */}
-                {/* PRIVACY & DATA                                   */}
+                {/* PRIVACY & DATA */}
                 {/* ================================================= */}
 
                 <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -785,6 +1131,7 @@ function SettingsPage() {
 
 
                         {/* CHAT HISTORY */}
+
                         <div className="flex items-center justify-between gap-4">
 
                             <div className="flex items-start gap-3">
@@ -824,6 +1171,7 @@ function SettingsPage() {
 
 
                         {/* PERSONALIZATION */}
+
                         <div className="flex items-center justify-between gap-4">
 
                             <div className="flex items-start gap-3">
@@ -867,7 +1215,7 @@ function SettingsPage() {
 
 
                 {/* ================================================= */}
-                {/* ABOUT                                            */}
+                {/* ABOUT */}
                 {/* ================================================= */}
 
                 <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -918,6 +1266,7 @@ function SettingsPage() {
 
                     <div className="mt-5 grid grid-cols-1 gap-3 border-t border-slate-100 pt-5 sm:grid-cols-2">
 
+
                         <div>
 
                             <p className="text-xs text-slate-400">
@@ -951,7 +1300,7 @@ function SettingsPage() {
                             </p>
 
                             <p className="mt-1 text-sm font-medium text-slate-700">
-                                FastAPI + Python
+                                Spring Boot + Java
                             </p>
 
                         </div>
@@ -975,7 +1324,7 @@ function SettingsPage() {
 
 
                 {/* ================================================= */}
-                {/* SAVE BUTTON                                       */}
+                {/* SAVE BUTTON */}
                 {/* ================================================= */}
 
                 <div className="mt-6 flex items-center justify-end gap-4">
@@ -984,9 +1333,7 @@ function SettingsPage() {
 
                         <div className="flex items-center gap-2 text-sm font-medium text-green-600">
 
-                            <Check
-                                size={16}
-                            />
+                            <Check size={16} />
 
                             Settings saved
 
@@ -998,14 +1345,19 @@ function SettingsPage() {
                     <button
                         type="button"
                         onClick={handleSave}
-                        className="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-6 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700"
+                        disabled={saving}
+                        className={`inline-flex items-center justify-center gap-2 rounded-xl px-6 py-3 text-sm font-semibold text-white shadow-sm transition ${
+                            saving
+                                ? "cursor-not-allowed bg-blue-400"
+                                : "bg-blue-600 hover:bg-blue-700"
+                        }`}
                     >
 
-                        <Save
-                            size={16}
-                        />
+                        <Save size={16} />
 
-                        Save Preferences
+                        {saving
+                            ? "Saving..."
+                            : "Save Preferences"}
 
                     </button>
 
@@ -1013,7 +1365,7 @@ function SettingsPage() {
 
 
                 {/* ================================================= */}
-                {/* SIGN OUT                                           */}
+                {/* SIGN OUT */}
                 {/* ================================================= */}
 
                 <section className="mt-6 rounded-2xl border border-red-200 bg-white p-6 shadow-sm">
@@ -1039,9 +1391,7 @@ function SettingsPage() {
                             className="inline-flex shrink-0 items-center gap-2 rounded-xl bg-red-500 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-red-600"
                         >
 
-                            <LogOut
-                                size={16}
-                            />
+                            <LogOut size={16} />
 
                             Sign Out
 
