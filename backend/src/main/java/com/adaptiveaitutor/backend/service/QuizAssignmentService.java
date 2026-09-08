@@ -1,5 +1,7 @@
 package com.adaptiveaitutor.backend.service;
 
+import java.time.Duration;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -219,66 +221,141 @@ public class QuizAssignmentService {
     // GET CLASSROOM RESULTS
     // =====================================================
 
-    public List<ClassroomQuizResultResponse> getClassroomResults(Long classroomId, Long teacherId) {
-        Classroom classroom = verifyTeacherOwnsClassroom(classroomId, teacherId);
+    public List<ClassroomQuizResultResponse> getClassroomResults(
+            Long classroomId,
+            Long teacherId) {
 
-        List<ClassroomEnrollment> enrollments = enrollmentRepository.findByClassroomId(classroomId);
-        List<QuizAssignment> assignments = assignmentRepository.findByClassroomIdAndStatus(classroomId, "ACTIVE");
-        List<ClassroomQuizResultResponse> results = new ArrayList<>();
+        Classroom classroom =
+                verifyTeacherOwnsClassroom(
+                        classroomId,
+                        teacherId
+                );
 
-        for (QuizAssignment assignment : assignments) {
-            if (assignment == null || assignment.getQuiz() == null) {
+        List<ClassroomEnrollment> enrollments =
+                enrollmentRepository.findByClassroomId(
+                        classroomId
+                );
+
+        List<QuizAssignment> assignments =
+                assignmentRepository
+                        .findByClassroomIdAndStatus(
+                                classroomId,
+                                "ACTIVE"
+                        );
+
+        List<ClassroomQuizResultResponse> results =
+                new ArrayList<>();
+
+        for (QuizAssignment assignment :
+                assignments) {
+
+            if (
+                    assignment == null ||
+                    assignment.getQuiz() == null
+            ) {
                 continue;
             }
 
-            List<QuizAttempt> attempts = quizAttemptRepository.findByQuizId(assignment.getQuiz().getId());
+            List<QuizAttempt> attempts =
+                    quizAttemptRepository.findByQuizId(
+                            assignment.getQuiz().getId()
+                    );
 
-            for (ClassroomEnrollment enrollment : enrollments) {
-                if (enrollment == null ||
-                        !"ACTIVE".equalsIgnoreCase(enrollment.getStatus()) ||
-                        enrollment.getStudent() == null) {
+            for (ClassroomEnrollment enrollment :
+                    enrollments) {
+
+                if (
+                        enrollment == null ||
+                        !"ACTIVE".equalsIgnoreCase(
+                                enrollment.getStatus()
+                        ) ||
+                        enrollment.getStudent() == null
+                ) {
                     continue;
                 }
 
-                User student = enrollment.getStudent();
-                QuizAttempt studentAttempt = null;
+                User student =
+                        enrollment.getStudent();
 
-                for (QuizAttempt attempt : attempts) {
-                    if (attempt != null && attempt.getStudent() != null &&
+                QuizAttempt studentAttempt =
+                        null;
+
+                for (QuizAttempt attempt :
+                        attempts) {
+
+                    if (
+                            attempt != null &&
+                            attempt.getStudent() != null &&
                             attempt.getStudent().getId() != null &&
-                            attempt.getStudent().getId().equals(student.getId())) {
-                        studentAttempt = attempt;
+                            attempt.getStudent()
+                                    .getId()
+                                    .equals(student.getId())
+                    ) {
+
+                        studentAttempt =
+                                attempt;
+
                         break;
                     }
                 }
 
-                results.add(new ClassroomQuizResultResponse(
-                        assignment.getId(),
-                        classroom.getId(),
-                        classroom.getName(),
-                        assignment.getQuiz().getId(),
-                        assignment.getQuiz().getTitle(),
-                        student.getId(),
-                        student.getName(),
-                        student.getEmail(),
-                        studentAttempt == null ? "NOT_SUBMITTED" : "SUBMITTED",
-                        studentAttempt == null ? null : studentAttempt.getScore(),
-                        studentAttempt == null ? null : studentAttempt.getTotalQuestions(),
-                        studentAttempt == null ? null : studentAttempt.getCorrectAnswers(),
-                        studentAttempt == null ? null : studentAttempt.getSubmittedAt()
-                ));
+                results.add(
+                        new ClassroomQuizResultResponse(
+                                assignment.getId(),
+                                classroom.getId(),
+                                classroom.getName(),
+                                assignment.getQuiz().getId(),
+                                assignment.getQuiz().getTitle(),
+                                student.getId(),
+                                student.getName(),
+                                student.getEmail(),
+                                studentAttempt == null
+                                        ? "NOT_SUBMITTED"
+                                        : "SUBMITTED",
+                                studentAttempt == null
+                                        ? null
+                                        : studentAttempt.getScore(),
+                                studentAttempt == null
+                                        ? null
+                                        : studentAttempt.getTotalQuestions(),
+                                studentAttempt == null
+                                        ? null
+                                        : studentAttempt.getCorrectAnswers(),
+                                studentAttempt == null
+                                        ? null
+                                        : studentAttempt.getSubmittedAt()
+                        )
+                );
             }
         }
 
-        results.sort((first, second) -> {
-            int quizCompare = String.valueOf(first.getQuizTitle())
-                    .compareToIgnoreCase(String.valueOf(second.getQuizTitle()));
-            if (quizCompare != 0) {
-                return quizCompare;
-            }
-            return String.valueOf(first.getStudentName())
-                    .compareToIgnoreCase(String.valueOf(second.getStudentName()));
-        });
+        results.sort(
+                (first, second) -> {
+
+                    int quizCompare =
+                            String.valueOf(
+                                    first.getQuizTitle()
+                            )
+                            .compareToIgnoreCase(
+                                    String.valueOf(
+                                            second.getQuizTitle()
+                                    )
+                            );
+
+                    if (quizCompare != 0) {
+                        return quizCompare;
+                    }
+
+                    return String.valueOf(
+                            first.getStudentName()
+                    )
+                    .compareToIgnoreCase(
+                            String.valueOf(
+                                    second.getStudentName()
+                            )
+                    );
+                }
+        );
 
         return results;
     }
@@ -550,6 +627,95 @@ public class QuizAssignmentService {
     }
 
     // =====================================================
+    // CALCULATE EFFECTIVE ASSIGNMENT DEADLINE
+    // =====================================================
+    //
+    // New assignments:
+    //     assignment.dueAt already exists.
+    //
+    // Old assignments:
+    //     assignment.dueAt is NULL because the column was
+    //     added later.
+    //
+    // For old assignments we calculate:
+    //
+    // assignedAt + original quiz deadline duration
+    //
+    // Example:
+    //
+    // Quiz created:
+    //     Sep 5, 7:00 PM
+    //
+    // Original quiz deadline:
+    //     Sep 6, 7:00 PM
+    //
+    // Duration:
+    //     24 hours
+    //
+    // Assignment:
+    //     Sep 8, 7:00 PM
+    //
+    // Effective deadline:
+    //     Sep 9, 7:00 PM
+    //
+    // =====================================================
+
+    private LocalDateTime
+            getEffectiveDueAt(
+                    QuizAssignment assignment) {
+
+        // -------------------------------------------------
+        // NEW ASSIGNMENT
+        // -------------------------------------------------
+
+        if (
+                assignment != null &&
+                assignment.getDueAt() != null
+        ) {
+
+            return assignment.getDueAt();
+        }
+
+        // -------------------------------------------------
+        // VALIDATE OLD ASSIGNMENT
+        // -------------------------------------------------
+
+        if (
+                assignment == null ||
+                assignment.getAssignedAt() == null ||
+                assignment.getQuiz() == null ||
+                assignment.getQuiz().getCreatedAt() == null ||
+                assignment.getQuiz().getDueAt() == null
+        ) {
+
+            return null;
+        }
+
+        // -------------------------------------------------
+        // CALCULATE ORIGINAL QUIZ DEADLINE DURATION
+        // -------------------------------------------------
+
+        Duration deadlineDuration =
+                Duration.between(
+                        assignment
+                                .getQuiz()
+                                .getCreatedAt(),
+
+                        assignment
+                                .getQuiz()
+                                .getDueAt()
+                );
+
+        // -------------------------------------------------
+        // APPLY THAT DURATION TO ASSIGNMENT TIME
+        // -------------------------------------------------
+
+        return assignment
+                .getAssignedAt()
+                .plus(deadlineDuration);
+    }
+
+    // =====================================================
     // RESPONSE MAPPER
     // =====================================================
 
@@ -563,13 +729,17 @@ public class QuizAssignmentService {
         Classroom classroom =
                 assignment.getClassroom();
 
-        Long subjectId = null;
+        Long subjectId =
+                null;
 
-        String subjectName = null;
+        String subjectName =
+                null;
 
-        Long topicId = null;
+        Long topicId =
+                null;
 
-        String topicName = null;
+        String topicName =
+                null;
 
         if (quiz != null) {
 
@@ -594,29 +764,45 @@ public class QuizAssignmentService {
 
         return new QuizAssignmentResponse(
                 assignment.getId(),
+
                 classroom != null
                         ? classroom.getId()
                         : null,
+
                 classroom != null
                         ? classroom.getName()
                         : null,
+
                 quiz != null
                         ? quiz.getId()
                         : null,
+
                 quiz != null
                         ? quiz.getTitle()
                         : null,
+
                 quiz != null
                         ? quiz.getDuration()
                         : null,
-                quiz != null
-                        ? quiz.getDueAt()
-                        : null,
+
+                // IMPORTANT:
+                // Use assignment deadline for new assignments.
+                // Calculate assignment deadline for old
+                // assignments whose dueAt is NULL.
+                getEffectiveDueAt(
+                        assignment
+                ),
+
                 assignment.getAssignedAt(),
+
                 assignment.getStatus(),
+
                 subjectId,
+
                 subjectName,
+
                 topicId,
+
                 topicName
         );
     }

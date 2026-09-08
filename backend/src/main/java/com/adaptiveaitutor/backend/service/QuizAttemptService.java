@@ -1,7 +1,6 @@
 package com.adaptiveaitutor.backend.service;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -27,34 +26,23 @@ public class QuizAttemptService {
     private final QuizRepository quizRepository;
     private final QuizQuestionRepository quizQuestionRepository;
     private final UserRepository userRepository;
-    private final ClassroomEnrollmentRepository classroomEnrollmentRepository;
-    private final QuizAssignmentRepository quizAssignmentRepository;
+    private final ClassroomEnrollmentRepository enrollmentRepository;
+    private final QuizAssignmentRepository assignmentRepository;
 
     public QuizAttemptService(
             QuizAttemptRepository quizAttemptRepository,
             QuizRepository quizRepository,
             QuizQuestionRepository quizQuestionRepository,
             UserRepository userRepository,
-            ClassroomEnrollmentRepository classroomEnrollmentRepository,
-            QuizAssignmentRepository quizAssignmentRepository) {
+            ClassroomEnrollmentRepository enrollmentRepository,
+            QuizAssignmentRepository assignmentRepository) {
 
-        this.quizAttemptRepository =
-                quizAttemptRepository;
-
-        this.quizRepository =
-                quizRepository;
-
-        this.quizQuestionRepository =
-                quizQuestionRepository;
-
-        this.userRepository =
-                userRepository;
-
-        this.classroomEnrollmentRepository =
-                classroomEnrollmentRepository;
-
-        this.quizAssignmentRepository =
-                quizAssignmentRepository;
+        this.quizAttemptRepository = quizAttemptRepository;
+        this.quizRepository = quizRepository;
+        this.quizQuestionRepository = quizQuestionRepository;
+        this.userRepository = userRepository;
+        this.enrollmentRepository = enrollmentRepository;
+        this.assignmentRepository = assignmentRepository;
     }
 
     // =====================================================
@@ -93,7 +81,7 @@ public class QuizAttemptService {
                         );
 
         // -------------------------------------------------
-        // CHECK STUDENT ROLE
+        // VERIFY STUDENT ROLE
         // -------------------------------------------------
 
         if (!"student".equalsIgnoreCase(
@@ -105,70 +93,170 @@ public class QuizAttemptService {
         }
 
         // -------------------------------------------------
-        // CHECK CLASSROOM ENROLLMENT + QUIZ ASSIGNMENT
-        //
-        // A student can submit this quiz only when:
-        // 1. The student is enrolled in a classroom.
-        // 2. The quiz is assigned to that classroom.
-        // 3. The assignment is ACTIVE.
-        //
-        // This supports the same quiz being assigned
-        // to multiple classrooms.
+        // VERIFY CLASSROOM ENROLLMENT + ASSIGNMENT
         // -------------------------------------------------
+        //
+        // The quiz can be assigned to one or more
+        // classrooms.
+        //
+        // The student must have:
+        //
+        // 1. An ACTIVE classroom enrollment
+        // 2. An ACTIVE quiz assignment in that classroom
+        //
+        // The student is authorized if at least one
+        // matching active assignment exists.
+        //
+        // We also keep track of whether at least one
+        // authorized assignment is still within its
+        // assignment-specific deadline.
 
         List<ClassroomEnrollment> enrollments =
-                classroomEnrollmentRepository
+                enrollmentRepository
                         .findByStudentId(studentId);
 
-        boolean classroomQuizAccess = false;
+        boolean authorized = false;
 
-        for (ClassroomEnrollment enrollment :
-                enrollments) {
+        boolean deadlineValid = false;
 
-            if (enrollment == null ||
-                    enrollment.getClassroom() == null) {
+        LocalDateTime now =
+                LocalDateTime.now();
 
-                continue;
+        if (enrollments != null) {
+
+            for (ClassroomEnrollment enrollment :
+                    enrollments) {
+
+                if (enrollment == null) {
+                    continue;
+                }
+
+                // -----------------------------------------
+                // ACTIVE ENROLLMENT ONLY
+                // -----------------------------------------
+
+                if (!"ACTIVE".equalsIgnoreCase(
+                        enrollment.getStatus())) {
+
+                    continue;
+                }
+
+                // -----------------------------------------
+                // CLASSROOM VALIDATION
+                // -----------------------------------------
+
+                if (
+                        enrollment.getClassroom() == null ||
+                        enrollment.getClassroom().getId() == null
+                ) {
+
+                    continue;
+                }
+
+                Long classroomId =
+                        enrollment
+                                .getClassroom()
+                                .getId();
+
+                // -----------------------------------------
+                // FIND QUIZ ASSIGNMENT
+                // -----------------------------------------
+
+                QuizAssignment assignment =
+                        assignmentRepository
+                                .findByClassroomIdAndQuizId(
+                                        classroomId,
+                                        quizId
+                                )
+                                .orElse(null);
+
+                if (assignment == null) {
+                    continue;
+                }
+
+                // -----------------------------------------
+                // ASSIGNMENT MUST BE ACTIVE
+                // -----------------------------------------
+
+                if (!"ACTIVE".equalsIgnoreCase(
+                        assignment.getStatus())) {
+
+                    continue;
+                }
+
+                // -------------------------------------------------
+                // STUDENT IS AUTHORIZED FOR THIS QUIZ
+                // -------------------------------------------------
+
+                authorized = true;
+
+                // -------------------------------------------------
+                // CHECK ASSIGNMENT DEADLINE
+                // -------------------------------------------------
+                //
+                // IMPORTANT:
+                //
+                // The deadline belongs to the assignment.
+                // It starts from the time the teacher assigned
+                // the quiz, not from the original quiz creation
+                // time.
+                //
+                // If dueAt is null, we allow the assignment to
+                // continue for backward compatibility with older
+                // assignments created before dueAt was added.
+                //
+                // If dueAt exists, submission is allowed only
+                // before the deadline.
+                // -------------------------------------------------
+
+                if (assignment.getDueAt() == null) {
+
+                    deadlineValid = true;
+
+                } else if (
+                        now.isBefore(
+                                assignment.getDueAt()
+                        )
+                ) {
+
+                    deadlineValid = true;
+                }
+
+                // -------------------------------------------------
+                // If one authorized assignment is still valid,
+                // the student can submit.
+                // -------------------------------------------------
+
+                if (deadlineValid) {
+                    break;
+                }
             }
-
-            Long classroomId =
-                    enrollment.getClassroom().getId();
-
-            if (classroomId == null) {
-                continue;
-            }
-
-            QuizAssignment assignment =
-                    quizAssignmentRepository
-                            .findByClassroomIdAndQuizId(
-                                    classroomId,
-                                    quizId
-                            )
-                            .orElse(null);
-
-            if (assignment == null) {
-                continue;
-            }
-
-            if (!"ACTIVE".equalsIgnoreCase(
-                    assignment.getStatus())) {
-
-                continue;
-            }
-
-            classroomQuizAccess = true;
-            break;
         }
 
-        if (!classroomQuizAccess) {
+        // -------------------------------------------------
+        // VERIFY CLASSROOM AUTHORIZATION
+        // -------------------------------------------------
+
+        if (!authorized) {
 
             throw new RuntimeException(
-                    "You are not enrolled in a classroom where this quiz is assigned"
+                    "You are not authorized to submit this quiz"
             );
         }
 
         // -------------------------------------------------
-        // CHECK DUPLICATE SUBMISSION
+        // VERIFY ASSIGNMENT DEADLINE
+        // -------------------------------------------------
+
+        if (!deadlineValid) {
+
+            throw new RuntimeException(
+                    "Quiz submission deadline has expired"
+            );
+        }
+
+        // -------------------------------------------------
+        // DUPLICATE SUBMISSION CHECK
         // -------------------------------------------------
 
         if (quizAttemptRepository
@@ -179,21 +267,6 @@ public class QuizAttemptService {
 
             throw new RuntimeException(
                     "Quiz has already been submitted by this student"
-            );
-        }
-
-        // -------------------------------------------------
-        // CHECK DEADLINE
-        // -------------------------------------------------
-
-        if (quiz.getDueAt() != null &&
-                LocalDateTime.now()
-                        .isAfter(
-                                quiz.getDueAt()
-                        )) {
-
-            throw new RuntimeException(
-                    "Quiz submission deadline has passed"
             );
         }
 
@@ -221,31 +294,45 @@ public class QuizAttemptService {
         for (QuizQuestion question :
                 questions) {
 
-            Integer selectedAnswer =
-                    answers != null
-                            ? answers.get(
-                                    question.getId()
-                            )
-                            : null;
+            Integer selectedAnswer = null;
 
-            if (selectedAnswer != null &&
+            if (answers != null) {
+
+                selectedAnswer =
+                        answers.get(
+                                question.getId()
+                        );
+            }
+
+            if (
+                    selectedAnswer != null &&
                     selectedAnswer.equals(
                             question.getCorrectAnswer()
-                    )) {
+                    )
+            ) {
 
                 correctAnswers++;
             }
         }
 
+        // -------------------------------------------------
+        // TOTAL QUESTIONS
+        // -------------------------------------------------
+
         int totalQuestions =
                 questions.size();
+
+        // -------------------------------------------------
+        // CALCULATE PERCENTAGE
+        // -------------------------------------------------
 
         int score =
                 (int) Math.round(
                         (
-                                (double) correctAnswers
-                                        / totalQuestions
-                        ) * 100
+                                (double) correctAnswers /
+                                totalQuestions
+                        ) *
+                        100
                 );
 
         // -------------------------------------------------
@@ -294,51 +381,17 @@ public class QuizAttemptService {
     }
 
     // =====================================================
-    // GET ALL ATTEMPTS FOR A TEACHER'S QUIZZES
+    // CHECK SUBMISSION
     // =====================================================
 
-    public List<QuizAttempt> getTeacherAttempts(
-            Long teacherId) {
+    public boolean hasStudentSubmitted(
+            Long quizId,
+            Long studentId) {
 
-        User teacher =
-                userRepository
-                        .findById(teacherId)
-                        .orElseThrow(() ->
-                                new RuntimeException(
-                                        "Teacher not found"
-                                )
-                        );
-
-        if (!"teacher".equalsIgnoreCase(
-                teacher.getRole())) {
-
-            throw new RuntimeException(
-                    "Only teachers can access teacher performance"
-            );
-        }
-
-        List<Quiz> quizzes =
-                quizRepository
-                        .findByCreatedById(
-                                teacherId
-                        );
-
-        List<QuizAttempt> allAttempts =
-                new ArrayList<>();
-
-        for (Quiz quiz : quizzes) {
-
-            List<QuizAttempt> attempts =
-                    quizAttemptRepository
-                            .findByQuizId(
-                                    quiz.getId()
-                            );
-
-            allAttempts.addAll(
-                    attempts
-            );
-        }
-
-        return allAttempts;
+        return quizAttemptRepository
+                .existsByQuizIdAndStudentId(
+                        quizId,
+                        studentId
+                );
     }
 }

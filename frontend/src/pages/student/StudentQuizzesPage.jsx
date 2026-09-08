@@ -274,22 +274,20 @@ function StudentQuizzesPage() {
                                     }
 
                                     // -----------------------------
-                                    // EXPIRED + NOT SUBMITTED
+                                    // CHECK EXPIRED STATUS
                                     //
-                                    // Do not show expired quizzes.
+                                    // Expired quizzes remain visible.
+                                    // They are moved to the bottom of
+                                    // the list and cannot be opened.
                                     // Completed quizzes remain visible
                                     // even when their deadline has passed.
                                     // -----------------------------
 
-                                    if (
+                                    const expired =
                                         !submitted &&
                                         isExpired(
                                             assignment.dueAt
-                                        )
-                                    ) {
-
-                                        return null;
-                                    }
+                                        );
 
                                     // -----------------------------
                                     // RETURN QUIZ
@@ -330,8 +328,12 @@ function StudentQuizzesPage() {
                     // -----------------------------------------
                     // SORT
                     //
-                    // Uncompleted quizzes first.
-                    // Completed quizzes after them.
+                    // 1. Live / available quizzes first
+                    // 2. Completed quizzes next
+                    // 3. Expired quizzes at the bottom
+                    //
+                    // Within live quizzes, the nearest deadline
+                    // appears first.
                     // -----------------------------------------
 
                     validQuizzes.sort(
@@ -340,7 +342,39 @@ function StudentQuizzesPage() {
                             b
                         ) => {
 
+                            const aExpired =
+                                !a.submitted &&
+                                isExpired(
+                                    a.dueAt
+                                );
+
+                            const bExpired =
+                                !b.submitted &&
+                                isExpired(
+                                    b.dueAt
+                                );
+
+                            // -------------------------------------
+                            // EXPIRED QUIZZES ALWAYS GO TO BOTTOM
+                            // -------------------------------------
+
                             if (
+                                aExpired !==
+                                bExpired
+                            ) {
+
+                                return aExpired
+                                    ? 1
+                                    : -1;
+                            }
+
+                            // -------------------------------------
+                            // LIVE QUIZZES COME BEFORE COMPLETED
+                            // -------------------------------------
+
+                            if (
+                                !aExpired &&
+                                !bExpired &&
                                 a.submitted !==
                                 b.submitted
                             ) {
@@ -349,6 +383,10 @@ function StudentQuizzesPage() {
                                     ? 1
                                     : -1;
                             }
+
+                            // -------------------------------------
+                            // SORT BY DEADLINE
+                            // -------------------------------------
 
                             const aDue =
                                 a.dueAt
@@ -457,6 +495,24 @@ function StudentQuizzesPage() {
 
                 setError(
                     "Quiz information is incomplete."
+                );
+
+                return;
+            }
+
+            // ---------------------------------------------
+            // BLOCK EXPIRED QUIZ
+            // ---------------------------------------------
+
+            if (
+                !quiz.submitted &&
+                isExpired(
+                    quiz.dueAt
+                )
+            ) {
+
+                setError(
+                    "This quiz has expired and can no longer be attempted."
                 );
 
                 return;
@@ -850,7 +906,9 @@ function StudentQuizzesPage() {
                                                             ${
                                                                 quiz.submitted
                                                                     ? "bg-green-100 text-green-600"
-                                                                    : "bg-blue-100 text-blue-600"
+                                                                    : isExpired(quiz.dueAt)
+                                                                        ? "bg-red-100 text-red-600"
+                                                                        : "bg-blue-100 text-blue-600"
                                                             }
                                                         `}
                                                     >
@@ -858,6 +916,14 @@ function StudentQuizzesPage() {
                                                         {quiz.submitted ? (
 
                                                             <CheckCircle2
+                                                                size={22}
+                                                            />
+
+                                                        ) : isExpired(
+                                                            quiz.dueAt
+                                                        ) ? (
+
+                                                            <CalendarClock
                                                                 size={22}
                                                             />
 
@@ -899,7 +965,7 @@ function StudentQuizzesPage() {
                                                                 }
                                                             </h2>
 
-                                                            {quiz.submitted && (
+                                                            {quiz.submitted ? (
 
                                                                 <span
                                                                     className="
@@ -913,6 +979,24 @@ function StudentQuizzesPage() {
                                                                     "
                                                                 >
                                                                     COMPLETED
+                                                                </span>
+
+                                                            ) : isExpired(
+                                                                quiz.dueAt
+                                                            ) && (
+
+                                                                <span
+                                                                    className="
+                                                                        rounded-full
+                                                                        bg-red-100
+                                                                        px-2.5
+                                                                        py-1
+                                                                        text-xs
+                                                                        font-semibold
+                                                                        text-red-700
+                                                                    "
+                                                                >
+                                                                    EXPIRED
                                                                 </span>
 
                                                             )}
@@ -1009,36 +1093,66 @@ function StudentQuizzesPage() {
                                                     {/* DEADLINE */}
 
                                                     {quiz.dueAt && (
+                                                        isExpired(
+                                                            quiz.dueAt
+                                                        ) &&
+                                                        !quiz.submitted ? (
 
-                                                        <span
-                                                            className="
-                                                                inline-flex
-                                                                items-center
-                                                                gap-1.5
-                                                                rounded-lg
-                                                                bg-amber-50
-                                                                px-3
-                                                                py-1.5
-                                                                text-xs
-                                                                font-medium
-                                                                text-amber-700
-                                                            "
-                                                        >
+                                                            <span
+                                                                className="
+                                                                    inline-flex
+                                                                    items-center
+                                                                    gap-1.5
+                                                                    rounded-lg
+                                                                    bg-red-50
+                                                                    px-3
+                                                                    py-1.5
+                                                                    text-xs
+                                                                    font-semibold
+                                                                    text-red-700
+                                                                "
+                                                            >
 
-                                                            <CalendarClock
-                                                                size={14}
-                                                            />
+                                                                <CalendarClock
+                                                                    size={14}
+                                                                />
 
-                                                            Due{" "}
+                                                                EXPIRED
 
-                                                            {
-                                                                formatDeadline(
-                                                                    quiz.dueAt
-                                                                )
-                                                            }
+                                                            </span>
 
-                                                        </span>
+                                                        ) : (
 
+                                                            <span
+                                                                className="
+                                                                    inline-flex
+                                                                    items-center
+                                                                    gap-1.5
+                                                                    rounded-lg
+                                                                    bg-amber-50
+                                                                    px-3
+                                                                    py-1.5
+                                                                    text-xs
+                                                                    font-medium
+                                                                    text-amber-700
+                                                                "
+                                                            >
+
+                                                                <CalendarClock
+                                                                    size={14}
+                                                                />
+
+                                                                Due{" "}
+
+                                                                {
+                                                                    formatDeadline(
+                                                                        quiz.dueAt
+                                                                    )
+                                                                }
+
+                                                            </span>
+
+                                                        )
                                                     )}
 
                                                     {/* SCORE */}
@@ -1095,6 +1209,12 @@ function StudentQuizzesPage() {
                                                             quiz
                                                         )
                                                     }
+                                                    disabled={
+                                                        !quiz.submitted &&
+                                                        isExpired(
+                                                            quiz.dueAt
+                                                        )
+                                                    }
                                                     className={`
                                                         inline-flex
                                                         w-full
@@ -1112,7 +1232,9 @@ function StudentQuizzesPage() {
                                                         ${
                                                             quiz.submitted
                                                                 ? "bg-slate-700 hover:bg-slate-800"
-                                                                : "bg-blue-600 hover:bg-blue-700"
+                                                                : isExpired(quiz.dueAt)
+                                                                    ? "cursor-not-allowed bg-red-300"
+                                                                    : "bg-blue-600 hover:bg-blue-700"
                                                         }
                                                     `}
                                                 >
@@ -1125,6 +1247,18 @@ function StudentQuizzesPage() {
                                                             />
 
                                                             View Result
+                                                        </>
+
+                                                    ) : isExpired(
+                                                        quiz.dueAt
+                                                    ) ? (
+
+                                                        <>
+                                                            <CalendarClock
+                                                                size={17}
+                                                            />
+
+                                                            Expired
                                                         </>
 
                                                     ) : (

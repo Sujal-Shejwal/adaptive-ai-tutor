@@ -1,5 +1,6 @@
 package com.adaptiveaitutor.backend.entity;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
 
 import jakarta.persistence.Column;
@@ -64,6 +65,26 @@ public class QuizAssignment {
     private LocalDateTime assignedAt;
 
     // =====================================================
+    // DUE AT
+    // =====================================================
+
+    /*
+     * Deadline for this specific classroom assignment.
+     *
+     * This is different from Quiz.dueAt.
+     *
+     * Quiz.dueAt represents the original deadline calculated
+     * when the quiz was created.
+     *
+     * Assignment.dueAt represents the deadline starting from
+     * the time the quiz was assigned to this classroom.
+     */
+    @Column(
+            name = "due_at"
+    )
+    private LocalDateTime dueAt;
+
+    // =====================================================
     // STATUS
     // =====================================================
 
@@ -90,8 +111,58 @@ public class QuizAssignment {
         this.classroom = classroom;
         this.quiz = quiz;
 
+        // -------------------------------------------------
+        // SET ASSIGNMENT TIME
+        // -------------------------------------------------
+
         this.assignedAt =
                 LocalDateTime.now();
+
+        // -------------------------------------------------
+        // CALCULATE ASSIGNMENT DEADLINE
+        // -------------------------------------------------
+
+        /*
+         * The original QuizService calculates Quiz.dueAt
+         * from Quiz.createdAt.
+         *
+         * Example:
+         *
+         * Quiz created  ->  Sep 5, 10:00 AM
+         * Quiz dueAt    ->  Sep 6, 10:00 AM
+         *
+         * This means the selected deadline was 24 hours.
+         *
+         * When the teacher assigns the quiz later, we reuse
+         * that same duration from the new assignedAt time.
+         *
+         * Example:
+         *
+         * Assigned at  ->  Sep 8, 07:00 PM
+         * Assignment dueAt -> Sep 9, 07:00 PM
+         */
+
+        if (
+                quiz != null &&
+                quiz.getCreatedAt() != null &&
+                quiz.getDueAt() != null
+        ) {
+
+            Duration deadlineDuration =
+                    Duration.between(
+                            quiz.getCreatedAt(),
+                            quiz.getDueAt()
+                    );
+
+            this.dueAt =
+                    this.assignedAt.plus(
+                            deadlineDuration
+                    );
+        }
+
+        // -------------------------------------------------
+        // DEFAULT STATUS
+        // -------------------------------------------------
 
         this.status = "ACTIVE";
     }
@@ -150,6 +221,20 @@ public class QuizAssignment {
             LocalDateTime assignedAt) {
 
         this.assignedAt = assignedAt;
+    }
+
+    // =====================================================
+    // DUE AT
+    // =====================================================
+
+    public LocalDateTime getDueAt() {
+        return dueAt;
+    }
+
+    public void setDueAt(
+            LocalDateTime dueAt) {
+
+        this.dueAt = dueAt;
     }
 
     // =====================================================
