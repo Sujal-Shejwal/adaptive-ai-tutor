@@ -26,6 +26,17 @@ public interface QuizAttemptRepository
     );
 
     // =====================================================
+    // GET ALL ATTEMPTS FOR TEACHER
+    // =====================================================
+    //
+    // Finds attempts for quizzes created by this teacher.
+    // =====================================================
+
+    List<QuizAttempt> findByQuizCreatedById(
+            Long teacherId
+    );
+
+    // =====================================================
     // CHECK WHETHER A STUDENT ALREADY ATTEMPTED A QUIZ
     // =====================================================
 

@@ -380,6 +380,22 @@ public class QuizAttemptService {
                 .findByQuizId(quizId);
     }
 
+
+
+
+    // =====================================================
+// GET ALL ATTEMPTS FOR TEACHER
+// =====================================================
+
+public List<QuizAttempt> getTeacherAttempts(
+        Long teacherId) {
+
+    return quizAttemptRepository
+            .findByQuizCreatedById(
+                    teacherId
+            );
+}
+
     // =====================================================
     // CHECK SUBMISSION
     // =====================================================
