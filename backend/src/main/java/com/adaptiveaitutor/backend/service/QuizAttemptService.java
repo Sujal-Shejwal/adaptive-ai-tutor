@@ -7,6 +7,7 @@ import java.util.Map;
 import org.springframework.stereotype.Service;
 
 import com.adaptiveaitutor.backend.entity.ClassroomEnrollment;
+import com.adaptiveaitutor.backend.entity.Notification;
 import com.adaptiveaitutor.backend.entity.Quiz;
 import com.adaptiveaitutor.backend.entity.QuizAssignment;
 import com.adaptiveaitutor.backend.entity.QuizAttempt;
@@ -28,6 +29,7 @@ public class QuizAttemptService {
     private final UserRepository userRepository;
     private final ClassroomEnrollmentRepository enrollmentRepository;
     private final QuizAssignmentRepository assignmentRepository;
+    private final NotificationService notificationService;
 
     public QuizAttemptService(
             QuizAttemptRepository quizAttemptRepository,
@@ -35,7 +37,8 @@ public class QuizAttemptService {
             QuizQuestionRepository quizQuestionRepository,
             UserRepository userRepository,
             ClassroomEnrollmentRepository enrollmentRepository,
-            QuizAssignmentRepository assignmentRepository) {
+            QuizAssignmentRepository assignmentRepository,
+            NotificationService notificationService) {
 
         this.quizAttemptRepository = quizAttemptRepository;
         this.quizRepository = quizRepository;
@@ -43,6 +46,7 @@ public class QuizAttemptService {
         this.userRepository = userRepository;
         this.enrollmentRepository = enrollmentRepository;
         this.assignmentRepository = assignmentRepository;
+        this.notificationService = notificationService;
     }
 
     // =====================================================
@@ -207,7 +211,6 @@ public class QuizAttemptService {
                 //
                 // If dueAt exists, submission is allowed only
                 // before the deadline.
-                // -------------------------------------------------
 
                 if (assignment.getDueAt() == null) {
 
@@ -353,9 +356,42 @@ public class QuizAttemptService {
         // SAVE ATTEMPT
         // -------------------------------------------------
 
-        return quizAttemptRepository.save(
-                attempt
-        );
+        QuizAttempt savedAttempt =
+                quizAttemptRepository.save(
+                        attempt
+                );
+
+        // -------------------------------------------------
+        // NOTIFY QUIZ TEACHER
+        // -------------------------------------------------
+
+        if (
+                quiz.getCreatedBy() != null &&
+                quiz.getCreatedBy().getId() != null
+        ) {
+
+            Notification notification =
+                    notificationService.createNotification(
+                            quiz.getCreatedBy().getId(),
+                            "QUIZ",
+                            "Quiz submitted",
+                            "Student \"" +
+                                    student.getName() +
+                                    "\" submitted the quiz \"" +
+                                    quiz.getTitle() +
+                                    "\"."
+                    );
+
+            notification.setReferenceType(
+                    "QUIZ"
+            );
+
+            notification.setReferenceId(
+                    quiz.getId()
+            );
+        }
+
+        return savedAttempt;
     }
 
     // =====================================================
@@ -380,21 +416,18 @@ public class QuizAttemptService {
                 .findByQuizId(quizId);
     }
 
-
-
-
     // =====================================================
-// GET ALL ATTEMPTS FOR TEACHER
-// =====================================================
+    // GET ALL ATTEMPTS FOR TEACHER
+    // =====================================================
 
-public List<QuizAttempt> getTeacherAttempts(
-        Long teacherId) {
+    public List<QuizAttempt> getTeacherAttempts(
+            Long teacherId) {
 
-    return quizAttemptRepository
-            .findByQuizCreatedById(
-                    teacherId
-            );
-}
+        return quizAttemptRepository
+                .findByQuizCreatedById(
+                        teacherId
+                );
+    }
 
     // =====================================================
     // CHECK SUBMISSION

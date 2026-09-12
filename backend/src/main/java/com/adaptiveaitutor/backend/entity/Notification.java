@@ -16,51 +16,128 @@ import jakarta.persistence.Table;
 @Table(name = "notifications")
 public class Notification {
 
+    // =====================================================
+    // ID
+    // =====================================================
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    // User who receives this notification
+    // =====================================================
+    // STUDENT / USER
+    // =====================================================
+
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "user_id", nullable = false)
+    @JoinColumn(
+            name = "user_id",
+            nullable = false
+    )
     private User user;
 
-    // Notification category
-    @Column(nullable = false)
-    private String type;
+    // =====================================================
+    // NOTIFICATION TITLE
+    // =====================================================
 
-    // Short notification heading
     @Column(nullable = false)
     private String title;
 
-    // Notification description
+    // =====================================================
+    // NOTIFICATION MESSAGE
+    // =====================================================
+
     @Column(nullable = false, length = 1000)
     private String message;
 
-    // Used to show unread/read state
-    @Column(nullable = false)
-    private Boolean isRead = false;
+    // =====================================================
+    // NOTIFICATION TYPE
+    // =====================================================
+    //
+    // Examples:
+    //
+    // QUIZ
+    // CONTENT
+    // ANNOUNCEMENT
+    // REMINDER
+    // =====================================================
 
-    // When notification was created
     @Column(nullable = false)
+    private String type;
+
+    // =====================================================
+    // READ STATUS
+    // =====================================================
+
+    @Column(
+            name = "is_read",
+            nullable = false
+    )
+    private Boolean read = false;
+
+    // =====================================================
+    // CREATED AT
+    // =====================================================
+
+    @Column(
+            name = "created_at",
+            nullable = false
+    )
     private LocalDateTime createdAt;
+
+    // =====================================================
+    // OPTIONAL REFERENCE TYPE
+    // =====================================================
+    //
+    // Used to identify what caused the notification.
+    //
+    // Examples:
+    //
+    // QUIZ
+    // NOTE
+    // SUBJECT
+    // UNIT
+    // TOPIC
+    // CLASSROOM
+    // =====================================================
+
+    @Column(name = "reference_type")
+    private String referenceType;
+
+    // =====================================================
+    // OPTIONAL REFERENCE ID
+    // =====================================================
+
+    @Column(name = "reference_id")
+    private Long referenceId;
+
+    // =====================================================
+    // EMPTY CONSTRUCTOR
+    // =====================================================
 
     public Notification() {
     }
 
+    // =====================================================
+    // CONSTRUCTOR
+    // =====================================================
+
     public Notification(
             User user,
-            String type,
             String title,
-            String message) {
+            String message,
+            String type) {
 
         this.user = user;
-        this.type = type;
         this.title = title;
         this.message = message;
-        this.isRead = false;
+        this.type = type;
+        this.read = false;
         this.createdAt = LocalDateTime.now();
     }
+
+    // =====================================================
+    // GETTERS AND SETTERS
+    // =====================================================
 
     public Long getId() {
         return id;
@@ -76,14 +153,6 @@ public class Notification {
 
     public void setUser(User user) {
         this.user = user;
-    }
-
-    public String getType() {
-        return type;
-    }
-
-    public void setType(String type) {
-        this.type = type;
     }
 
     public String getTitle() {
@@ -102,19 +171,49 @@ public class Notification {
         this.message = message;
     }
 
-    public Boolean getIsRead() {
-        return isRead;
+    public String getType() {
+        return type;
     }
 
-    public void setIsRead(Boolean isRead) {
-        this.isRead = isRead;
+    public void setType(String type) {
+        this.type = type;
+    }
+
+    public Boolean getRead() {
+        return read;
+    }
+
+    public void setRead(Boolean read) {
+        this.read = read;
     }
 
     public LocalDateTime getCreatedAt() {
         return createdAt;
     }
 
-    public void setCreatedAt(LocalDateTime createdAt) {
+    public void setCreatedAt(
+            LocalDateTime createdAt) {
+
         this.createdAt = createdAt;
+    }
+
+    public String getReferenceType() {
+        return referenceType;
+    }
+
+    public void setReferenceType(
+            String referenceType) {
+
+        this.referenceType = referenceType;
+    }
+
+    public Long getReferenceId() {
+        return referenceId;
+    }
+
+    public void setReferenceId(
+            Long referenceId) {
+
+        this.referenceId = referenceId;
     }
 }

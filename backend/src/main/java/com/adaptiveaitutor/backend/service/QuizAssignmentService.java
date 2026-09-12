@@ -14,6 +14,7 @@ import com.adaptiveaitutor.backend.dto.ClassroomQuizResultResponse;
 import com.adaptiveaitutor.backend.dto.QuizAssignmentResponse;
 import com.adaptiveaitutor.backend.entity.Classroom;
 import com.adaptiveaitutor.backend.entity.ClassroomEnrollment;
+import com.adaptiveaitutor.backend.entity.Notification;
 import com.adaptiveaitutor.backend.entity.Quiz;
 import com.adaptiveaitutor.backend.entity.QuizAssignment;
 import com.adaptiveaitutor.backend.entity.QuizAttempt;
@@ -40,13 +41,16 @@ public class QuizAssignmentService {
 
     private final UserRepository userRepository;
 
+    private final NotificationService notificationService;
+
     public QuizAssignmentService(
             QuizAssignmentRepository assignmentRepository,
             QuizAttemptRepository quizAttemptRepository,
             ClassroomRepository classroomRepository,
             QuizRepository quizRepository,
             ClassroomEnrollmentRepository enrollmentRepository,
-            UserRepository userRepository) {
+            UserRepository userRepository,
+            NotificationService notificationService) {
 
         this.assignmentRepository =
                 assignmentRepository;
@@ -65,6 +69,9 @@ public class QuizAssignmentService {
 
         this.userRepository =
                 userRepository;
+
+        this.notificationService =
+                notificationService;
     }
 
     // =====================================================
@@ -72,11 +79,10 @@ public class QuizAssignmentService {
     // =====================================================
 
     @Transactional
-    public QuizAssignment
-            assignQuizToClassroom(
-                    Long classroomId,
-                    Long quizId,
-                    Long teacherId) {
+    public QuizAssignment assignQuizToClassroom(
+            Long classroomId,
+            Long quizId,
+            Long teacherId) {
 
         // -------------------------------------------------
         // FIND CLASSROOM
@@ -105,8 +111,7 @@ public class QuizAssignmentService {
                         );
 
         if (!"teacher".equalsIgnoreCase(
-                teacher.getRole()
-        )) {
+                teacher.getRole())) {
 
             throw new RuntimeException(
                     "Only teachers can assign quizzes"
@@ -187,19 +192,62 @@ public class QuizAssignmentService {
                         quiz
                 );
 
-        return assignmentRepository.save(
-                assignment
-        );
+        QuizAssignment savedAssignment =
+                assignmentRepository.save(
+                        assignment
+                );
+
+        // -------------------------------------------------
+        // NOTIFY ACTIVE STUDENTS
+        // -------------------------------------------------
+
+        List<ClassroomEnrollment> enrollments =
+                enrollmentRepository.findByClassroomId(
+                        classroomId
+                );
+
+        for (ClassroomEnrollment enrollment :
+                enrollments) {
+
+            if (
+                    enrollment != null &&
+                    "ACTIVE".equalsIgnoreCase(
+                            enrollment.getStatus()
+                    ) &&
+                    enrollment.getStudent() != null &&
+                    enrollment.getStudent().getId() != null
+            ) {
+
+                Notification notification =
+                        notificationService.createNotification(
+                                enrollment.getStudent().getId(),
+                                "QUIZ",
+                                "New quiz assigned",
+                                "A new quiz \"" +
+                                        quiz.getTitle() +
+                                        "\" has been assigned to your classroom."
+                        );
+
+                notification.setReferenceType(
+                        "QUIZ"
+                );
+
+                notification.setReferenceId(
+                        quiz.getId()
+                );
+            }
+        }
+
+        return savedAssignment;
     }
 
     // =====================================================
     // GET CLASSROOM ASSIGNED QUIZZES
     // =====================================================
 
-    public List<QuizAssignmentResponse>
-            getClassroomQuizzes(
-                    Long classroomId,
-                    Long teacherId) {
+    public List<QuizAssignmentResponse> getClassroomQuizzes(
+            Long classroomId,
+            Long teacherId) {
 
         Classroom classroom =
                 verifyTeacherOwnsClassroom(
@@ -253,6 +301,7 @@ public class QuizAssignmentService {
                     assignment == null ||
                     assignment.getQuiz() == null
             ) {
+
                 continue;
             }
 
@@ -271,6 +320,7 @@ public class QuizAssignmentService {
                         ) ||
                         enrollment.getStudent() == null
                 ) {
+
                     continue;
                 }
 
@@ -302,25 +352,37 @@ public class QuizAssignmentService {
                 results.add(
                         new ClassroomQuizResultResponse(
                                 assignment.getId(),
+
                                 classroom.getId(),
+
                                 classroom.getName(),
+
                                 assignment.getQuiz().getId(),
+
                                 assignment.getQuiz().getTitle(),
+
                                 student.getId(),
+
                                 student.getName(),
+
                                 student.getEmail(),
+
                                 studentAttempt == null
                                         ? "NOT_SUBMITTED"
                                         : "SUBMITTED",
+
                                 studentAttempt == null
                                         ? null
                                         : studentAttempt.getScore(),
+
                                 studentAttempt == null
                                         ? null
                                         : studentAttempt.getTotalQuestions(),
+
                                 studentAttempt == null
                                         ? null
                                         : studentAttempt.getCorrectAnswers(),
+
                                 studentAttempt == null
                                         ? null
                                         : studentAttempt.getSubmittedAt()
@@ -343,6 +405,7 @@ public class QuizAssignmentService {
                             );
 
                     if (quizCompare != 0) {
+
                         return quizCompare;
                     }
 
@@ -364,9 +427,8 @@ public class QuizAssignmentService {
     // GET STUDENT ASSIGNED QUIZZES
     // =====================================================
 
-    public List<QuizAssignmentResponse>
-            getStudentQuizzes(
-                    Long studentId) {
+    public List<QuizAssignmentResponse> getStudentQuizzes(
+            Long studentId) {
 
         // -------------------------------------------------
         // FIND STUDENT
@@ -441,7 +503,7 @@ public class QuizAssignmentService {
         }
 
         // -------------------------------------------------
-        // GET ASSIGNMENTS
+        // GET ACTIVE ASSIGNMENTS
         // -------------------------------------------------
 
         return assignmentRepository
@@ -458,11 +520,10 @@ public class QuizAssignmentService {
     // GET ONE STUDENT QUIZ
     // =====================================================
 
-    public QuizAssignmentResponse
-            getStudentQuiz(
-                    Long classroomId,
-                    Long quizId,
-                    Long studentId) {
+    public QuizAssignmentResponse getStudentQuiz(
+            Long classroomId,
+            Long quizId,
+            Long studentId) {
 
         // -------------------------------------------------
         // VERIFY STUDENT
@@ -578,10 +639,9 @@ public class QuizAssignmentService {
     // VERIFY CLASSROOM OWNER
     // =====================================================
 
-    private Classroom
-            verifyTeacherOwnsClassroom(
-                    Long classroomId,
-                    Long teacherId) {
+    private Classroom verifyTeacherOwnsClassroom(
+            Long classroomId,
+            Long teacherId) {
 
         Classroom classroom =
                 classroomRepository
@@ -629,40 +689,22 @@ public class QuizAssignmentService {
     // =====================================================
     // CALCULATE EFFECTIVE ASSIGNMENT DEADLINE
     // =====================================================
-    //
-    // New assignments:
-    //     assignment.dueAt already exists.
-    //
-    // Old assignments:
-    //     assignment.dueAt is NULL because the column was
-    //     added later.
-    //
-    // For old assignments we calculate:
-    //
-    // assignedAt + original quiz deadline duration
-    //
-    // Example:
-    //
-    // Quiz created:
-    //     Sep 5, 7:00 PM
-    //
-    // Original quiz deadline:
-    //     Sep 6, 7:00 PM
-    //
-    // Duration:
-    //     24 hours
-    //
-    // Assignment:
-    //     Sep 8, 7:00 PM
-    //
-    // Effective deadline:
-    //     Sep 9, 7:00 PM
-    //
-    // =====================================================
 
-    private LocalDateTime
-            getEffectiveDueAt(
-                    QuizAssignment assignment) {
+    /*
+     * New assignments:
+     *     assignment.dueAt already exists.
+     *
+     * Old assignments:
+     *     assignment.dueAt is NULL because the column was
+     *     added later.
+     *
+     * For old assignments we calculate:
+     *
+     *     assignedAt + original quiz deadline duration
+     */
+
+    private LocalDateTime getEffectiveDueAt(
+            QuizAssignment assignment) {
 
         // -------------------------------------------------
         // NEW ASSIGNMENT
@@ -707,7 +749,7 @@ public class QuizAssignmentService {
                 );
 
         // -------------------------------------------------
-        // APPLY THAT DURATION TO ASSIGNMENT TIME
+        // APPLY DURATION TO ASSIGNMENT TIME
         // -------------------------------------------------
 
         return assignment
@@ -719,9 +761,8 @@ public class QuizAssignmentService {
     // RESPONSE MAPPER
     // =====================================================
 
-    private QuizAssignmentResponse
-            toResponse(
-                    QuizAssignment assignment) {
+    private QuizAssignmentResponse toResponse(
+            QuizAssignment assignment) {
 
         Quiz quiz =
                 assignment.getQuiz();
@@ -785,10 +826,7 @@ public class QuizAssignmentService {
                         ? quiz.getDuration()
                         : null,
 
-                // IMPORTANT:
-                // Use assignment deadline for new assignments.
-                // Calculate assignment deadline for old
-                // assignments whose dueAt is NULL.
+                // Assignment-specific deadline
                 getEffectiveDueAt(
                         assignment
                 ),

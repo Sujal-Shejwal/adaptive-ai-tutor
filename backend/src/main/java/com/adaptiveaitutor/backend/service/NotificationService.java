@@ -21,11 +21,17 @@ public class NotificationService {
             NotificationRepository notificationRepository,
             UserRepository userRepository) {
 
-        this.notificationRepository = notificationRepository;
-        this.userRepository = userRepository;
+        this.notificationRepository =
+                notificationRepository;
+
+        this.userRepository =
+                userRepository;
     }
 
-    // Create notification for a user
+    // =====================================================
+    // CREATE NOTIFICATION
+    // =====================================================
+
     public Notification createNotification(
             Long userId,
             String type,
@@ -41,12 +47,20 @@ public class NotificationService {
                                 )
                         );
 
+        /*
+         * Notification constructor order:
+         *
+         * user
+         * title
+         * message
+         * type
+         */
         Notification notification =
                 new Notification(
                         user,
-                        type,
                         title,
-                        message
+                        message,
+                        type
                 );
 
         return notificationRepository.save(
@@ -54,7 +68,10 @@ public class NotificationService {
         );
     }
 
-    // Get all notifications for a user
+    // =====================================================
+    // GET ALL NOTIFICATIONS FOR USER
+    // =====================================================
+
     @Transactional(readOnly = true)
     public List<Notification> getNotifications(
             Long userId) {
@@ -65,18 +82,24 @@ public class NotificationService {
                 );
     }
 
-    // Get unread notification count
+    // =====================================================
+    // GET UNREAD NOTIFICATION COUNT
+    // =====================================================
+
     @Transactional(readOnly = true)
     public long getUnreadCount(
             Long userId) {
 
         return notificationRepository
-                .countByUserIdAndIsReadFalse(
+                .countByUserIdAndReadFalse(
                         userId
                 );
     }
 
-    // Mark one notification as read
+    // =====================================================
+    // MARK ONE NOTIFICATION AS READ
+    // =====================================================
+
     public Notification markAsRead(
             Long notificationId) {
 
@@ -89,27 +112,30 @@ public class NotificationService {
                                 )
                         );
 
-        notification.setIsRead(true);
+        notification.setRead(true);
 
         return notificationRepository.save(
                 notification
         );
     }
 
-    // Mark all user notifications as read
+    // =====================================================
+    // MARK ALL USER NOTIFICATIONS AS READ
+    // =====================================================
+
     public void markAllAsRead(
             Long userId) {
 
         List<Notification> notifications =
                 notificationRepository
-                        .findByUserIdAndIsReadFalse(
+                        .findByUserIdAndReadFalseOrderByCreatedAtDesc(
                                 userId
                         );
 
         for (Notification notification :
                 notifications) {
 
-            notification.setIsRead(true);
+            notification.setRead(true);
         }
 
         notificationRepository.saveAll(

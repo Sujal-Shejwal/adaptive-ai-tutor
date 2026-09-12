@@ -9,18 +9,35 @@ import com.adaptiveaitutor.backend.entity.Notification;
 public interface NotificationRepository
         extends JpaRepository<Notification, Long> {
 
-    // Get user's latest notifications first
+    // =====================================================
+    // GET ALL NOTIFICATIONS FOR USER
+    // =====================================================
+
     List<Notification> findByUserIdOrderByCreatedAtDesc(
             Long userId
     );
 
-    // Count unread notifications
-    long countByUserIdAndIsReadFalse(
+    // =====================================================
+    // GET UNREAD NOTIFICATIONS
+    // =====================================================
+
+    List<Notification> findByUserIdAndReadFalseOrderByCreatedAtDesc(
             Long userId
     );
 
-    // Mark all notifications as read
-    List<Notification> findByUserIdAndIsReadFalse(
+    // =====================================================
+    // COUNT UNREAD NOTIFICATIONS
+    // =====================================================
+
+    long countByUserIdAndReadFalse(
+            Long userId
+    );
+
+    // =====================================================
+    // DELETE USER NOTIFICATIONS
+    // =====================================================
+
+    void deleteByUserId(
             Long userId
     );
 }
