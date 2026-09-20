@@ -35,6 +35,9 @@ function QuizPage() {
   const requestedQuizId =
     searchParams.get("quizId");
 
+  const requestedClassroomId =
+    searchParams.get("classroomId");
+
   // =====================================================
   // SUBJECT STATE
   // =====================================================
@@ -678,10 +681,6 @@ function QuizPage() {
       resolvedSubject
     );
 
-    setQuiz(
-      selectedQuiz
-    );
-
     // ---------------------------------------------
     // QUESTIONS
     // ---------------------------------------------
@@ -721,6 +720,38 @@ function QuizPage() {
         "Student account not found. Please log in again."
       );
     }
+
+    // ---------------------------------------------
+    // LOAD CLASSROOM-SPECIFIC ASSIGNMENT
+    // ---------------------------------------------
+
+    if (!requestedClassroomId) {
+      throw new Error(
+        "Classroom information is missing."
+      );
+    }
+
+    const assignmentData =
+      await fetchJson(
+        `${API_BASE}/api/quiz-assignments/student/${studentId}/classroom/${requestedClassroomId}/quiz/${selectedQuiz.id}`
+      );
+
+    if (!assignmentData?.quizId) {
+      throw new Error(
+        "This quiz is not assigned to this classroom."
+      );
+    }
+
+    // Use the classroom assignment deadline.
+    // Do not use the original quiz deadline.
+    if (assignmentData?.dueAt) {
+      selectedQuiz.dueAt =
+        assignmentData.dueAt;
+    }
+
+    setQuiz(
+      selectedQuiz
+    );
 
     // ---------------------------------------------
     // SUBMISSION STATUS
@@ -1048,6 +1079,7 @@ function QuizPage() {
   }, [
     subjectId,
     requestedQuizId,
+    requestedClassroomId,
   ]);
 
   // =====================================================

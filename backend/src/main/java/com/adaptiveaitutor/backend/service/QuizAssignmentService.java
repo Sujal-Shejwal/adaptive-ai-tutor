@@ -19,6 +19,7 @@ import com.adaptiveaitutor.backend.entity.Quiz;
 import com.adaptiveaitutor.backend.entity.QuizAssignment;
 import com.adaptiveaitutor.backend.entity.QuizAttempt;
 import com.adaptiveaitutor.backend.entity.User;
+import com.adaptiveaitutor.backend.entity.UserSettings;
 import com.adaptiveaitutor.backend.repository.ClassroomEnrollmentRepository;
 import com.adaptiveaitutor.backend.repository.ClassroomRepository;
 import com.adaptiveaitutor.backend.repository.QuizAssignmentRepository;
@@ -43,6 +44,9 @@ public class QuizAssignmentService {
 
     private final NotificationService notificationService;
 
+    // Used to check the student's notification preferences.
+    private final UserSettingsService userSettingsService;
+
     public QuizAssignmentService(
             QuizAssignmentRepository assignmentRepository,
             QuizAttemptRepository quizAttemptRepository,
@@ -50,7 +54,8 @@ public class QuizAssignmentService {
             QuizRepository quizRepository,
             ClassroomEnrollmentRepository enrollmentRepository,
             UserRepository userRepository,
-            NotificationService notificationService) {
+            NotificationService notificationService,
+            UserSettingsService userSettingsService) {
 
         this.assignmentRepository =
                 assignmentRepository;
@@ -72,6 +77,9 @@ public class QuizAssignmentService {
 
         this.notificationService =
                 notificationService;
+
+        this.userSettingsService =
+                userSettingsService;
     }
 
     // =====================================================
@@ -218,9 +226,39 @@ public class QuizAssignmentService {
                     enrollment.getStudent().getId() != null
             ) {
 
+                Long studentId =
+                        enrollment.getStudent().getId();
+
+                // -----------------------------------------
+                // CHECK STUDENT NOTIFICATION SETTINGS
+                // -----------------------------------------
+                //
+                // If Quiz Reminders are OFF, do not create
+                // the "New quiz assigned" notification.
+                //
+                // getOrCreateSettings() also creates default
+                // settings for users who do not have a record.
+                // The default value of quizReminders is TRUE.
+                // -----------------------------------------
+
+                UserSettings settings =
+                        userSettingsService
+                                .getOrCreateSettings(studentId);
+
+                if (!Boolean.TRUE.equals(
+                        settings.getQuizReminders()
+                )) {
+
+                    continue;
+                }
+
+                // -----------------------------------------
+                // CREATE QUIZ ASSIGNMENT NOTIFICATION
+                // -----------------------------------------
+
                 Notification notification =
                         notificationService.createNotification(
-                                enrollment.getStudent().getId(),
+                                studentId,
                                 "QUIZ",
                                 "New quiz assigned",
                                 "A new quiz \"" +
