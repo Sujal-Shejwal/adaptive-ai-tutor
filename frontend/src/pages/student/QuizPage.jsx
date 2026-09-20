@@ -722,31 +722,35 @@ function QuizPage() {
     }
 
     // ---------------------------------------------
-    // LOAD CLASSROOM-SPECIFIC ASSIGNMENT
+    // LOAD CLASSROOM-SPECIFIC ASSIGNMENT (OPTIONAL)
+    // ---------------------------------------------
+    //
+    // Classroom quiz URLs include classroomId.
+    // Normal/practice quiz URLs may not.
+    //
+    // When classroomId exists, use the classroom
+    // assignment deadline instead of the original
+    // quiz deadline.
     // ---------------------------------------------
 
-    if (!requestedClassroomId) {
-      throw new Error(
-        "Classroom information is missing."
-      );
-    }
+    if (requestedClassroomId) {
+      const assignmentData =
+        await fetchJson(
+          `${API_BASE}/api/quiz-assignments/student/${studentId}/classroom/${requestedClassroomId}/quiz/${selectedQuiz.id}`
+        );
 
-    const assignmentData =
-      await fetchJson(
-        `${API_BASE}/api/quiz-assignments/student/${studentId}/classroom/${requestedClassroomId}/quiz/${selectedQuiz.id}`
-      );
+      if (!assignmentData?.quizId) {
+        throw new Error(
+          "This quiz is not assigned to this classroom."
+        );
+      }
 
-    if (!assignmentData?.quizId) {
-      throw new Error(
-        "This quiz is not assigned to this classroom."
-      );
-    }
-
-    // Use the classroom assignment deadline.
-    // Do not use the original quiz deadline.
-    if (assignmentData?.dueAt) {
-      selectedQuiz.dueAt =
-        assignmentData.dueAt;
+      // Use the classroom assignment deadline.
+      // Do not use the original quiz deadline.
+      if (assignmentData?.dueAt) {
+        selectedQuiz.dueAt =
+          assignmentData.dueAt;
+      }
     }
 
     setQuiz(
