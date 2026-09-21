@@ -11,6 +11,9 @@ import {
 
 import TeacherLayout from "../components/teacher/TeacherLayout";
 
+import CreateLearningContentPage
+    from "../pages/teacher/CreateLearningContentPage";
+
 import TeacherAIQuizGeneratorPage
   from "../pages/teacher/TeacherAIQuizGeneratorPage";
 
@@ -380,6 +383,15 @@ function AppRoutes() {
               <TeacherTopicsPage />
             }
           />
+
+
+
+          <Route
+    path="/teacher/content-builder"
+    element={
+        <CreateLearningContentPage />
+    }
+/>
 
 
           {/* =====================================================

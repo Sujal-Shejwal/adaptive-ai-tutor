@@ -10,6 +10,7 @@ import {
   LibraryBig,
   Loader2,
   AlertCircle,
+  Video,
 } from "lucide-react";
 
 const API_URL = "http://localhost:8080";
@@ -20,6 +21,7 @@ const TopicLearningPage = () => {
 
   const [topic, setTopic] = useState(null);
   const [notes, setNotes] = useState([]);
+  const [videos, setVideos] = useState([]);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -110,6 +112,33 @@ const TopicLearningPage = () => {
       setNotes(notesData);
 
       // -------------------------------------------------
+      // GET VIDEOS FOR THIS TOPIC
+      // -------------------------------------------------
+
+      try {
+        const videosResponse = await fetch(
+          `${API_URL}/api/videos/topic/${topicId}`
+        );
+
+        if (videosResponse.ok) {
+          const videosData = await videosResponse.json();
+          setVideos(Array.isArray(videosData) ? videosData : []);
+        } else {
+          console.warn(
+            "Unable to load topic videos:",
+            videosResponse.status
+          );
+          setVideos([]);
+        }
+      } catch (videoError) {
+        console.error(
+          "Topic videos loading error:",
+          videoError
+        );
+        setVideos([]);
+      }
+
+      // -------------------------------------------------
       // GET TOPIC PROGRESS
       // -------------------------------------------------
 
@@ -142,6 +171,8 @@ const TopicLearningPage = () => {
       }
     } catch (err) {
       console.error("Topic loading error:", err);
+
+      setVideos([]);
 
       setError(
         err.message || "Something went wrong while loading the topic."
@@ -405,10 +436,12 @@ const TopicLearningPage = () => {
 
           {/* File Count */}
 
-          {notes.length > 0 && (
+          {(notes.length + videos.length) > 0 && (
             <div className="rounded-full bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-600">
-              {notes.length}{" "}
-              {notes.length === 1 ? "File" : "Files"}
+              {notes.length + videos.length}{" "}
+              {notes.length + videos.length === 1
+                ? "Resource"
+                : "Resources"}
             </div>
           )}
 
@@ -418,18 +451,17 @@ const TopicLearningPage = () => {
             NOTES AVAILABLE
         ================================================= */}
 
-        {notes.length > 0 ? (
+        {(notes.length > 0 || videos.length > 0) ? (
 
           <div className="space-y-3">
 
+            {/* PDF NOTES */}
             {notes.map((note) => (
 
               <div
-                key={note.id}
+                key={`note-${note.id}`}
                 className="group flex items-center justify-between gap-5 rounded-xl border border-slate-200 bg-white p-4 transition hover:border-blue-200 hover:bg-slate-50"
               >
-
-                {/* File Information */}
 
                 <div className="flex min-w-0 items-center gap-4">
 
@@ -438,7 +470,6 @@ const TopicLearningPage = () => {
                   </div>
 
                   <div className="min-w-0">
-
                     <p className="truncate text-sm font-semibold text-slate-900">
                       {note.fileName}
                     </p>
@@ -446,21 +477,57 @@ const TopicLearningPage = () => {
                     <p className="mt-1 text-xs text-slate-400">
                       PDF · Learning Material
                     </p>
-
                   </div>
 
                 </div>
-
-                {/* View PDF Button */}
 
                 <button
                   onClick={() => openPdf(note.id)}
                   className="flex flex-shrink-0 items-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-xs font-semibold text-white transition hover:bg-blue-700"
                 >
                   <ExternalLink className="h-4 w-4" />
-
                   View PDF
                 </button>
+
+              </div>
+
+            ))}
+
+            {/* VIDEOS */}
+            {videos.map((video) => (
+
+              <div
+                key={`video-${video.id}`}
+                className="group flex items-center justify-between gap-5 rounded-xl border border-slate-200 bg-white p-4 transition hover:border-red-200 hover:bg-slate-50"
+              >
+
+                <div className="flex min-w-0 items-center gap-4">
+
+                  <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl bg-red-50">
+                    <Video className="h-5 w-5 text-red-500" />
+                  </div>
+
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold text-slate-900">
+                      {video.title || "Video"}
+                    </p>
+
+                    <p className="mt-1 truncate text-xs text-slate-400">
+                      YouTube · Video Resource
+                    </p>
+                  </div>
+
+                </div>
+
+                <a
+                  href={video.videoUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex flex-shrink-0 items-center gap-2 rounded-lg bg-red-600 px-4 py-2.5 text-xs font-semibold text-white transition hover:bg-red-700"
+                >
+                  <ExternalLink className="h-4 w-4" />
+                  Watch on YouTube
+                </a>
 
               </div>
 
@@ -481,12 +548,11 @@ const TopicLearningPage = () => {
             </div>
 
             <h3 className="text-base font-semibold text-slate-800">
-              No notes uploaded yet
+              No learning content yet
             </h3>
 
             <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-slate-400">
-              Your teacher has not uploaded learning material
-              for this topic yet.
+              Your teacher has not uploaded notes or added a video for this topic yet.
             </p>
 
           </div>

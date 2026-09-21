@@ -6,6 +6,8 @@ import {
     AlertCircle,
     ChevronDown,
     Loader2,
+    Video,
+    ExternalLink,
 } from "lucide-react";
 
 import { useEffect, useRef, useState } from "react";
@@ -30,6 +32,11 @@ function TeacherUploadNotesPage() {
     const [topics, setTopics] = useState([]);
 
     const [uploadedFiles, setUploadedFiles] = useState([]);
+
+    const [videos, setVideos] = useState([]);
+    const [videoTitle, setVideoTitle] = useState("");
+    const [videoUrl, setVideoUrl] = useState("");
+
 
 
     // =========================
@@ -63,6 +70,12 @@ function TeacherUploadNotesPage() {
         useState(false);
 
     const [uploading, setUploading] =
+        useState(false);
+
+    const [loadingVideos, setLoadingVideos] =
+        useState(false);
+
+    const [savingVideo, setSavingVideo] =
         useState(false);
 
 
@@ -337,6 +350,54 @@ function TeacherUploadNotesPage() {
 
 
     // =========================
+    // FETCH VIDEOS
+    // =========================
+
+    const fetchVideos = async (topicId) => {
+
+        if (!topicId) {
+            setVideos([]);
+            return;
+        }
+
+        try {
+
+            setLoadingVideos(true);
+
+            const response = await fetch(
+                `http://localhost:8080/api/videos/topic/${topicId}`
+            );
+
+            if (!response.ok) {
+                throw new Error(
+                    "Failed to fetch videos."
+                );
+            }
+
+            const data = await response.json();
+
+            setVideos(
+                Array.isArray(data) ? data : []
+            );
+
+        } catch (error) {
+
+            console.error(
+                "Error fetching videos:",
+                error
+            );
+
+            setVideos([]);
+
+        } finally {
+
+            setLoadingVideos(false);
+
+        }
+    };
+
+
+    // =========================
     // INITIAL LOAD
     // =========================
 
@@ -370,6 +431,9 @@ function TeacherUploadNotesPage() {
         setTopics([]);
 
         setUploadedFiles([]);
+        setVideos([]);
+        setVideoTitle("");
+        setVideoUrl("");
 
         setError("");
 
@@ -406,6 +470,9 @@ function TeacherUploadNotesPage() {
         setTopics([]);
 
         setUploadedFiles([]);
+        setVideos([]);
+        setVideoTitle("");
+        setVideoUrl("");
 
         setError("");
 
@@ -444,13 +511,17 @@ function TeacherUploadNotesPage() {
 
         if (topicId) {
 
-            await fetchNotes(
-                topicId
-            );
+            await Promise.all([
+                fetchNotes(topicId),
+                fetchVideos(topicId),
+            ]);
 
         } else {
 
             setUploadedFiles([]);
+            setVideos([]);
+            setVideoTitle("");
+            setVideoUrl("");
 
         }
 
@@ -688,6 +759,153 @@ function TeacherUploadNotesPage() {
 
         }
 
+    };
+
+
+    // =========================
+    // ADD VIDEO
+    // =========================
+
+    const handleAddVideo = async () => {
+
+        setError("");
+        setSuccess("");
+
+        if (!selectedTopicId) {
+            setError(
+                "Please select a subject, unit, and topic."
+            );
+            return;
+        }
+
+        if (!videoUrl.trim()) {
+            setError(
+                "Please enter a video URL."
+            );
+            return;
+        }
+
+        try {
+
+            setSavingVideo(true);
+
+            const body = new URLSearchParams();
+
+            body.append(
+                "title",
+                videoTitle.trim() || "Video"
+            );
+
+            body.append(
+                "videoUrl",
+                videoUrl.trim()
+            );
+
+            body.append(
+                "topicId",
+                selectedTopicId
+            );
+
+            const response = await fetch(
+                "http://localhost:8080/api/videos",
+                {
+                    method: "POST",
+                    headers: {
+                        "Content-Type":
+                            "application/x-www-form-urlencoded",
+                    },
+                    body,
+                }
+            );
+
+            if (!response.ok) {
+                throw new Error(
+                    "Failed to add video."
+                );
+            }
+
+            const createdVideo =
+                await response.json();
+
+            setVideos((currentVideos) => [
+                createdVideo,
+                ...currentVideos,
+            ]);
+
+            setVideoTitle("");
+            setVideoUrl("");
+
+            setSuccess(
+                "Video added successfully."
+            );
+
+        } catch (error) {
+
+            console.error(
+                "Error adding video:",
+                error
+            );
+
+            setError(
+                error?.message ||
+                    "Unable to add video."
+            );
+
+        } finally {
+
+            setSavingVideo(false);
+
+        }
+    };
+
+
+    // =========================
+    // DELETE VIDEO
+    // =========================
+
+    const handleDeleteVideo = async (videoId) => {
+
+        try {
+
+            setError("");
+            setSuccess("");
+
+            const response = await fetch(
+                `http://localhost:8080/api/videos/${videoId}`,
+                {
+                    method: "DELETE",
+                }
+            );
+
+            if (!response.ok) {
+                throw new Error(
+                    "Failed to delete video."
+                );
+            }
+
+            setVideos((currentVideos) =>
+                currentVideos.filter(
+                    (video) =>
+                        video.id !== videoId
+                )
+            );
+
+            setSuccess(
+                "Video deleted successfully."
+            );
+
+        } catch (error) {
+
+            console.error(
+                "Error deleting video:",
+                error
+            );
+
+            setError(
+                "Unable to delete video."
+            );
+
+        }
     };
 
 
@@ -1126,6 +1344,207 @@ function TeacherUploadNotesPage() {
                     )}
 
                 </section>
+
+
+                {/* ========================= */}
+                {/* OPTIONAL VIDEO */}
+                {/* ========================= */}
+
+                <section className="mt-7 rounded-2xl border border-[#e2e8f0] bg-white p-6">
+
+                    <div className="flex items-center gap-3">
+
+                        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-red-50">
+                            <Video className="h-5 w-5 text-red-600" />
+                        </div>
+
+                        <div>
+                            <h2 className="text-[16px] font-bold text-[#17233c]">
+                                Optional Video
+                            </h2>
+
+                            <p className="text-[13px] text-[#94a3b8]">
+                                Add a YouTube or video link for this topic.
+                            </p>
+                        </div>
+
+                    </div>
+
+                    <div className="mt-5">
+
+                        <label className="mb-2 block text-[13px] font-medium text-[#334155]">
+                            Video Title <span className="text-[#94a3b8]">(optional)</span>
+                        </label>
+
+                        <input
+                            type="text"
+                            value={videoTitle}
+                            onChange={(event) =>
+                                setVideoTitle(event.target.value)
+                            }
+                            placeholder="e.g. DBMS Normalization Explained"
+                            disabled={
+                                !selectedTopicId ||
+                                savingVideo
+                            }
+                            className="h-[44px] w-full rounded-xl border border-[#e2e8f0] px-4 text-[13px] outline-none focus:border-blue-400 disabled:bg-gray-50"
+                        />
+
+                    </div>
+
+                    <div className="mt-5">
+
+                        <label className="mb-2 block text-[13px] font-medium text-[#334155]">
+                            Video URL <span className="text-red-500">*</span>
+                        </label>
+
+                        <input
+                            type="url"
+                            value={videoUrl}
+                            onChange={(event) =>
+                                setVideoUrl(event.target.value)
+                            }
+                            placeholder="https://www.youtube.com/watch?v=..."
+                            disabled={
+                                !selectedTopicId ||
+                                savingVideo
+                            }
+                            className="h-[44px] w-full rounded-xl border border-[#e2e8f0] px-4 text-[13px] outline-none focus:border-blue-400 disabled:bg-gray-50"
+                        />
+
+                    </div>
+
+                    <button
+                        type="button"
+                        onClick={handleAddVideo}
+                        disabled={
+                            !selectedTopicId ||
+                            !videoUrl.trim() ||
+                            savingVideo
+                        }
+                        className="mt-5 inline-flex items-center gap-2 rounded-xl bg-red-600 px-5 py-2.5 text-[13px] font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+
+                        {savingVideo ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                            <Video className="h-4 w-4" />
+                        )}
+
+                        {savingVideo
+                            ? "Adding..."
+                            : "Add Video"}
+
+                    </button>
+
+                </section>
+
+
+                {/* ========================= */}
+                {/* VIDEOS */}
+                {/* ========================= */}
+
+                {selectedTopicId && (
+
+                    <section className="mt-7 rounded-2xl border border-[#e2e8f0] bg-white">
+
+                        <div className="border-b border-[#f1f5f9] px-6 py-5">
+
+                            <h2 className="text-[16px] font-bold text-[#17233c]">
+                                Videos ({videos.length})
+                            </h2>
+
+                        </div>
+
+                        <div className="px-6 py-2">
+
+                            {loadingVideos ? (
+
+                                <div className="py-10 text-center">
+
+                                    <Loader2
+                                        className="mx-auto h-7 w-7 animate-spin text-blue-600"
+                                    />
+
+                                    <p className="mt-3 text-[13px] text-gray-500">
+                                        Loading videos...
+                                    </p>
+
+                                </div>
+
+                            ) : videos.length > 0 ? (
+
+                                videos.map((video) => (
+
+                                    <div
+                                        key={video.id}
+                                        className="flex min-h-[85px] items-center gap-4 border-b border-[#f1f5f9]"
+                                    >
+
+                                        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-red-50">
+                                            <Video className="h-5 w-5 text-red-600" />
+                                        </div>
+
+                                        <div className="min-w-0 flex-1">
+
+                                            <p className="truncate text-[14px] font-medium text-[#17233c]">
+                                                {video.title}
+                                            </p>
+
+                                            <p className="mt-1 truncate text-[12px] text-[#94a3b8]">
+                                                {video.videoUrl}
+                                            </p>
+
+                                        </div>
+
+                                        <a
+                                            href={video.videoUrl}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="rounded-lg p-2 text-blue-500 hover:bg-blue-50"
+                                            title="Open video"
+                                        >
+                                            <ExternalLink className="h-4 w-4" />
+                                        </a>
+
+                                        <button
+                                            type="button"
+                                            onClick={() =>
+                                                handleDeleteVideo(
+                                                    video.id
+                                                )
+                                            }
+                                            className="rounded-lg p-2 text-gray-300 transition hover:bg-red-50 hover:text-red-500"
+                                            title="Delete video"
+                                        >
+                                            <Trash2 className="h-4 w-4" />
+                                        </button>
+
+                                    </div>
+
+                                ))
+
+                            ) : (
+
+                                <div className="py-10 text-center">
+
+                                    <Video
+                                        className="mx-auto h-8 w-8 text-gray-300"
+                                    />
+
+                                    <p className="mt-3 text-[13px] text-gray-500">
+                                        No video added for this topic.
+                                    </p>
+
+                                </div>
+
+                            )}
+
+                        </div>
+
+                    </section>
+
+                )}
 
 
                 {/* ========================= */}

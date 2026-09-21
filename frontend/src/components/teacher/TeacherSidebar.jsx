@@ -1,6 +1,6 @@
 import {
   LayoutDashboard,
-  FileUp,
+  FilePlus,
   User,
   Settings,
   LogOut,
@@ -32,9 +32,9 @@ const navigationItems = [
     icon: BookOpen,
   },
   {
-    label: "Upload Notes",
-    path: "/teacher/upload-notes",
-    icon: FileUp,
+    label: "Create Learning Content",
+    path: "/teacher/content-builder",
+    icon: FilePlus,
   },
   {
     label: "Profile",
