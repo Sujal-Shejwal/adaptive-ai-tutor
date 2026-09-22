@@ -7,6 +7,7 @@ import {
   GraduationCap,
   BookOpen,
   Users,
+  BarChart3,
 } from "lucide-react";
 
 import {
@@ -35,6 +36,11 @@ const navigationItems = [
     label: "Create Learning Content",
     path: "/teacher/content-builder",
     icon: FilePlus,
+  },
+  {
+    label: "Video Progress",
+    path: "/teacher/video-progress",
+    icon: BarChart3,
   },
   {
     label: "Profile",

@@ -11,6 +11,9 @@ import {
 
 import TeacherLayout from "../components/teacher/TeacherLayout";
 
+import TeacherVideoProgressPage
+  from "../pages/teacher/TeacherVideoProgressPage";
+
 import CreateLearningContentPage
     from "../pages/teacher/CreateLearningContentPage";
 
@@ -335,6 +338,13 @@ function AppRoutes() {
               <TeacherQuizzesPage />
             }
           />
+
+          <Route
+  path="/teacher/video-progress"
+  element={
+    <TeacherVideoProgressPage />
+  }
+/>
 
 
           {/* =====================================================
