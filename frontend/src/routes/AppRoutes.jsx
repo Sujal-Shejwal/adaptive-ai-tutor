@@ -15,7 +15,7 @@ import TeacherVideoProgressPage
   from "../pages/teacher/TeacherVideoProgressPage";
 
 import CreateLearningContentPage
-    from "../pages/teacher/CreateLearningContentPage";
+  from "../pages/teacher/CreateLearningContentPage";
 
 import TeacherAIQuizGeneratorPage
   from "../pages/teacher/TeacherAIQuizGeneratorPage";
@@ -60,6 +60,9 @@ import DashboardPage
 
 import StudentClassroomsPage
   from "../pages/student/StudentClassroomsPage";
+
+import ClassroomChatPage
+  from "../pages/student/ClassroomChatPage";
 
 import SubjectsPage
   from "../pages/student/SubjectsPage";
@@ -339,12 +342,17 @@ function AppRoutes() {
             }
           />
 
+
+          {/* =====================================================
+              TEACHER VIDEO PROGRESS
+          ===================================================== */}
+
           <Route
-  path="/teacher/video-progress"
-  element={
-    <TeacherVideoProgressPage />
-  }
-/>
+            path="/teacher/video-progress"
+            element={
+              <TeacherVideoProgressPage />
+            }
+          />
 
 
           {/* =====================================================
@@ -395,13 +403,16 @@ function AppRoutes() {
           />
 
 
+          {/* =====================================================
+              TEACHER CONTENT BUILDER
+          ===================================================== */}
 
           <Route
-    path="/teacher/content-builder"
-    element={
-        <CreateLearningContentPage />
-    }
-/>
+            path="/teacher/content-builder"
+            element={
+              <CreateLearningContentPage />
+            }
+          />
 
 
           {/* =====================================================
@@ -412,6 +423,18 @@ function AppRoutes() {
             path="/teacher/upload-notes"
             element={
               <TeacherUploadNotesPage />
+            }
+          />
+
+
+          {/* =====================================================
+              TEACHER CLASSROOM CHAT
+          ===================================================== */}
+
+          <Route
+            path="/teacher/classroom-chat/:classroomId"
+            element={
+              <ClassroomChatPage />
             }
           />
 
@@ -577,6 +600,30 @@ function AppRoutes() {
               <DashboardLayout>
 
                 <TopicLearningPage />
+
+              </DashboardLayout>
+
+            </ProtectedRoute>
+
+          }
+        />
+
+
+        {/* =====================================================
+            STUDENT CLASSROOM CHAT
+        ===================================================== */}
+
+        <Route
+          path="/student/classroom-chat/:classroomId"
+          element={
+
+            <ProtectedRoute
+              allowedRole="student"
+            >
+
+              <DashboardLayout>
+
+                <ClassroomChatPage />
 
               </DashboardLayout>
 

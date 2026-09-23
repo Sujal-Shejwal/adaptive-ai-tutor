@@ -4,16 +4,23 @@ import {
 } from "react";
 
 import {
+  useNavigate,
+} from "react-router-dom";
+
+import {
   Users,
   LogIn,
   Loader2,
   CheckCircle2,
   AlertCircle,
+  MessageCircle,
 } from "lucide-react";
 
 const API_BASE = "http://localhost:8080";
 
 export default function StudentClassroomsPage() {
+
+  const navigate = useNavigate();
 
   const [classrooms, setClassrooms] =
     useState([]);
@@ -516,6 +523,20 @@ export default function StudentClassroomsPage() {
                         />
 
                       </div>
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          navigate(
+                            `/student/classroom-chat/${classroom?.id}`
+                          )
+                        }
+                        disabled={!classroom?.id}
+                        className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        <MessageCircle size={17} />
+                        Open Chat
+                      </button>
 
                     </div>
 
