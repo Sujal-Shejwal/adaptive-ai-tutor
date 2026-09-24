@@ -26,10 +26,6 @@ import {
   useNavigate,
 } from "react-router-dom";
 
-import {
-  teacherSubjects,
-} from "../../data/teacher";
-
 const statIcons = {
   students: Users,
   notes: FileText,
@@ -106,6 +102,25 @@ export default function TeacherDashboardPage() {
   const [
     dashboardStatsError,
     setDashboardStatsError,
+  ] = useState("");
+
+  // =====================================================
+  // SUBJECT FILTER STATE
+  // =====================================================
+
+  const [
+    subjectFilters,
+    setSubjectFilters,
+  ] = useState(["All"]);
+
+  const [
+    subjectFiltersLoading,
+    setSubjectFiltersLoading,
+  ] = useState(true);
+
+  const [
+    subjectFiltersError,
+    setSubjectFiltersError,
   ] = useState("");
 
   // =====================================================
@@ -224,6 +239,84 @@ export default function TeacherDashboardPage() {
     };
 
     fetchDashboardStatistics();
+
+  }, []);
+
+  // =====================================================
+  // FETCH SUBJECT FILTERS FROM BACKEND
+  // =====================================================
+
+  useEffect(() => {
+
+    const fetchSubjectFilters = async () => {
+
+      try {
+
+        setSubjectFiltersLoading(true);
+        setSubjectFiltersError("");
+
+        const response =
+          await fetch(
+            "http://localhost:8080/api/subjects"
+          );
+
+        if (!response.ok) {
+          throw new Error(
+            `Failed to fetch subjects (${response.status})`
+          );
+        }
+
+        const data =
+          await response.json();
+
+        const subjects =
+          Array.isArray(data)
+            ? data
+                .map(
+                  (subject) =>
+                    subject?.code ||
+                    subject?.name ||
+                    ""
+                )
+                .map(
+                  (value) =>
+                    String(value).trim()
+                )
+                .filter(Boolean)
+            : [];
+
+        const uniqueSubjects = [
+          ...new Set(subjects),
+        ];
+
+        setSubjectFilters([
+          "All",
+          ...uniqueSubjects,
+        ]);
+
+      } catch (error) {
+
+        console.error(
+          "Error fetching subject filters:",
+          error
+        );
+
+        setSubjectFiltersError(
+          "Unable to load subject filters."
+        );
+
+        setSubjectFilters([
+          "All",
+        ]);
+
+      } finally {
+
+        setSubjectFiltersLoading(false);
+
+      }
+    };
+
+    fetchSubjectFilters();
 
   }, []);
 
@@ -1430,7 +1523,7 @@ export default function TeacherDashboardPage() {
 
             <div className="flex flex-wrap items-center gap-2">
 
-              {teacherSubjects.map(
+              {subjectFilters.map(
                 (subject) => (
 
                   <button

@@ -21,62 +21,75 @@ import {
     useState,
 } from "react";
 
-import subjects from "../../data/subjects";
 
 
 /* ========================================================= */
 /* RECENT CONVERSATIONS */
 /* ========================================================= */
 
-const initialConversations = [
-    {
-        id: 1,
-        title: "SQL Joins Explained",
-        subject: "DBMS",
-        time: "2h ago",
-    },
-    {
-        id: 2,
-        title: "Process vs Thread",
-        subject: "OS",
-        time: "5h ago",
-    },
-    {
-        id: 3,
-        title: "TCP/IP Model Layers",
-        subject: "CN",
-        time: "Yesterday",
-    },
-    {
-        id: 4,
-        title: "Java OOP Polymorphism",
-        subject: "Java",
-        time: "Yesterday",
-    },
-    {
-        id: 5,
-        title: "Deadlock Prevention",
-        subject: "OS",
-        time: "2d ago",
-    },
-    {
-        id: 6,
-        title: "ER Diagram Basics",
-        subject: "DBMS",
-        time: "3d ago",
-    },
-];
 
 
 /* ========================================================= */
-/* SUBJECT SHORT NAMES */
+/* BACKEND API HELPERS */
 /* ========================================================= */
 
-const subjectShortNames = {
-    dbms: "DBMS",
-    os: "OS",
-    cn: "CN",
-    java: "Java",
+const API_BASE =
+    "http://localhost:8080";
+
+const formatTime = (value) => {
+
+    if (!value) {
+        return "Just now";
+    }
+
+    const date =
+        new Date(value);
+
+    if (Number.isNaN(date.getTime())) {
+        return "Just now";
+    }
+
+    const difference =
+        Date.now() -
+        date.getTime();
+
+    const seconds =
+        Math.floor(
+            difference / 1000
+        );
+
+    if (seconds < 60) {
+        return "Just now";
+    }
+
+    const minutes =
+        Math.floor(
+            seconds / 60
+        );
+
+    if (minutes < 60) {
+        return `${minutes}m ago`;
+    }
+
+    const hours =
+        Math.floor(
+            minutes / 60
+        );
+
+    if (hours < 24) {
+        return `${hours}h ago`;
+    }
+
+    const days =
+        Math.floor(
+            hours / 24
+        );
+
+    if (days === 1) {
+        return "Yesterday";
+    }
+
+    return `${days}d ago`;
 };
 
 
@@ -105,6 +118,309 @@ function AITutorLogo({ small = false }) {
     );
 }
 
+/* ========================================================= */
+/* SIMPLE GEMINI MARKDOWN RENDERER */
+/* ========================================================= */
+
+function renderInlineMarkdown(text) {
+
+    const parts =
+        String(text || "").split(
+            /(\*\*[^*]+\*\*|`[^`]+`)/
+        );
+
+
+    return parts.map(
+        (part, index) => {
+
+            if (
+                part.startsWith("**") &&
+                part.endsWith("**")
+            ) {
+
+                return (
+                    <strong
+                        key={index}
+                        className="font-semibold text-slate-900"
+                    >
+                        {part.slice(2, -2)}
+                    </strong>
+                );
+            }
+
+
+            if (
+                part.startsWith("`") &&
+                part.endsWith("`")
+            ) {
+
+                return (
+                    <code
+                        key={index}
+                        className="rounded-md bg-slate-100 px-1.5 py-0.5 font-mono text-[13px] text-slate-800"
+                    >
+                        {part.slice(1, -1)}
+                    </code>
+                );
+            }
+
+
+            return (
+                <span key={index}>
+                    {part}
+                </span>
+            );
+        }
+    );
+}
+
+
+function renderGeminiResponse(text) {
+
+    const normalized =
+        String(text || "")
+            .replace(/\r\n/g, "\n")
+            .replace(/\\n/g, "\n")
+            .replace(/^```[a-zA-Z0-9_-]*\n?/, "")
+            .replace(/\n?```$/, "")
+            .trim();
+
+
+    const lines =
+        normalized.split("\n");
+
+
+    const elements = [];
+
+    let paragraphLines = [];
+    let unorderedItems = [];
+    let orderedItems = [];
+
+
+    const flushParagraph = () => {
+
+        if (
+            paragraphLines.length === 0
+        ) {
+            return;
+        }
+
+
+        const textValue =
+            paragraphLines.join(" ").trim();
+
+
+        if (textValue) {
+
+            elements.push(
+                <p
+                    key={`paragraph-${elements.length}`}
+                    className="text-[15px] leading-7 text-slate-700"
+                >
+                    {renderInlineMarkdown(textValue)}
+                </p>
+            );
+        }
+
+
+        paragraphLines = [];
+    };
+
+
+    const flushUnordered = () => {
+
+        if (
+            unorderedItems.length === 0
+        ) {
+            return;
+        }
+
+
+        elements.push(
+            <ul
+                key={`unordered-${elements.length}`}
+                className="ml-5 list-disc space-y-2 text-[15px] leading-7 text-slate-700"
+            >
+                {unorderedItems.map(
+                    (item, index) => (
+                        <li key={index}>
+                            {renderInlineMarkdown(item)}
+                        </li>
+                    )
+                )}
+            </ul>
+        );
+
+
+        unorderedItems = [];
+    };
+
+
+    const flushOrdered = () => {
+
+        if (
+            orderedItems.length === 0
+        ) {
+            return;
+        }
+
+
+        elements.push(
+            <ol
+                key={`ordered-${elements.length}`}
+                className="ml-5 list-decimal space-y-2 text-[15px] leading-7 text-slate-700"
+            >
+                {orderedItems.map(
+                    (item, index) => (
+                        <li key={index}>
+                            {renderInlineMarkdown(item)}
+                        </li>
+                    )
+                )}
+            </ol>
+        );
+
+
+        orderedItems = [];
+    };
+
+
+    const flushLists = () => {
+
+        flushUnordered();
+        flushOrdered();
+    };
+
+
+    lines.forEach(
+        (line, index) => {
+
+            const trimmed =
+                line.trim();
+
+
+            if (!trimmed) {
+
+                flushParagraph();
+                flushLists();
+
+                return;
+            }
+
+
+            // Remove markdown-only horizontal rules.
+            if (
+                /^---+$/.test(trimmed)
+            ) {
+
+                flushParagraph();
+                flushLists();
+
+                elements.push(
+                    <hr
+                        key={`hr-${index}`}
+                        className="border-slate-200"
+                    />
+                );
+
+                return;
+            }
+
+
+            const heading =
+                trimmed.match(
+                    /^(#{1,3})\s+(.+)$/
+                );
+
+
+            if (heading) {
+
+                flushParagraph();
+                flushLists();
+
+                const level =
+                    heading[1].length;
+
+
+                const className =
+                    level === 1
+                        ? "text-xl font-bold text-slate-900"
+                        : level === 2
+                            ? "text-lg font-semibold text-slate-900"
+                            : "text-base font-semibold text-slate-900";
+
+
+                elements.push(
+                    <h3
+                        key={`heading-${index}`}
+                        className={className}
+                    >
+                        {renderInlineMarkdown(
+                            heading[2]
+                        )}
+                    </h3>
+                );
+
+                return;
+            }
+
+
+            const unordered =
+                trimmed.match(
+                    /^[-*]\s+(.+)$/
+                );
+
+
+            if (unordered) {
+
+                flushParagraph();
+                flushOrdered();
+
+                unorderedItems.push(
+                    unordered[1]
+                );
+
+                return;
+            }
+
+
+            const ordered =
+                trimmed.match(
+                    /^\d+\.\s+(.+)$/
+                );
+
+
+            if (ordered) {
+
+                flushParagraph();
+                flushUnordered();
+
+                orderedItems.push(
+                    ordered[1]
+                );
+
+                return;
+            }
+
+
+            paragraphLines.push(
+                trimmed
+            );
+        }
+    );
+
+
+    flushParagraph();
+    flushLists();
+
+
+    return (
+        <div className="space-y-3">
+            {elements}
+        </div>
+    );
+}
+
 
 /* ========================================================= */
 /* AI CHAT PAGE */
@@ -114,51 +430,172 @@ function AIChatPage() {
 
     const { subjectId } = useParams();
 
+    const studentId = Number(
+        localStorage.getItem("userId")
+    );
+
+    const [subjects, setSubjects] =
+        useState([]);
+
+    const [subjectsLoading, setSubjectsLoading] =
+        useState(true);
+
+    /* ===================================================== */
+    /* LOAD SUBJECTS FROM BACKEND */
+    /* ===================================================== */
+
+    useEffect(() => {
+        let cancelled = false;
+
+        const loadSubjects = async () => {
+            try {
+                setSubjectsLoading(true);
+
+                const response =
+                    await fetch(
+                        `${API_BASE}/api/subjects`
+                    );
+
+                const data =
+                    await response
+                        .json()
+                        .catch(() => []);
+
+                if (!response.ok) {
+                    throw new Error(
+                        data?.message ||
+                        "Unable to load subjects."
+                    );
+                }
+
+                if (!cancelled) {
+                    setSubjects(
+                        Array.isArray(data)
+                            ? data
+                            : []
+                    );
+                }
+
+            } catch (error) {
+
+                console.error(
+                    "Subject loading error:",
+                    error
+                );
+
+                if (!cancelled) {
+                    setSubjects([]);
+                }
+
+            } finally {
+
+                if (!cancelled) {
+                    setSubjectsLoading(false);
+                }
+            }
+        };
+
+        loadSubjects();
+
+        return () => {
+            cancelled = true;
+        };
+
+    }, []);
+
 
     /* ===================================================== */
     /* CURRENT SUBJECT */
     /* ===================================================== */
 
-    const subject = subjects.find(
-        (item) => item.id === subjectId
-    );
+    const normalizedSubjectRoute =
+        String(subjectId || "")
+            .trim()
+            .toLowerCase();
+
+    const subject = subjects.find((item) => {
+        const id =
+            String(item?.id ?? "")
+                .trim()
+                .toLowerCase();
+
+        const code =
+            String(item?.code ?? "")
+                .trim()
+                .toLowerCase();
+
+        const name =
+            String(item?.name ?? "")
+                .trim()
+                .toLowerCase();
+
+        return (
+            id === normalizedSubjectRoute ||
+            code === normalizedSubjectRoute ||
+            name === normalizedSubjectRoute
+        );
+    });
+
+    const resolvedSubjectName =
+        subject?.name ||
+        subject?.code ||
+        "AI";
 
 
     /* ===================================================== */
     /* CHAT STATE */
     /* ===================================================== */
 
-    const createWelcomeMessage = () => [
-        {
-            id: Date.now(),
-            type: "ai",
-            text: `Hello Sujal! I'm your AI Tutor. I can help you with ${
-                subject?.name || "your subjects"
-            }. What would you like to learn today?`,
-            time: "10:00 AM",
-        },
-    ];
+    const createWelcomeMessage = () => {
+        const storedName =
+            localStorage.getItem("userName");
+
+        const userName =
+            storedName?.trim() || "Student";
+
+        return [
+            {
+                id:
+                    `welcome-${Date.now()}`,
+                type:
+                    "ai",
+                text:
+                    `Hello ${userName}! I'm your AI Tutor. I can help you with ${
+                        subject?.name || "your subjects"
+                    }. What would you like to learn today?`,
+                time:
+                    "Now",
+            },
+        ];
+    };
 
 
-    const [messages, setMessages] = useState(
-        createWelcomeMessage()
-    );
+    const [messages, setMessages] =
+        useState(
+            createWelcomeMessage()
+        );
 
 
-    const [message, setMessage] = useState("");
+    const [message, setMessage] =
+        useState("");
+
+    const [isSending, setIsSending] =
+        useState(false);
+
+    const [chatError, setChatError] =
+        useState("");
 
 
     /* ===================================================== */
     /* CONVERSATION STATE */
     /* ===================================================== */
 
-    const [conversations, setConversations] = useState(
-        initialConversations
-    );
+    const [conversations, setConversations] =
+        useState([]);
 
 
     const [selectedConversationId, setSelectedConversationId] =
-        useState(1);
+        useState(null);
 
 
     const [openMenuId, setOpenMenuId] =
@@ -190,48 +627,534 @@ function AIChatPage() {
 
 
     /* ===================================================== */
-    /* RESET CHAT WHEN SUBJECT CHANGES */
+    /* CREATE CONVERSATION */
+    /* ===================================================== */
+
+    const createConversation =
+        async (
+            title,
+            subjectName
+        ) => {
+
+            const response =
+                await fetch(
+                    `${API_BASE}/api/conversations`,
+                    {
+                        method:
+                            "POST",
+
+                        headers: {
+                            "Content-Type":
+                                "application/json",
+                        },
+
+                        body:
+                            JSON.stringify({
+                                title,
+                                subject:
+                                    subjectName,
+                            }),
+                    }
+                );
+
+            const data =
+                await response
+                    .json()
+                    .catch(
+                        () => ({})
+                    );
+
+            if (!response.ok) {
+
+                throw new Error(
+                    data?.message ||
+                    "Unable to create conversation."
+                );
+            }
+
+            return data;
+        };
+
+
+    /* ===================================================== */
+    /* LOAD CONVERSATION MESSAGES */
+    /* ===================================================== */
+
+    const getConversationCacheKey =
+        (conversationId) =>
+            `adaptiveAiChat_${studentId}_${conversationId}`;
+
+    const saveConversationCache =
+        (conversationId, chatMessages) => {
+            try {
+                localStorage.setItem(
+                    getConversationCacheKey(
+                        conversationId
+                    ),
+                    JSON.stringify(
+                        Array.isArray(chatMessages)
+                            ? chatMessages
+                            : []
+                    )
+                );
+            } catch (error) {
+                console.warn(
+                    "Unable to cache conversation:",
+                    error
+                );
+            }
+        };
+
+    const getConversationCache =
+        (conversationId) => {
+            try {
+                const raw =
+                    localStorage.getItem(
+                        getConversationCacheKey(
+                            conversationId
+                        )
+                    );
+
+                if (!raw) {
+                    return [];
+                }
+
+                const parsed =
+                    JSON.parse(raw);
+
+                return Array.isArray(parsed)
+                    ? parsed
+                    : [];
+
+            } catch {
+                return [];
+            }
+        };
+
+    const normalizeConversationMessages =
+        (payload) => {
+
+            const rawMessages =
+                Array.isArray(payload)
+                    ? payload
+                    : Array.isArray(
+                          payload?.messages
+                      )
+                        ? payload.messages
+                        : Array.isArray(
+                              payload?.data
+                          )
+                            ? payload.data
+                            : Array.isArray(
+                                  payload?.content
+                              )
+                                ? payload.content
+                                : [];
+
+            return rawMessages
+                .filter(
+                    (item) =>
+                        item &&
+                        typeof item ===
+                            "object" &&
+                        item.content != null
+                )
+                .map(
+                    (item) => ({
+                        id:
+                            item.id ||
+                            `cached-${Date.now()}-${Math.random()}`,
+
+                        type:
+                            String(
+                                item.role || ""
+                            ).toLowerCase() ===
+                            "user"
+                                ? "user"
+                                : "ai",
+
+                        text:
+                            String(
+                                item.content
+                            ),
+
+                        time:
+                            formatTime(
+                                item.createdAt
+                            ),
+                    })
+                );
+        };
+
+    const loadConversationMessages =
+        async (
+            conversationId
+        ) => {
+
+            let serverMessages = [];
+
+            try {
+
+                const response =
+                    await fetch(
+                        `${API_BASE}/api/conversations/${conversationId}/messages`
+                    );
+
+                const data =
+                    await response
+                        .json()
+                        .catch(
+                            () => []
+                        );
+
+                if (!response.ok) {
+                    throw new Error(
+                        data?.message ||
+                        "Unable to load conversation messages."
+                    );
+                }
+
+                serverMessages =
+                    normalizeConversationMessages(
+                        data
+                    );
+
+            } catch (error) {
+
+                console.error(
+                    "Conversation message loading error:",
+                    error
+                );
+            }
+
+            if (
+                serverMessages.length > 0
+            ) {
+
+                setMessages(
+                    serverMessages
+                );
+
+                saveConversationCache(
+                    conversationId,
+                    serverMessages
+                );
+
+                return serverMessages;
+            }
+
+            const cachedMessages =
+                getConversationCache(
+                    conversationId
+                );
+
+            if (
+                cachedMessages.length > 0
+            ) {
+
+                setMessages(
+                    cachedMessages
+                );
+
+                return cachedMessages;
+            }
+
+            setMessages(
+                createWelcomeMessage()
+            );
+
+            return [];
+        };
+
+
+    /* ===================================================== */
+    /* LOAD CONVERSATIONS WHEN SUBJECT CHANGES */
     /* ===================================================== */
 
     useEffect(() => {
 
-        if (!subject) {
+        if (subjectsLoading || !subject) {
             return;
         }
 
+        let cancelled = false;
 
-        setMessages([
-            {
-                id: Date.now(),
-                type: "ai",
-                text: `Hello Sujal! I'm your AI Tutor. I can help you with ${subject.name}. What would you like to learn today?`,
-                time: "10:00 AM",
-            },
-        ]);
+        const loadConversations =
+            async () => {
+
+                setMessage("");
+                setChatError("");
+                setOpenMenuId(null);
+
+                setEditingMessageId(null);
+                setEditingMessageText("");
+
+                setEditingConversationId(null);
+                setEditingConversationTitle("");
+
+                setSelectedConversationId(
+                    null
+                );
+
+                try {
+
+                    const response =
+                        await fetch(
+                            `${API_BASE}/api/conversations`
+                        );
+
+                    const data =
+                        await response
+                            .json()
+                            .catch(
+                                () => []
+                            );
+
+                    if (!response.ok) {
+
+                        throw new Error(
+                            "Unable to load conversations."
+                        );
+                    }
+
+                    const subjectName =
+                        resolvedSubjectName;
+
+                    const filtered =
+                        Array.isArray(data)
+                            ? data.filter(
+                                  (item) => {
+
+                                      const conversationSubject =
+                                          String(
+                                              item?.subject ||
+                                              ""
+                                          )
+                                              .trim()
+                                              .toLowerCase();
+
+                                      const fullName =
+                                          String(
+                                              subject?.name ||
+                                              ""
+                                          )
+                                              .trim()
+                                              .toLowerCase();
+
+                                      const code =
+                                          String(
+                                              subject?.code ||
+                                              ""
+                                          )
+                                              .trim()
+                                              .toLowerCase();
+
+                                      const resolvedName =
+                                          String(
+                                              subjectName ||
+                                              ""
+                                          )
+                                              .trim()
+                                              .toLowerCase();
+
+                                      return (
+                                          conversationSubject ===
+                                          fullName ||
+                                          conversationSubject ===
+                                          code ||
+                                          conversationSubject ===
+                                          resolvedName
+                                      );
+                                  }
+                              )
+                            : [];
+
+                    if (cancelled) {
+                        return;
+                    }
+
+                    const mapped =
+                        filtered.map(
+                            (item) => ({
+                                id:
+                                    item.id,
+
+                                title:
+                                    item.title,
+
+                                subject:
+                                    item.subject,
+
+                                time:
+                                    formatTime(
+                                        item.updatedAt
+                                    ),
+                            })
+                        );
+
+                    setConversations(
+                        mapped
+                    );
+
+                    if (
+                        mapped.length > 0
+                    ) {
+
+                        const storedConversationId =
+                            localStorage.getItem(
+                                `adaptiveAiConversation_${studentId}_${subjectId}`
+                            );
+
+                        const storedConversation =
+                            storedConversationId
+                                ? mapped.find(
+                                      (item) =>
+                                          String(
+                                              item.id
+                                          ) ===
+                                          String(
+                                              storedConversationId
+                                          )
+                                  )
+                                : null;
+
+                        const firstConversation =
+                            storedConversation ||
+                            mapped[0];
+
+                        setSelectedConversationId(
+                            firstConversation.id
+                        );
+
+                        localStorage.setItem(
+                            `adaptiveAiConversation_${studentId}_${subjectId}`,
+                            String(
+                                firstConversation.id
+                            )
+                        );
+
+                        await loadConversationMessages(
+                            firstConversation.id
+                        );
+
+                    } else {
+
+                        const created =
+                            await createConversation(
+                                "New Conversation",
+                                subjectName
+                            );
+
+                        if (cancelled) {
+                            return;
+                        }
+
+                        const newConversation = {
+                            id:
+                                created.id,
+
+                            title:
+                                created.title,
+
+                            subject:
+                                created.subject,
+
+                            time:
+                                "Just now",
+                        };
+
+                        setConversations([
+                            newConversation,
+                        ]);
+
+                        setSelectedConversationId(
+                            created.id
+                        );
+
+                        localStorage.setItem(
+                            `adaptiveAiConversation_${studentId}_${subjectId}`,
+                            String(created.id)
+                        );
+
+                        setMessages(
+                            createWelcomeMessage()
+                        );
+                    }
+
+                } catch (error) {
+
+                    if (cancelled) {
+                        return;
+                    }
+
+                    console.error(
+                        "Conversation loading error:",
+                        error
+                    );
+
+                    setChatError(
+                        error?.message ||
+                        "Unable to load conversations."
+                    );
+
+                    setConversations([]);
+                    setSelectedConversationId(
+                        null
+                    );
+
+                    setMessages(
+                        createWelcomeMessage()
+                    );
+                }
+            };
+
+        loadConversations();
+
+        return () => {
+            cancelled = true;
+        };
+
+    }, [
+        subjectId,
+        subject,
+        subjectsLoading,
+        resolvedSubjectName,
+    ]);
 
 
-        setMessage("");
+    /* ===================================================== */
+    /* LOADING SUBJECT */
+    /* ===================================================== */
 
-        setEditingMessageId(null);
+    if (subjectsLoading) {
 
-        setEditingMessageText("");
+        return (
+            <div className="min-h-full bg-slate-50 px-6 pb-10 pt-20">
 
-        setEditingConversationId(null);
+                <div className="rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
 
-        setEditingConversationTitle("");
+                    <div className="flex items-center gap-3">
 
-        setOpenMenuId(null);
+                        <div className="h-5 w-5 animate-spin rounded-full border-2 border-blue-600 border-t-transparent" />
 
-        setSelectedConversationId(null);
+                        <p className="text-sm font-medium text-slate-600">
+                            Loading subject...
+                        </p>
 
-    }, [subjectId]);
+                    </div>
+
+                </div>
+
+            </div>
+        );
+    }
 
 
     /* ===================================================== */
     /* INVALID SUBJECT */
     /* ===================================================== */
 
-    if (!subject) {
+    if (!subjectsLoading && !subject) {
 
         return (
             <div className="min-h-full bg-slate-50 px-6 pb-10 pt-20">
@@ -265,149 +1188,396 @@ function AIChatPage() {
     /* NEW CHAT */
     /* ===================================================== */
 
-    const handleNewChat = () => {
+    const handleNewChat =
+        async () => {
 
-        const newConversation = {
-            id: Date.now(),
-            title: "New Conversation",
-            subject:
-                subjectShortNames[subjectId] || "AI",
-            time: "Just now",
+            try {
+
+                const subjectName =
+                    resolvedSubjectName;
+
+                const created =
+                    await createConversation(
+                        "New Conversation",
+                        subjectName
+                    );
+
+                const newConversation = {
+                    id:
+                        created.id,
+
+                    title:
+                        created.title,
+
+                    subject:
+                        created.subject,
+
+                    time:
+                        "Just now",
+                };
+
+                setConversations(
+                    (previousConversations) => [
+                        newConversation,
+                        ...previousConversations,
+                    ]
+                );
+
+                setSelectedConversationId(
+                    created.id
+                );
+
+                localStorage.setItem(
+                    `adaptiveAiConversation_${studentId}_${subjectId}`,
+                    String(created.id)
+                );
+
+                setMessages(
+                    createWelcomeMessage()
+                );
+
+                setMessage("");
+                setChatError("");
+
+                setEditingMessageId(null);
+                setEditingMessageText("");
+
+                setEditingConversationId(null);
+                setEditingConversationTitle("");
+
+                setOpenMenuId(null);
+
+            } catch (error) {
+
+                console.error(
+                    "Create conversation error:",
+                    error
+                );
+
+                setChatError(
+                    error?.message ||
+                    "Unable to create conversation."
+                );
+            }
         };
-
-
-        setConversations(
-            (previousConversations) => [
-                newConversation,
-                ...previousConversations,
-            ]
-        );
-
-
-        setSelectedConversationId(
-            newConversation.id
-        );
-
-
-        setMessages([
-            {
-                id: Date.now() + 1,
-                type: "ai",
-                text: `Hello Sujal! I'm your AI Tutor. I can help you with ${subject.name}. What would you like to learn today?`,
-                time: "Now",
-            },
-        ]);
-
-
-        setMessage("");
-
-        setEditingMessageId(null);
-
-        setEditingMessageText("");
-
-        setEditingConversationId(null);
-
-        setEditingConversationTitle("");
-
-        setOpenMenuId(null);
-    };
 
 
     /* ===================================================== */
     /* SELECT CONVERSATION */
     /* ===================================================== */
 
-    const handleConversationSelect = (
-        conversation
-    ) => {
+    const handleConversationSelect =
+        async (
+            conversation
+        ) => {
 
-        setSelectedConversationId(
-            conversation.id
-        );
+            setSelectedConversationId(
+                conversation.id
+            );
 
+            localStorage.setItem(
+                `adaptiveAiConversation_${studentId}_${subjectId}`,
+                String(conversation.id)
+            );
 
-        setOpenMenuId(null);
+            setOpenMenuId(null);
 
+            setEditingConversationId(null);
+            setEditingConversationTitle("");
 
-        setEditingConversationId(null);
+            setMessage("");
+            setChatError("");
 
-        setEditingConversationTitle("");
+            try {
 
+                await loadConversationMessages(
+                    conversation.id
+                );
 
-        /*
-         * Temporary conversation loading.
-         * Real conversation history will come
-         * from the backend/database later.
-         */
+            } catch (error) {
 
-        setMessages([
-            {
-                id: Date.now(),
-                type: "ai",
-                text: `Hello Sujal! Let's continue with ${conversation.title}. What would you like to learn?`,
-                time: "10:00 AM",
-            },
-        ]);
+                console.error(
+                    "Conversation selection error:",
+                    error
+                );
 
-
-        setMessage("");
-    };
+                setChatError(
+                    error?.message ||
+                    "Unable to load conversation."
+                );
+            }
+        };
 
 
     /* ===================================================== */
     /* SEND MESSAGE */
     /* ===================================================== */
 
-    const handleSend = () => {
+    const handleSend =
+        async () => {
 
-        const trimmedMessage =
-            message.trim();
+            const trimmedMessage =
+                message.trim();
 
+            if (
+                !trimmedMessage ||
+                isSending
+            ) {
+                return;
+            }
 
-        if (!trimmedMessage) {
-            return;
-        }
+            setChatError("");
+            setIsSending(true);
 
+            try {
 
-        const userMessage = {
-            id: Date.now(),
-            type: "user",
-            text: trimmedMessage,
-            time: "Now",
+                let conversationId =
+                    selectedConversationId;
+
+                // -----------------------------------------
+                // CREATE A REAL CONVERSATION IF NEEDED
+                // -----------------------------------------
+
+                if (!conversationId) {
+
+                    const subjectName =
+                        resolvedSubjectName;
+
+                    const created =
+                        await createConversation(
+                            "New Conversation",
+                            subjectName
+                        );
+
+                    conversationId =
+                        created.id;
+
+                    const newConversation = {
+                        id:
+                            created.id,
+
+                        title:
+                            created.title,
+
+                        subject:
+                            created.subject,
+
+                        time:
+                            "Just now",
+                    };
+
+                    setConversations(
+                        (previous) => [
+                            newConversation,
+                            ...previous,
+                        ]
+                    );
+
+                    setSelectedConversationId(
+                        created.id
+                    );
+
+                    localStorage.setItem(
+                        `adaptiveAiConversation_${studentId}_${subjectId}`,
+                        String(created.id)
+                    );
+                }
+
+                // -----------------------------------------
+                // SHOW USER MESSAGE IMMEDIATELY
+                // -----------------------------------------
+
+                const userMessage = {
+                    id:
+                        `temp-user-${Date.now()}`,
+
+                    type:
+                        "user",
+
+                    text:
+                        trimmedMessage,
+
+                    time:
+                        "Now",
+                };
+
+                setMessages(
+                    (previousMessages) => {
+                        const updatedMessages = [
+                            ...previousMessages,
+                            userMessage,
+                        ];
+
+                        saveConversationCache(
+                            conversationId,
+                            updatedMessages
+                        );
+
+                        return updatedMessages;
+                    }
+                );
+
+                setMessage("");
+
+                // -----------------------------------------
+                // SEND TO BACKEND
+                // -----------------------------------------
+
+                const response =
+                    await fetch(
+                        `${API_BASE}/api/ai/chat`,
+                        {
+                            method:
+                                "POST",
+
+                            headers: {
+                                "Content-Type":
+                                    "application/json",
+                            },
+
+                            body:
+                                JSON.stringify({
+                                    conversationId:
+                                        conversationId,
+
+                                    studentId:
+                                        studentId,
+
+                                    message:
+                                        trimmedMessage,
+                                }),
+                        }
+                    );
+
+                const data =
+                    await response
+                        .json()
+                        .catch(
+                            () => ({})
+                        );
+
+                if (!response.ok) {
+
+                    throw new Error(
+                        data?.message ||
+                        `AI request failed (${response.status}).`
+                    );
+                }
+
+                const reply =
+                    typeof data?.reply ===
+                    "string"
+                        ? data.reply.trim()
+                        : "";
+
+                if (!reply) {
+
+                    throw new Error(
+                        "AI returned an empty response."
+                    );
+                }
+
+                // -----------------------------------------
+                // SHOW AI RESPONSE
+                // -----------------------------------------
+
+                const aiMessage = {
+                    id:
+                        `temp-ai-${Date.now()}`,
+
+                    type:
+                        "ai",
+
+                    text:
+                        reply,
+
+                    time:
+                        "Now",
+                };
+
+                setMessages(
+                    (previousMessages) => {
+                        const updatedMessages =
+                            previousMessages.map(
+                                (item) =>
+                                    item.id ===
+                                    userMessage.id
+                                        ? {
+                                              ...item,
+                                              id:
+                                                  data?.userMessageId ||
+                                                  item.id,
+                                          }
+                                        : item
+                            );
+
+                        updatedMessages.push({
+                            ...aiMessage,
+                            id:
+                                data?.assistantMessageId ||
+                                aiMessage.id,
+                        });
+
+                        saveConversationCache(
+                            conversationId,
+                            updatedMessages
+                        );
+
+                        return updatedMessages;
+                    }
+                );
+
+                // -----------------------------------------
+                // MOVE CURRENT CONVERSATION TO TOP
+                // -----------------------------------------
+
+                setConversations(
+                    (previous) => {
+
+                        const current =
+                            previous.find(
+                                (item) =>
+                                    item.id ===
+                                    conversationId
+                            );
+
+                        if (!current) {
+                            return previous;
+                        }
+
+                        return [
+                            {
+                                ...current,
+                                time:
+                                    "Just now",
+                            },
+
+                            ...previous.filter(
+                                (item) =>
+                                    item.id !==
+                                    conversationId
+                            ),
+                        ];
+                    }
+                );
+
+            } catch (error) {
+
+                console.error(
+                    "AI chat error:",
+                    error
+                );
+
+                setChatError(
+                    error?.message ||
+                    "Unable to get an AI response. Please try again."
+                );
+
+            } finally {
+
+                setIsSending(false);
+            }
         };
-
-
-        setMessages(
-            (previousMessages) => [
-                ...previousMessages,
-                userMessage,
-            ]
-        );
-
-
-        setMessage("");
-
-
-        /* Temporary AI response */
-        setTimeout(() => {
-
-            const aiMessage = {
-                id: Date.now() + 1,
-                type: "ai",
-                text: `I received your question about ${subject.name}. The real AI API will be connected in a later development stage.`,
-                time: "Now",
-            };
-
-
-            setMessages(
-                (previousMessages) => [
-                    ...previousMessages,
-                    aiMessage,
-                ]
-            );
-
-        }, 700);
-    };
 
 
     /* ===================================================== */
@@ -459,87 +1629,147 @@ function AIChatPage() {
 
 
     /* ===================================================== */
-    /* SAVE EDITED USER MESSAGE */
+    /* SAVE EDITED USER MESSAGE + REGENERATE AI RESPONSE */
     /* ===================================================== */
 
-    const handleEditMessageSave = (
-        messageId
-    ) => {
+    const handleEditMessageSave =
+        async (
+            messageId
+        ) => {
 
-        const trimmedText =
-            editingMessageText.trim();
+            const trimmedText =
+                editingMessageText.trim();
 
+            if (!trimmedText) {
+                return;
+            }
 
-        if (!trimmedText) {
-            return;
-        }
+            const messageIndex =
+                messages.findIndex(
+                    (item) =>
+                        item.id ===
+                        messageId
+                );
 
+            if (
+                messageIndex === -1
+            ) {
+                return;
+            }
 
-        setMessages(
-            (previousMessages) => {
+            if (
+                !selectedConversationId
+            ) {
 
-                const messageIndex =
-                    previousMessages.findIndex(
-                        (item) =>
-                            item.id ===
-                            messageId
-                    );
+                setChatError(
+                    "Conversation ID is required."
+                );
 
+                return;
+            }
 
-                if (messageIndex === -1) {
-                    return previousMessages;
-                }
+            setChatError("");
+            setIsSending(true);
 
+            try {
 
                 /*
-                 * Keep all messages before the edited
-                 * user message and replace the edited one.
-                 * The previous AI reply is removed because
-                 * the question has changed.
+                 * Update the existing user message, remove the old
+                 * messages after it, generate a fresh AI answer, and
+                 * save that answer on the backend.
                  */
 
-                return [
-                    ...previousMessages.slice(
-                        0,
-                        messageIndex
-                    ),
+                const response =
+                    await fetch(
+                        `${API_BASE}/api/ai/regenerate/${selectedConversationId}/${messageId}`,
+                        {
+                            method:
+                                "PUT",
 
-                    {
-                        id: messageId,
-                        type: "user",
-                        text: trimmedText,
-                        time: "Now",
-                    },
-                ];
+                            headers: {
+                                "Content-Type":
+                                    "application/json",
+                            },
+
+                            body:
+                                JSON.stringify({
+                                    content:
+                                        trimmedText,
+                                    studentId:
+                                        studentId,
+                                }),
+                        }
+                    );
+
+                const data =
+                    await response
+                        .json()
+                        .catch(
+                            () => ({})
+                        );
+
+                if (!response.ok) {
+
+                    throw new Error(
+                        data?.message ||
+                        `Unable to regenerate AI response (${response.status}).`
+                    );
+                }
+
+                setEditingMessageId(null);
+                setEditingMessageText("");
+
+                /*
+                 * Reload the complete conversation from PostgreSQL.
+                 * This guarantees that the edited user message and the
+                 * newly generated assistant response are both displayed
+                 * exactly as stored by the backend.
+                 */
+
+                await loadConversationMessages(
+                    selectedConversationId
+                );
+
+                setConversations(
+                    (previous) =>
+                        previous.map(
+                            (conversation) =>
+                                conversation.id ===
+                                selectedConversationId
+                                    ? {
+                                          ...conversation,
+                                          time:
+                                              "Just now",
+                                      }
+                                    : conversation
+                        )
+                );
+
+                /*
+                 * The response itself is not directly inserted into local
+                 * state because loadConversationMessages() fetches the
+                 * authoritative messages from the database immediately
+                 * after regeneration.
+                 */
+                void data;
+
+            } catch (error) {
+
+                console.error(
+                    "Regenerate AI response error:",
+                    error
+                );
+
+                setChatError(
+                    error?.message ||
+                    "Unable to regenerate the AI response."
+                );
+
+            } finally {
+
+                setIsSending(false);
             }
-        );
-
-
-        setEditingMessageId(null);
-
-        setEditingMessageText("");
-
-
-        /* Temporary new AI response */
-        setTimeout(() => {
-
-            const aiMessage = {
-                id: Date.now(),
-                type: "ai",
-                text: `Updated question received. The real AI API will generate the answer for "${trimmedText}" later.`,
-                time: "Now",
-            };
-
-
-            setMessages(
-                (previousMessages) => [
-                    ...previousMessages,
-                    aiMessage,
-                ]
-            );
-
-        }, 700);
-    };
+        };
 
 
     /* ===================================================== */
@@ -566,38 +1796,94 @@ function AIChatPage() {
     /* SAVE CONVERSATION TITLE */
     /* ===================================================== */
 
-    const handleConversationEditSave = (
-        conversationId
-    ) => {
+    const handleConversationEditSave =
+        async (
+            conversationId
+        ) => {
 
-        const trimmedTitle =
-            editingConversationTitle.trim();
+            const trimmedTitle =
+                editingConversationTitle.trim();
 
+            if (!trimmedTitle) {
+                return;
+            }
 
-        if (!trimmedTitle) {
-            return;
-        }
+            try {
 
+                const response =
+                    await fetch(
+                        `${API_BASE}/api/conversations/${conversationId}`,
+                        {
+                            method:
+                                "PUT",
 
-        setConversations(
-            (previousConversations) =>
-                previousConversations.map(
-                    (conversation) =>
-                        conversation.id ===
-                        conversationId
-                            ? {
-                                ...conversation,
-                                title: trimmedTitle,
-                            }
-                            : conversation
-                )
-        );
+                            headers: {
+                                "Content-Type":
+                                    "application/json",
+                            },
 
+                            body:
+                                JSON.stringify({
+                                    title:
+                                        trimmedTitle,
+                                }),
+                        }
+                    );
 
-        setEditingConversationId(null);
+                const data =
+                    await response
+                        .json()
+                        .catch(
+                            () => ({})
+                        );
 
-        setEditingConversationTitle("");
-    };
+                if (!response.ok) {
+
+                    throw new Error(
+                        data?.message ||
+                        "Unable to rename conversation."
+                    );
+                }
+
+                setConversations(
+                    (previousConversations) =>
+                        previousConversations.map(
+                            (conversation) =>
+                                conversation.id ===
+                                conversationId
+                                    ? {
+                                          ...conversation,
+                                          title:
+                                              data.title ||
+                                              trimmedTitle,
+                                      }
+                                    : conversation
+                        )
+                );
+
+                setEditingConversationId(
+                    null
+                );
+
+                setEditingConversationTitle(
+                    ""
+                );
+
+                setChatError("");
+
+            } catch (error) {
+
+                console.error(
+                    "Rename conversation error:",
+                    error
+                );
+
+                setChatError(
+                    error?.message ||
+                    "Unable to rename conversation."
+                );
+            }
+        };
 
 
     /* ===================================================== */
@@ -616,40 +1902,117 @@ function AIChatPage() {
     /* DELETE CONVERSATION */
     /* ===================================================== */
 
-    const handleConversationDelete = (
-        conversationId
-    ) => {
-
-        setConversations(
-            (previousConversations) =>
-                previousConversations.filter(
-                    (conversation) =>
-                        conversation.id !==
-                        conversationId
-                )
-        );
-
-
-        if (
-            selectedConversationId ===
+    const handleConversationDelete =
+        async (
             conversationId
-        ) {
+        ) => {
 
-            setSelectedConversationId(null);
+            try {
 
-            setMessages([
-                {
-                    id: Date.now(),
-                    type: "ai",
-                    text: `Hello Sujal! I'm your AI Tutor. I can help you with ${subject.name}. What would you like to learn today?`,
-                    time: "Now",
-                },
-            ]);
-        }
+                const response =
+                    await fetch(
+                        `${API_BASE}/api/conversations/${conversationId}`,
+                        {
+                            method:
+                                "DELETE",
+                        }
+                    );
 
+                if (
+                    !response.ok &&
+                    response.status !== 204
+                ) {
 
-        setOpenMenuId(null);
-    };
+                    throw new Error(
+                        "Unable to delete conversation."
+                    );
+                }
+
+                const remaining =
+                    conversations.filter(
+                        (conversation) =>
+                            conversation.id !==
+                            conversationId
+                    );
+
+                setConversations(
+                    remaining
+                );
+
+                setOpenMenuId(null);
+
+                if (
+                    selectedConversationId ===
+                    conversationId
+                ) {
+
+                    if (
+                        remaining.length > 0
+                    ) {
+
+                        const nextConversation =
+                            remaining[0];
+
+                        setSelectedConversationId(
+                            nextConversation.id
+                        );
+
+                        await loadConversationMessages(
+                            nextConversation.id
+                        );
+
+                    } else {
+
+                        const subjectName =
+                            resolvedSubjectName;
+
+                        const created =
+                            await createConversation(
+                                "New Conversation",
+                                subjectName
+                            );
+
+                        const newConversation = {
+                            id:
+                                created.id,
+
+                            title:
+                                created.title,
+
+                            subject:
+                                created.subject,
+
+                            time:
+                                "Just now",
+                        };
+
+                        setConversations([
+                            newConversation,
+                        ]);
+
+                        setSelectedConversationId(
+                            created.id
+                        );
+
+                        setMessages(
+                            createWelcomeMessage()
+                        );
+                    }
+                }
+
+            } catch (error) {
+
+                console.error(
+                    "Delete conversation error:",
+                    error
+                );
+
+                setChatError(
+                    error?.message ||
+                    "Unable to delete conversation."
+                );
+            }
+        };
 
 
     /* ===================================================== */
@@ -1008,36 +2371,6 @@ function AIChatPage() {
                     </div>
 
 
-                    {/* SUBJECT FILTERS */}
-                    <div className="flex items-center gap-2">
-
-                        {Object.entries(
-                            subjectShortNames
-                        ).map(
-                            ([id, name]) => {
-
-                                const isActive =
-                                    id === subjectId;
-
-
-                                return (
-                                    <Link
-                                        key={id}
-                                        to={`/student/chat/${id}`}
-                                        className={`rounded-lg px-3 py-1.5 text-xs font-medium transition ${
-                                            isActive
-                                                ? "bg-blue-600 text-white"
-                                                : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                                        }`}
-                                    >
-                                        {name}
-                                    </Link>
-                                );
-                            }
-                        )}
-
-                    </div>
-
                 </header>
 
 
@@ -1048,6 +2381,16 @@ function AIChatPage() {
                 <div className="min-h-0 flex-1 overflow-y-auto bg-slate-50 px-6 py-7">
 
                     <div className="mx-auto max-w-4xl space-y-7">
+
+                        {chatError && (
+
+                            <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+
+                                {chatError}
+
+                            </div>
+
+                        )}
 
                         {messages.map(
                             (item) => {
@@ -1086,11 +2429,9 @@ function AIChatPage() {
 
                                                     <div className="rounded-2xl border border-slate-200 bg-white px-5 py-4 shadow-sm">
 
-                                                        <p className="text-[15px] leading-7 text-slate-700">
-                                                            {
-                                                                item.text
-                                                            }
-                                                        </p>
+                                                        {renderGeminiResponse(
+                                                            item.text
+                                                        )}
 
                                                     </div>
 
@@ -1180,7 +2521,7 @@ function AIChatPage() {
                                                                 }
                                                                 className="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700"
                                                             >
-                                                                Save & Submit
+                                                                Save
                                                             </button>
 
                                                         </div>
@@ -1255,19 +2596,30 @@ function AIChatPage() {
                                     handleSend
                                 }
                                 disabled={
-                                    !message.trim()
+                                    !message.trim() ||
+                                    isSending
                                 }
                                 className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-600 text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-blue-200"
-                                title="Send message"
+                                title={
+                                    isSending
+                                        ? "Waiting for AI..."
+                                        : "Send message"
+                                }
                             >
-                                <Send size={17} />
+                                {isSending ? (
+                                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                                ) : (
+                                    <Send size={17} />
+                                )}
                             </button>
 
                         </div>
 
 
                         <p className="mt-2 text-center text-[11px] text-slate-400">
-                            AI responses are based on uploaded course materials. Press Enter to send.
+                            {isSending
+                                ? "AI is thinking..."
+                                : "AI responses are based on uploaded course materials. Press Enter to send."}
                         </p>
 
                     </div>

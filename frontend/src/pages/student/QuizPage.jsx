@@ -22,8 +22,6 @@ import {
   useState,
 } from "react";
 
-import staticSubjects from "../../data/subjects";
-
 const API_BASE = "http://localhost:8080";
 
 function QuizPage() {
@@ -389,25 +387,7 @@ function QuizPage() {
       return backendMatch;
     }
 
-    // ---------------------------------------------
-    // Static fallback
-    // ---------------------------------------------
-
-    const staticMatch =
-      staticSubjects.find(
-        (item) =>
-          String(
-            item?.id ?? ""
-          )
-            .trim()
-            .toLowerCase() ===
-          normalizedRoute
-      );
-
-    return (
-      staticMatch ||
-      null
-    );
+    return null;
   };
 
   // =====================================================

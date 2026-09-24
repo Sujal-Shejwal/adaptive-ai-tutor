@@ -546,20 +546,28 @@ function AIChatPage() {
     /* CHAT STATE */
     /* ===================================================== */
 
-    const createWelcomeMessage = () => [
-        {
-            id:
-                `welcome-${Date.now()}`,
-            type:
-                "ai",
-            text:
-                `Hello Sujal! I'm your AI Tutor. I can help you with ${
-                    subject?.name || "your subjects"
-                }. What would you like to learn today?`,
-            time:
-                "Now",
-        },
-    ];
+    const createWelcomeMessage = () => {
+        const storedName =
+            localStorage.getItem("userName");
+
+        const userName =
+            storedName?.trim() || "Student";
+
+        return [
+            {
+                id:
+                    `welcome-${Date.now()}`,
+                type:
+                    "ai",
+                text:
+                    `Hello ${userName}! I'm your AI Tutor. I can help you with ${
+                        subject?.name || "your subjects"
+                    }. What would you like to learn today?`,
+                time:
+                    "Now",
+            },
+        ];
+    };
 
 
     const [messages, setMessages] =

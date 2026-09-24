@@ -116,35 +116,6 @@ function formatTime(value) {
   });
 }
 
-function resetPageScroll(rootElement) {
-  // Reset the browser page scroll.
-  window.scrollTo({
-    top: 0,
-    left: 0,
-    behavior: "auto",
-  });
-
-  document.documentElement.scrollTop = 0;
-  document.body.scrollTop = 0;
-
-  // DashboardLayout may have one or more nested scroll containers.
-  // Reset every vertical scrollable ancestor so the classroom chat
-  // always opens from the very top.
-  let element = rootElement;
-
-  while (element) {
-    const styles = window.getComputedStyle(element);
-    const isVerticalScroller =
-      ["auto", "scroll", "overlay"].includes(styles.overflowY);
-
-    if (isVerticalScroller || element.scrollTop > 0) {
-      element.scrollTop = 0;
-    }
-
-    element = element.parentElement;
-  }
-}
-
 export default function ClassroomChatPage() {
   const { classroomId } = useParams();
   const navigate = useNavigate();
@@ -169,57 +140,30 @@ export default function ClassroomChatPage() {
   const inputRef = useRef(null);
 
   useLayoutEffect(() => {
-    resetPageScroll(rootRef.current);
-  }, [classroomId]);
-
-  useEffect(() => {
-    // DashboardLayout can restore its scroll position after this page mounts.
-    // Reset it again after the browser has painted, and briefly repeat the
-    // reset while the classroom history/DOM finishes rendering.
-    let stopped = false;
-    let intervalId = null;
-    let frameId = null;
-
-    const runReset = () => {
-      if (!stopped) {
-        resetPageScroll(rootRef.current);
-      }
-    };
-
-    runReset();
-
-    frameId = window.requestAnimationFrame(() => {
-      runReset();
-
-      window.requestAnimationFrame(() => {
-        runReset();
-      });
+    window.scrollTo({
+      top: 0,
+      left: 0,
+      behavior: "auto",
     });
 
-    intervalId = window.setInterval(runReset, 50);
+    // DashboardLayout can use its own scrolling container.
+    // Reset the nearest scrollable parent too.
+    let parent = rootRef.current?.parentElement;
 
-    const timeoutId = window.setTimeout(() => {
-      if (intervalId) {
-        window.clearInterval(intervalId);
-        intervalId = null;
-      }
-      runReset();
-    }, 1000);
+    while (parent) {
+      const styles = window.getComputedStyle(parent);
+      const canScroll =
+        ["auto", "scroll", "overlay"].includes(styles.overflowY) &&
+        parent.scrollHeight > parent.clientHeight;
 
-    return () => {
-      stopped = true;
-
-      if (frameId) {
-        window.cancelAnimationFrame(frameId);
+      if (canScroll) {
+        parent.scrollTop = 0;
+        break;
       }
 
-      if (intervalId) {
-        window.clearInterval(intervalId);
-      }
-
-      window.clearTimeout(timeoutId);
-    };
-  }, [classroomId, loading]);
+      parent = parent.parentElement;
+    }
+  }, [classroomId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -464,7 +408,7 @@ export default function ClassroomChatPage() {
   return (
     <div
       ref={rootRef}
-      className="flex h-full min-h-0 w-full overflow-hidden bg-slate-50"
+      className="mt-[80px] flex h-[calc(100vh-80px)] min-h-0 w-full overflow-hidden bg-slate-50"
     >
       <section className="flex min-h-0 min-w-0 flex-1 flex-col">
         <header className="flex shrink-0 items-center justify-between border-b border-slate-200 bg-white px-5 py-4 md:px-6">
