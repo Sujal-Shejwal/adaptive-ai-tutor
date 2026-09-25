@@ -18,9 +18,6 @@ import {
     useState,
 } from "react";
 
-import subjects from "../../data/subjects";
-import quizzes from "../../data/quizzes";
-
 
 function QuizPage() {
 
@@ -31,11 +28,240 @@ function QuizPage() {
     /* SUBJECT + QUIZ */
     /* ===================================================== */
 
-    const subject = subjects.find(
-        (item) => item.id === subjectId
-    );
+    const [subject, setSubject] = useState(null);
 
-    const quiz = quizzes[subjectId];
+    const [quiz, setQuiz] = useState(null);
+
+    const [loading, setLoading] = useState(true);
+
+    const [loadError, setLoadError] = useState("");
+
+
+    /* ===================================================== */
+    /* LOAD SUBJECT + QUIZ FROM BACKEND */
+    /* ===================================================== */
+
+    useEffect(() => {
+
+        let cancelled = false;
+
+        const loadQuizData = async () => {
+
+            try {
+
+                setLoading(true);
+                setLoadError("");
+
+                const subjectsResponse = await fetch(
+                    "http://localhost:8080/api/subjects"
+                );
+
+                if (!subjectsResponse.ok) {
+                    throw new Error("Failed to fetch subjects.");
+                }
+
+                const subjectsData =
+                    await subjectsResponse.json();
+
+                if (!Array.isArray(subjectsData)) {
+                    throw new Error("Invalid subjects response.");
+                }
+
+                const normalizedSubjectId =
+                    String(subjectId || "")
+                        .trim()
+                        .toLowerCase();
+
+                const foundSubject =
+                    subjectsData.find((item) => {
+
+                        const id =
+                            String(item?.id ?? "")
+                                .trim()
+                                .toLowerCase();
+
+                        const code =
+                            String(item?.code ?? "")
+                                .trim()
+                                .toLowerCase();
+
+                        const name =
+                            String(item?.name ?? "")
+                                .trim()
+                                .toLowerCase();
+
+                        return (
+                            id === normalizedSubjectId ||
+                            code === normalizedSubjectId ||
+                            name === normalizedSubjectId
+                        );
+                    });
+
+                if (!foundSubject) {
+                    throw new Error("Subject not found.");
+                }
+
+                const quizzesResponse = await fetch(
+                    `http://localhost:8080/api/quizzes/subject/${foundSubject.id}`
+                );
+
+                if (!quizzesResponse.ok) {
+                    throw new Error("Failed to fetch quizzes.");
+                }
+
+                const quizzesData =
+                    await quizzesResponse.json();
+
+                if (
+                    !Array.isArray(quizzesData) ||
+                    quizzesData.length === 0
+                ) {
+
+                    if (!cancelled) {
+                        setSubject(foundSubject);
+                        setQuiz(null);
+                    }
+
+                    return;
+                }
+
+                const sortedQuizzes =
+                    [...quizzesData].sort(
+                        (a, b) =>
+                            Number(b?.id || 0) -
+                            Number(a?.id || 0)
+                    );
+
+                let selectedQuiz = null;
+
+                for (const candidateQuiz of sortedQuizzes) {
+
+                    try {
+
+                        const questionsResponse =
+                            await fetch(
+                                `http://localhost:8080/api/quizzes/${candidateQuiz.id}/questions`
+                            );
+
+                        if (!questionsResponse.ok) {
+                            continue;
+                        }
+
+                        const questionsData =
+                            await questionsResponse.json();
+
+                        if (
+                            !Array.isArray(questionsData) ||
+                            questionsData.length === 0
+                        ) {
+                            continue;
+                        }
+
+                        const questions =
+                            questionsData
+                                .map((question) => ({
+                                    id:
+                                        question?.id,
+
+                                    question:
+                                        String(
+                                            question?.question ?? ""
+                                        ),
+
+                                    options: [
+                                        question?.option1,
+                                        question?.option2,
+                                        question?.option3,
+                                        question?.option4,
+                                    ].map(
+                                        (option) =>
+                                            String(
+                                                option ?? ""
+                                            )
+                                    ),
+
+                                    correctAnswer:
+                                        Number(
+                                            question?.correctAnswer
+                                        ),
+                                }))
+                                .filter(
+                                    (question) =>
+                                        question.id != null &&
+                                        question.question.trim() !== "" &&
+                                        question.options.length === 4 &&
+                                        question.options.every(
+                                            (option) =>
+                                                option.trim() !== ""
+                                        ) &&
+                                        Number.isInteger(
+                                            question.correctAnswer
+                                        ) &&
+                                        question.correctAnswer >= 0 &&
+                                        question.correctAnswer <= 3
+                                );
+
+                        if (questions.length > 0) {
+
+                            selectedQuiz = {
+                                ...candidateQuiz,
+                                questions,
+                            };
+
+                            break;
+                        }
+
+                    } catch (questionError) {
+
+                        console.error(
+                            `Could not load questions for quiz ${candidateQuiz?.id}:`,
+                            questionError
+                        );
+
+                    }
+                }
+
+                if (!cancelled) {
+
+                    setSubject(foundSubject);
+                    setQuiz(selectedQuiz);
+
+                }
+
+            } catch (error) {
+
+                console.error(
+                    "Quiz loading error:",
+                    error
+                );
+
+                if (!cancelled) {
+                    setLoadError(
+                        error?.message ||
+                        "Unable to load quiz."
+                    );
+                }
+
+            } finally {
+
+                if (!cancelled) {
+                    setLoading(false);
+                }
+            }
+        };
+
+        if (subjectId) {
+            loadQuizData();
+        } else {
+            setLoading(false);
+            setLoadError("Subject not found.");
+        }
+
+        return () => {
+            cancelled = true;
+        };
+
+    }, [subjectId]);
 
 
     /* ===================================================== */
@@ -65,11 +291,10 @@ function QuizPage() {
     /* TIMER */
     /* ===================================================== */
 
-    /*
-     * Temporary Day 10 timer.
-     * Later this value will come from teacher/backend.
-     */
-    const quizDurationMinutes = 5;
+    const quizDurationMinutes =
+        Number(quiz?.duration) > 0
+            ? Number(quiz.duration)
+            : 5;
 
 
     const [timeLeft, setTimeLeft] =
@@ -150,6 +375,62 @@ function QuizPage() {
             remainingSeconds
         ).padStart(2, "0")}`;
     };
+
+
+    /* ===================================================== */
+    /* LOADING */
+    /* ===================================================== */
+
+    if (loading) {
+
+        return (
+            <div className="min-h-full bg-slate-50 px-6 pb-10 pt-20">
+
+                <div className="mx-auto max-w-3xl rounded-2xl border border-slate-200 bg-white p-10 text-center shadow-sm">
+
+                    <p className="text-sm text-slate-500">
+                        Loading quiz...
+                    </p>
+
+                </div>
+
+            </div>
+        );
+    }
+
+
+    /* ===================================================== */
+    /* LOAD ERROR */
+    /* ===================================================== */
+
+    if (loadError) {
+
+        return (
+            <div className="min-h-full bg-slate-50 px-6 pb-10 pt-20">
+
+                <div className="mx-auto max-w-3xl rounded-2xl border border-red-200 bg-red-50 p-10 text-center">
+
+                    <h2 className="text-xl font-semibold text-red-700">
+                        Quiz Error
+                    </h2>
+
+                    <p className="mt-2 text-sm text-red-600">
+                        {loadError}
+                    </p>
+
+                    <Link
+                        to="/student/subjects"
+                        className="mt-6 inline-flex items-center gap-2 rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white hover:bg-blue-700"
+                    >
+                        <ArrowLeft size={16} />
+                        Back to Subjects
+                    </Link>
+
+                </div>
+
+            </div>
+        );
+    }
 
 
     /* ===================================================== */
