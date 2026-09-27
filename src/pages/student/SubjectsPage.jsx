@@ -7,9 +7,6 @@ import {
 
 import { Link } from "react-router-dom";
 
-import subjects from "../../data/subjects";
-
-
 const colorStyles = {
     blue: {
         icon: "bg-blue-100 text-blue-600",

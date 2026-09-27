@@ -14,12 +14,45 @@ import {
 } from "react";
 
 
+const getCurrentUserName = () => {
+
+    try {
+
+        const storedUser =
+            JSON.parse(
+                localStorage.getItem("user") ||
+                "null"
+            );
+
+        return (
+            storedUser?.name ||
+            storedUser?.fullName ||
+            storedUser?.username ||
+            localStorage.getItem("userName") ||
+            "Student"
+        );
+
+    } catch {
+
+        return (
+            localStorage.getItem("userName") ||
+            "Student"
+        );
+
+    }
+
+};
+
+
 const DashboardHeader = () => {
 
     const [showProfileMenu, setShowProfileMenu] =
         useState(false);
 
     const navigate = useNavigate();
+
+    const userName =
+        getCurrentUserName();
 
 
     /* ===================================================== */
@@ -125,7 +158,7 @@ const DashboardHeader = () => {
                         <div className="text-left leading-tight">
 
                             <p className="text-sm font-medium text-gray-900">
-                                Sujal Shejwal
+                                {userName}
                             </p>
 
                             <span className="text-[11px] text-gray-400">

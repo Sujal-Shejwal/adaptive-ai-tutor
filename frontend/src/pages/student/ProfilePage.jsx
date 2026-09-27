@@ -1060,7 +1060,9 @@ function ProfilePage() {
                         <div className="text-center">
 
                             <p className="text-2xl font-bold text-slate-900">
-                                347
+                                {quizStatsLoading
+                                    ? "..."
+                                    : quizStatistics.questionsAnswered}
                             </p>
 
                             <p className="mt-1 text-xs text-slate-400">
@@ -1073,7 +1075,9 @@ function ProfilePage() {
                         <div className="border-x border-slate-200 text-center">
 
                             <p className="text-2xl font-bold text-slate-900">
-                                28
+                                {quizStatsLoading
+                                    ? "..."
+                                    : quizStatistics.quizzesDone}
                             </p>
 
                             <p className="mt-1 text-xs text-slate-400">
@@ -1086,7 +1090,9 @@ function ProfilePage() {
                         <div className="text-center">
 
                             <p className="text-2xl font-bold text-slate-900">
-                                76%
+                                {quizStatsLoading
+                                    ? "..."
+                                    : `${quizStatistics.averageScore}%`}
                             </p>
 
                             <p className="mt-1 text-xs text-slate-400">

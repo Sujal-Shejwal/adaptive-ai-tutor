@@ -1,3 +1,33 @@
+const getCurrentUserName = () => {
+
+    try {
+
+        const storedUser =
+            JSON.parse(
+                localStorage.getItem("user") ||
+                "null"
+            );
+
+        return (
+            storedUser?.name ||
+            storedUser?.fullName ||
+            storedUser?.username ||
+            localStorage.getItem("userName") ||
+            "Student"
+        );
+
+    } catch {
+
+        return (
+            localStorage.getItem("userName") ||
+            "Student"
+        );
+
+    }
+
+};
+
+
 const WelcomeSection = () => {
 
     // Get current date and time
@@ -5,6 +35,10 @@ const WelcomeSection = () => {
 
     // Get current hour
     const hour = now.getHours();
+
+    // Get current user name
+    const userName =
+        getCurrentUserName();
 
     // Dynamic greeting
     let greeting;
@@ -18,19 +52,20 @@ const WelcomeSection = () => {
     }
 
     // Format current date
-    const formattedDate = now.toLocaleDateString("en-IN", {
-        weekday: "long",
-        day: "numeric",
-        month: "short",
-        year: "numeric",
-    });
+    const formattedDate =
+        now.toLocaleDateString("en-IN", {
+            weekday: "long",
+            day: "numeric",
+            month: "short",
+            year: "numeric",
+        });
 
 
     return (
         <section className="mb-8">
 
             <h1 className="text-2xl font-bold text-gray-900">
-                {greeting}, Sujal 👋
+                {greeting}, {userName} 👋
             </h1>
 
             <p className="mt-1 text-sm text-gray-500">

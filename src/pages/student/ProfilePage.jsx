@@ -6,6 +6,7 @@ import {
 } from "lucide-react";
 
 import {
+    useEffect,
     useRef,
     useState,
 } from "react";
@@ -14,18 +15,71 @@ import {
 function ProfilePage() {
 
     /* ===================================================== */
-    /* DUMMY PROFILE DATA */
+    /* LOAD PROFILE FROM LOGGED-IN USER SESSION */
     /* ===================================================== */
 
+    const getStoredUser = () => {
+        try {
+            return JSON.parse(
+                localStorage.getItem("user") || "null"
+            );
+        } catch {
+            return null;
+        }
+    };
+
+    const storedUser = getStoredUser();
+
+    const getMemberSinceYear = (value) => {
+        if (!value) {
+            return "";
+        }
+
+        const date = new Date(value);
+
+        return Number.isNaN(date.getTime())
+            ? ""
+            : String(date.getFullYear());
+    };
+
     const [profile, setProfile] = useState({
-        fullName: "Sujal Shejwal",
-        email: "sujal@example.com",
-        phone: "+91 98765 43210",
-        rollNumber: "CE-2022-041",
-        department: "Information Technology",
-        year: "3rd Year",
-        role: "Student",
-        memberSince: "2026",
+        fullName:
+            storedUser?.name ||
+            storedUser?.fullName ||
+            localStorage.getItem("userName") ||
+            "",
+
+        email:
+            storedUser?.email ||
+            localStorage.getItem("userEmail") ||
+            "",
+
+        phone:
+            storedUser?.phone ||
+            "",
+
+        rollNumber:
+            storedUser?.rollNumber ||
+            "",
+
+        department:
+            storedUser?.department ||
+            "",
+
+        year:
+            storedUser?.year ||
+            "",
+
+        role:
+            storedUser?.role ||
+            localStorage.getItem("userRole") ||
+            "Student",
+
+        memberSince:
+            getMemberSinceYear(
+                storedUser?.createdAt ||
+                storedUser?.created_at
+            ),
     });
 
 
@@ -74,6 +128,162 @@ function ProfilePage() {
 
     const [profileMessage, setProfileMessage] =
         useState("");
+
+
+    /* ===================================================== */
+    /* QUIZ STATISTICS */
+    /* ===================================================== */
+
+    const [quizStatistics, setQuizStatistics] =
+        useState({
+            questionsAnswered: 0,
+            quizzesDone: 0,
+            averageScore: 0,
+        });
+
+    const [quizStatsLoading, setQuizStatsLoading] =
+        useState(true);
+
+
+    /* ===================================================== */
+    /* GET LOGGED-IN USER ID */
+    /* ===================================================== */
+
+    const getUserId = () => {
+
+        const storedId =
+            localStorage.getItem("userId");
+
+        if (storedId) {
+            return Number(storedId);
+        }
+
+        return storedUser?.id ||
+            storedUser?.userId ||
+            null;
+    };
+
+
+    /* ===================================================== */
+    /* LOAD QUIZ STATISTICS */
+    /* ===================================================== */
+
+    const loadQuizStatistics =
+        async () => {
+
+            const userId =
+                getUserId();
+
+            if (!userId) {
+
+                setQuizStatistics({
+                    questionsAnswered: 0,
+                    quizzesDone: 0,
+                    averageScore: 0,
+                });
+
+                setQuizStatsLoading(false);
+
+                return;
+            }
+
+            try {
+
+                setQuizStatsLoading(true);
+
+                const response =
+                    await fetch(
+                        `http://localhost:8080/api/quiz-attempts/student/${userId}`
+                    );
+
+                if (!response.ok) {
+
+                    throw new Error(
+                        `Failed to load quiz statistics (${response.status})`
+                    );
+                }
+
+                const data =
+                    await response.json();
+
+                const attempts =
+                    Array.isArray(data)
+                        ? data
+                        : [];
+
+                const quizzesDone =
+                    attempts.length;
+
+                const questionsAnswered =
+                    attempts.reduce(
+                        (
+                            total,
+                            attempt
+                        ) =>
+                            total +
+                            (
+                                Number(
+                                    attempt?.totalQuestions
+                                ) || 0
+                            ),
+                        0
+                    );
+
+                const averageScore =
+                    quizzesDone > 0
+                        ? Math.round(
+                            attempts.reduce(
+                                (
+                                    total,
+                                    attempt
+                                ) =>
+                                    total +
+                                    (
+                                        Number(
+                                            attempt?.score
+                                        ) || 0
+                                    ),
+                                0
+                            ) /
+                            quizzesDone
+                        )
+                        : 0;
+
+                setQuizStatistics({
+                    questionsAnswered,
+                    quizzesDone,
+                    averageScore,
+                });
+
+            } catch (error) {
+
+                console.error(
+                    "Quiz statistics error:",
+                    error
+                );
+
+                setQuizStatistics({
+                    questionsAnswered: 0,
+                    quizzesDone: 0,
+                    averageScore: 0,
+                });
+
+            } finally {
+
+                setQuizStatsLoading(false);
+            }
+        };
+
+
+    /* ===================================================== */
+    /* LOAD QUIZ STATISTICS ON PAGE OPEN */
+    /* ===================================================== */
+
+    useEffect(() => {
+
+        loadQuizStatistics();
+
+    }, []);
 
 
     /* ===================================================== */
@@ -565,11 +775,12 @@ function ProfilePage() {
 
                     <div className="mt-6 grid grid-cols-3 rounded-2xl bg-slate-50 px-4 py-5">
 
-
                         <div className="text-center">
 
                             <p className="text-2xl font-bold text-slate-900">
-                                347
+                                {quizStatsLoading
+                                    ? "..."
+                                    : quizStatistics.questionsAnswered}
                             </p>
 
                             <p className="mt-1 text-xs text-slate-400">
@@ -582,7 +793,9 @@ function ProfilePage() {
                         <div className="border-x border-slate-200 text-center">
 
                             <p className="text-2xl font-bold text-slate-900">
-                                28
+                                {quizStatsLoading
+                                    ? "..."
+                                    : quizStatistics.quizzesDone}
                             </p>
 
                             <p className="mt-1 text-xs text-slate-400">
@@ -595,7 +808,9 @@ function ProfilePage() {
                         <div className="text-center">
 
                             <p className="text-2xl font-bold text-slate-900">
-                                76%
+                                {quizStatsLoading
+                                    ? "..."
+                                    : `${quizStatistics.averageScore}%`}
                             </p>
 
                             <p className="mt-1 text-xs text-slate-400">
@@ -1042,4 +1257,4 @@ function ProfilePage() {
 }
 
 
-export default ProfilePage;
+export default ProfilePage; 
