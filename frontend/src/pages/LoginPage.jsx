@@ -52,7 +52,7 @@ function LoginPage() {
       // -------------------------------------------------------
 
       const response = await fetch(
-        "http://localhost:8080/api/users/login",
+        `${import.meta.env.VITE_API_BASE_URL}/api/users/login`,
         {
           method: "POST",
 

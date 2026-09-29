@@ -155,7 +155,7 @@ function TeacherUnitsPage() {
         try {
 
             const response = await fetch(
-                "http://localhost:8080/api/units",
+                `${import.meta.env.VITE_API_BASE_URL}/api/units`,
                 {
                     method: "POST",
 

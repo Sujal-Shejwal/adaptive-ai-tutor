@@ -42,7 +42,7 @@ function TeacherSubjectsPage() {
             setError("");
 
             const response = await fetch(
-                "http://localhost:8080/api/subjects"
+                `${import.meta.env.VITE_API_BASE_URL}/api/subjects`
             );
 
             if (!response.ok) {
@@ -201,7 +201,7 @@ function TeacherSubjectsPage() {
         try {
 
             const response = await fetch(
-                "http://localhost:8080/api/subjects",
+                `${import.meta.env.VITE_API_BASE_URL}/api/subjects`,
                 {
                     method: "POST",
 

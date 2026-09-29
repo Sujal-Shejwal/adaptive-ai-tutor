@@ -119,7 +119,7 @@ function SubjectsPage() {
 
             const subjectsResponse =
                 await fetch(
-                    "http://localhost:8080/api/subjects"
+                    `${import.meta.env.VITE_API_BASE_URL}/api/subjects`
                 );
 
 

@@ -257,7 +257,7 @@ export default function TeacherDashboardPage() {
 
         const response =
           await fetch(
-            "http://localhost:8080/api/subjects"
+            `${import.meta.env.VITE_API_BASE_URL}/api/subjects`
           );
 
         if (!response.ok) {
@@ -335,7 +335,7 @@ export default function TeacherDashboardPage() {
 
         const response =
           await fetch(
-            "http://localhost:8080/api/notes"
+            `${import.meta.env.VITE_API_BASE_URL}/api/notes`
           );
 
         if (!response.ok) {
@@ -421,7 +421,7 @@ export default function TeacherDashboardPage() {
 
         const response =
           await fetch(
-            "http://localhost:8080/api/quizzes"
+            `${import.meta.env.VITE_API_BASE_URL}/api/quizzes`
           );
 
         if (!response.ok) {

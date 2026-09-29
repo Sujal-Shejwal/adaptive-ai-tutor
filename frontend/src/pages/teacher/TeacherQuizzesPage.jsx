@@ -123,7 +123,7 @@ function TeacherQuizzesPage() {
         try {
 
             const response = await fetch(
-                "http://localhost:8080/api/subjects"
+                `${import.meta.env.VITE_API_BASE_URL}/api/subjects`
             );
 
             if (!response.ok) {
@@ -703,7 +703,7 @@ function TeacherQuizzesPage() {
 
             const quizResponse =
                 await fetch(
-                    "http://localhost:8080/api/quizzes",
+                    `${import.meta.env.VITE_API_BASE_URL}/api/quizzes`,
                     {
                         method: "POST",
 

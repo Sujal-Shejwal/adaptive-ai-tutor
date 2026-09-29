@@ -106,7 +106,7 @@ function TeacherUploadNotesPage() {
             setError("");
 
             const response = await fetch(
-                "http://localhost:8080/api/subjects"
+                `${import.meta.env.VITE_API_BASE_URL}/api/subjects`
             );
 
             if (!response.ok) {
@@ -649,7 +649,7 @@ function TeacherUploadNotesPage() {
 
             const response =
                 await fetch(
-                    "http://localhost:8080/api/notes/upload",
+                    `${import.meta.env.VITE_API_BASE_URL}/api/notes/upload`,
                     {
                         method: "POST",
                         body: formData,
@@ -807,7 +807,7 @@ function TeacherUploadNotesPage() {
             );
 
             const response = await fetch(
-                "http://localhost:8080/api/videos",
+                `${import.meta.env.VITE_API_BASE_URL}/api/videos`,
                 {
                     method: "POST",
                     headers: {

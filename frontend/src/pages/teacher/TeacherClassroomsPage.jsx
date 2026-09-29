@@ -31,7 +31,7 @@ import {
   X,
 } from "lucide-react";
 
-const API_BASE = "http://localhost:8080";
+const API_BASE = `${import.meta.env.VITE_API_BASE_URL}`;
 
 export default function TeacherClassroomsPage() {
   const navigate = useNavigate();

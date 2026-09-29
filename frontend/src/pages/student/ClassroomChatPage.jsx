@@ -10,7 +10,7 @@ import {
   WifiOff,
 } from "lucide-react";
 
-const API_BASE = "http://localhost:8080";
+const API_BASE = `${import.meta.env.VITE_API_BASE_URL}`;
 const WS_URL = "ws://localhost:8080/ws";
 
 function getCurrentUserId() {

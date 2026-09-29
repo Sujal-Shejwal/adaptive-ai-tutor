@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 
 const API_URL =
-  "http://localhost:8080";
+  `${import.meta.env.VITE_API_BASE_URL}`;
 
 const formatSeconds = (
   seconds

@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { BookOpen, MessageSquare, ClipboardCheck, ArrowRight, Loader2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
-const API_BASE = "http://localhost:8080";
+const API_BASE = `${import.meta.env.VITE_API_BASE_URL}`;
 
 export default function StudentSubjectsPage() {
     const navigate = useNavigate();
