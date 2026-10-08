@@ -1,6 +1,7 @@
 package com.adaptiveaitutor.backend.controller;
 
 import java.io.IOException;
+import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -34,7 +35,9 @@ import com.adaptiveaitutor.backend.service.RagIngestionService;
 public class NoteController {
 
     private final NoteService noteService;
+
     private final TopicRepository topicRepository;
+
     private final RagIngestionService ragIngestionService;
 
     private final Path uploadDirectory =
@@ -103,7 +106,7 @@ public class NoteController {
     // =====================================================
 
     @GetMapping("/{id}/file")
-    public ResponseEntity<Resource> getNoteFile(
+    public ResponseEntity<?> getNoteFile(
             @PathVariable Long id) {
 
         try {
@@ -124,33 +127,43 @@ public class NoteController {
                         .build();
             }
 
-            // -------------------------------------------------
-            // Get file path
-            // -------------------------------------------------
-
-            Path filePath =
-                    Paths.get(
-                            note.getFilePath()
-                    );
+            String filePath =
+                    note.getFilePath();
 
             // -------------------------------------------------
-            // Check file exists
+            // VERCEL BLOB PDF
             // -------------------------------------------------
 
-            if (!Files.exists(filePath)) {
+            if (
+                    filePath.startsWith("https://") ||
+                    filePath.startsWith("http://")
+            ) {
+
+                return ResponseEntity
+                        .status(302)
+                        .location(
+                                URI.create(filePath)
+                        )
+                        .build();
+            }
+
+            // -------------------------------------------------
+            // LOCAL PDF
+            // -------------------------------------------------
+
+            Path localFilePath =
+                    Paths.get(filePath);
+
+            if (!Files.exists(localFilePath)) {
 
                 return ResponseEntity
                         .notFound()
                         .build();
             }
 
-            // -------------------------------------------------
-            // Convert file to Resource
-            // -------------------------------------------------
-
             Resource resource =
                     new UrlResource(
-                            filePath.toUri()
+                            localFilePath.toUri()
                     );
 
             if (
@@ -162,10 +175,6 @@ public class NoteController {
                         .notFound()
                         .build();
             }
-
-            // -------------------------------------------------
-            // Return PDF
-            // -------------------------------------------------
 
             return ResponseEntity
                     .ok()
@@ -191,7 +200,7 @@ public class NoteController {
     }
 
     // =====================================================
-    // UPLOAD NOTE
+    // UPLOAD NOTE - LOCAL / EXISTING FLOW
     // =====================================================
 
     @PostMapping("/upload")
@@ -333,6 +342,129 @@ public class NoteController {
     }
 
     // =====================================================
+    // UPLOAD NOTE - VERCEL BLOB FLOW
+    // =====================================================
+
+    @PostMapping("/blob")
+    public ResponseEntity<Note> uploadFromBlob(
+            @RequestParam("fileName") String fileName,
+            @RequestParam("blobUrl") String blobUrl,
+            @RequestParam("topicId") Long topicId) {
+
+        try {
+
+            // -------------------------------------------------
+            // Validate file name
+            // -------------------------------------------------
+
+            if (
+                    fileName == null ||
+                    fileName.isBlank()
+            ) {
+
+                return ResponseEntity
+                        .badRequest()
+                        .build();
+            }
+
+            // -------------------------------------------------
+            // Validate Blob URL
+            // -------------------------------------------------
+
+            if (
+                    blobUrl == null ||
+                    blobUrl.isBlank()
+            ) {
+
+                return ResponseEntity
+                        .badRequest()
+                        .build();
+            }
+
+            if (
+                    !blobUrl.startsWith("https://") &&
+                    !blobUrl.startsWith("http://")
+            ) {
+
+                return ResponseEntity
+                        .badRequest()
+                        .build();
+            }
+
+            // -------------------------------------------------
+            // Only PDF
+            // -------------------------------------------------
+
+            if (
+                    !fileName
+                            .toLowerCase()
+                            .endsWith(".pdf")
+            ) {
+
+                return ResponseEntity
+                        .badRequest()
+                        .build();
+            }
+
+            // -------------------------------------------------
+            // Find topic
+            // -------------------------------------------------
+
+            Topic topic =
+                    topicRepository
+                            .findById(topicId)
+                            .orElse(null);
+
+            if (topic == null) {
+
+                return ResponseEntity
+                        .notFound()
+                        .build();
+            }
+
+            // -------------------------------------------------
+            // Save Blob URL in Note
+            // -------------------------------------------------
+
+            Note note =
+                    new Note(
+                            fileName,
+                            blobUrl,
+                            topic
+                    );
+
+            Note savedNote =
+                    noteService.createNote(
+                            note
+                    );
+
+            // =================================================
+            // AUTOMATIC RAG INGESTION
+            // =================================================
+
+            ragIngestionService.ingestNote(
+                    savedNote.getId()
+            );
+
+            // -------------------------------------------------
+            // Return saved note
+            // -------------------------------------------------
+
+            return ResponseEntity.ok(
+                    savedNote
+            );
+
+        } catch (RuntimeException exception) {
+
+            exception.printStackTrace();
+
+            return ResponseEntity
+                    .internalServerError()
+                    .build();
+        }
+    }
+
+    // =====================================================
     // DELETE NOTE
     // =====================================================
 
@@ -377,14 +509,24 @@ public class NoteController {
             // Delete physical PDF file
             // -------------------------------------------------
 
-            Path filePath =
-                    Paths.get(
-                            note.getFilePath()
-                    );
+            String filePath =
+                    note.getFilePath();
 
-            if (Files.exists(filePath)) {
+            // Only delete local files.
+            // Vercel Blob files are not local files.
+            if (
+                    filePath != null &&
+                    !filePath.startsWith("https://") &&
+                    !filePath.startsWith("http://")
+            ) {
 
-                Files.delete(filePath);
+                Path localFilePath =
+                        Paths.get(filePath);
+
+                if (Files.exists(localFilePath)) {
+
+                    Files.delete(localFilePath);
+                }
             }
 
             // -------------------------------------------------

@@ -1,6 +1,9 @@
 package com.adaptiveaitutor.backend.service;
 
 import java.io.IOException;
+import java.net.URI;
+import java.net.URL;
+import java.nio.file.Files;
 import java.nio.file.Path;
 
 import org.apache.pdfbox.Loader;
@@ -15,53 +18,85 @@ public class PdfTextExtractorService {
     // EXTRACT TEXT FROM PDF
     // =====================================================
 
-    public String extractText(
-            String filePath) {
+    public String extractText(String filePath) {
 
-        if (
-                filePath == null ||
-                filePath.isBlank()
-        ) {
+        if (filePath == null || filePath.isBlank()) {
             throw new IllegalArgumentException(
                     "PDF file path cannot be empty"
             );
         }
 
-        Path path =
-                Path.of(filePath);
+        try {
 
-        if (!path.toFile().exists()) {
-
-            throw new RuntimeException(
-                    "PDF file not found: " + filePath
-            );
-        }
-
-        try (
-                PDDocument document =
-                        Loader.loadPDF(
-                                path.toFile()
-                        )
-        ) {
-
-            PDFTextStripper stripper =
-                    new PDFTextStripper();
-
-            String text =
-                    stripper.getText(
-                            document
-                    );
+            // =================================================
+            // VERCEL BLOB / HTTP URL
+            // =================================================
 
             if (
-                    text == null ||
-                    text.isBlank()
+                    filePath.startsWith("http://") ||
+                    filePath.startsWith("https://")
             ) {
+
+                URL url = URI.create(filePath).toURL();
+
+                byte[] pdfBytes;
+
+                try (var inputStream = url.openStream()) {
+                    pdfBytes = inputStream.readAllBytes();
+                }
+
+                try (
+                        PDDocument document =
+                                Loader.loadPDF(pdfBytes)
+                ) {
+
+                    PDFTextStripper stripper =
+                            new PDFTextStripper();
+
+                    String text =
+                            stripper.getText(document);
+
+                    if (text == null || text.isBlank()) {
+                        throw new RuntimeException(
+                                "No text could be extracted from PDF"
+                        );
+                    }
+
+                    return text.trim();
+                }
+            }
+
+            // =================================================
+            // LOCAL FILE PATH
+            // =================================================
+
+            Path path = Path.of(filePath);
+
+            if (!Files.exists(path)) {
                 throw new RuntimeException(
-                        "No text could be extracted from PDF"
+                        "PDF file not found: " + filePath
                 );
             }
 
-            return text.trim();
+            try (
+                    PDDocument document =
+                            Loader.loadPDF(path.toFile())
+            ) {
+
+                PDFTextStripper stripper =
+                        new PDFTextStripper();
+
+                String text =
+                        stripper.getText(document);
+
+                if (text == null || text.isBlank()) {
+                    throw new RuntimeException(
+                            "No text could be extracted from PDF"
+                    );
+                }
+
+                return text.trim();
+            }
 
         } catch (IOException exception) {
 

@@ -1,5 +1,12 @@
 package com.adaptiveaitutor.backend.service;
 
+import java.io.IOException;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -63,118 +70,252 @@ public class RagIngestionService {
             );
         }
 
-        // -------------------------------------------------
-        // 1. Extract PDF text
-        // -------------------------------------------------
+        Path temporaryPdf = null;
 
-        String text =
-                pdfTextExtractorService
-                        .extractText(
-                                note.getFilePath()
+        try {
+
+            // -------------------------------------------------
+            // 1. Get PDF file path
+            // -------------------------------------------------
+
+            String filePath =
+                    note.getFilePath();
+
+            if (
+                    filePath == null ||
+                    filePath.isBlank()
+            ) {
+
+                throw new RuntimeException(
+                        "PDF file path is empty for note: "
+                                + noteId
+                );
+            }
+
+            // -------------------------------------------------
+            // 2. Handle Vercel Blob PDF
+            // -------------------------------------------------
+
+            if (
+                    filePath.startsWith("https://") ||
+                    filePath.startsWith("http://")
+            ) {
+
+                temporaryPdf =
+                        downloadBlobPdf(
+                                filePath
                         );
 
-        // -------------------------------------------------
-        // 2. Split text into chunks
-        // -------------------------------------------------
+                filePath =
+                        temporaryPdf.toString();
+            }
 
-        List<String> chunks =
-                textChunkingService
-                        .chunkText(text);
+            // -------------------------------------------------
+            // 3. Extract PDF text
+            // -------------------------------------------------
 
-        if (chunks.isEmpty()) {
+            String text =
+                    pdfTextExtractorService
+                            .extractText(
+                                    filePath
+                            );
 
-            throw new RuntimeException(
-                    "No text chunks created for note: "
-                            + noteId
+            // -------------------------------------------------
+            // 4. Split text into chunks
+            // -------------------------------------------------
+
+            List<String> chunks =
+                    textChunkingService
+                            .chunkText(text);
+
+            if (chunks.isEmpty()) {
+
+                throw new RuntimeException(
+                        "No text chunks created for note: "
+                                + noteId
+                );
+            }
+
+            // -------------------------------------------------
+            // 5. Convert chunks into Spring AI Documents
+            // -------------------------------------------------
+
+            List<Document> documents =
+                    new ArrayList<>();
+
+            for (
+                    int i = 0;
+                    i < chunks.size();
+                    i++
+            ) {
+
+                Map<String, Object> metadata =
+                        new HashMap<>();
+
+                metadata.put(
+                        "noteId",
+                        note.getId()
+                );
+
+                metadata.put(
+                        "fileName",
+                        note.getFileName()
+                );
+
+                metadata.put(
+                        "topicId",
+                        note.getTopic().getId()
+                );
+
+                metadata.put(
+                        "chunkIndex",
+                        i
+                );
+
+                Document document =
+                        new Document(
+                                chunks.get(i),
+                                metadata
+                        );
+
+                documents.add(document);
+            }
+
+            // -------------------------------------------------
+            // 6. Store chunks in PGVector
+            // -------------------------------------------------
+
+            vectorStore.add(
+                    documents
             );
-        }
 
-        // -------------------------------------------------
-        // 3. Convert chunks into Spring AI Documents
-        // -------------------------------------------------
+            // -------------------------------------------------
+            // 7. Return result
+            // -------------------------------------------------
 
-        List<Document> documents =
-                new ArrayList<>();
-
-        for (
-                int i = 0;
-                i < chunks.size();
-                i++
-        ) {
-
-            Map<String, Object> metadata =
+            Map<String, Object> result =
                     new HashMap<>();
 
-            metadata.put(
-                    "noteId",
-                    note.getId()
+            result.put(
+                    "success",
+                    true
             );
 
-            metadata.put(
+            result.put(
+                    "noteId",
+                    noteId
+            );
+
+            result.put(
                     "fileName",
                     note.getFileName()
             );
 
-            metadata.put(
-                    "topicId",
-                    note.getTopic().getId()
+            result.put(
+                    "totalChunks",
+                    documents.size()
             );
 
-            metadata.put(
-                    "chunkIndex",
-                    i
+            result.put(
+                    "message",
+                    "PDF successfully ingested into PGVector"
             );
 
-            Document document =
-                    new Document(
-                            chunks.get(i),
-                            metadata
+            return result;
+
+        } catch (Exception exception) {
+
+            throw new RuntimeException(
+                    "Failed to ingest PDF: "
+                            + note.getFileName(),
+                    exception
+            );
+
+        } finally {
+
+            // -------------------------------------------------
+            // 8. Delete temporary Blob PDF
+            // -------------------------------------------------
+
+            if (temporaryPdf != null) {
+
+                try {
+
+                    Files.deleteIfExists(
+                            temporaryPdf
                     );
 
-            documents.add(document);
+                } catch (IOException exception) {
+
+                    System.err.println(
+                            "Could not delete temporary PDF: "
+                                    + temporaryPdf
+                    );
+                }
+            }
         }
+    }
 
-        // -------------------------------------------------
-        // 4. Store in PGVector
-        // -------------------------------------------------
+    // =====================================================
+    // DOWNLOAD VERCEL BLOB PDF
+    // =====================================================
 
-        vectorStore.add(
-                documents
-        );
+    private Path downloadBlobPdf(
+            String blobUrl) {
 
-        // -------------------------------------------------
-        // 5. Return result
-        // -------------------------------------------------
+        try {
 
-        Map<String, Object> result =
-                new HashMap<>();
+            HttpClient httpClient =
+                    HttpClient.newHttpClient();
 
-        result.put(
-                "success",
-                true
-        );
+            HttpRequest request =
+                    HttpRequest.newBuilder()
+                            .uri(
+                                    URI.create(
+                                            blobUrl
+                                    )
+                            )
+                            .GET()
+                            .build();
 
-        result.put(
-                "noteId",
-                noteId
-        );
+            HttpResponse<byte[]> response =
+                    httpClient.send(
+                            request,
+                            HttpResponse.BodyHandlers
+                                    .ofByteArray()
+                    );
 
-        result.put(
-                "fileName",
-                note.getFileName()
-        );
+            if (
+                    response.statusCode() < 200 ||
+                    response.statusCode() >= 300
+            ) {
 
-        result.put(
-                "totalChunks",
-                documents.size()
-        );
+                throw new RuntimeException(
+                        "Failed to download PDF from Vercel Blob. HTTP status: "
+                                + response.statusCode()
+                );
+            }
 
-        result.put(
-                "message",
-                "PDF successfully ingested into PGVector"
-        );
+            Path temporaryFile =
+                    Files.createTempFile(
+                            "adaptive-ai-tutor-",
+                            ".pdf"
+                    );
 
-        return result;
+            Files.write(
+                    temporaryFile,
+                    response.body()
+            );
+
+            return temporaryFile;
+
+        } catch (Exception exception) {
+
+            throw new RuntimeException(
+                    "Failed to download PDF from Vercel Blob",
+                    exception
+            );
+        }
     }
 
     // =====================================================
