@@ -5,10 +5,83 @@ import { User, Lock, Eye, EyeOff } from "lucide-react";
 
 function SignupPage() {
   const [role, setRole] = useState("student");
+
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
+  const [loading, setLoading] = useState(false);
+
   const navigate = useNavigate();
+
+  const API_URL =
+    import.meta.env.VITE_API_BASE_URL || "http://localhost:8080";
+
+  const handleSignup = async () => {
+    // Basic validation
+    if (!name.trim() || !email.trim() || !password || !confirmPassword) {
+      alert("Please fill all fields.");
+      return;
+    }
+
+    // Password validation
+    if (password !== confirmPassword) {
+      alert("Passwords do not match.");
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const response = await fetch(`${API_URL}/api/users/signup`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: name.trim(),
+          email: email.trim(),
+          password: password,
+          role: role,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          typeof data === "string"
+            ? data
+            : data.message || "Unable to create account."
+        );
+      }
+
+      // Save logged-in user information
+      localStorage.setItem("user", JSON.stringify(data));
+
+      alert("Account created successfully!");
+
+      // Redirect according to selected role
+      if (role === "teacher") {
+        navigate("/teacher/dashboard");
+      } else {
+        navigate("/student/dashboard");
+      }
+    } catch (error) {
+      console.error("Signup error:", error);
+
+      alert(
+        error.message ||
+          "Unable to connect to the server. Please try again."
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <main className="flex min-h-screen flex-col items-center bg-slate-50 pt-14">
@@ -32,6 +105,7 @@ function SignupPage() {
         {/* Student / Teacher Toggle */}
         <div className="flex rounded-2xl bg-slate-100 p-1">
           <button
+            type="button"
             onClick={() => setRole("student")}
             className={`flex-1 rounded-xl py-3 text-[16px] font-medium transition ${
               role === "student"
@@ -43,6 +117,7 @@ function SignupPage() {
           </button>
 
           <button
+            type="button"
             onClick={() => setRole("teacher")}
             className={`flex-1 rounded-xl py-3 text-[16px] font-medium transition ${
               role === "teacher"
@@ -68,6 +143,8 @@ function SignupPage() {
 
             <input
               type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
               placeholder="Aryan Sharma"
               className="h-[50px] w-full rounded-xl border border-gray-200 pl-11 pr-4 text-[15px] text-slate-700 placeholder:text-slate-400 focus:border-blue-600 focus:outline-none"
             />
@@ -82,6 +159,8 @@ function SignupPage() {
 
           <input
             type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
             placeholder="aryan@college.edu"
             className="h-[50px] w-full rounded-xl border border-gray-200 px-4 text-[15px] text-slate-700 placeholder:text-slate-400 focus:border-blue-600 focus:outline-none"
           />
@@ -101,6 +180,8 @@ function SignupPage() {
 
             <input
               type={showPassword ? "text" : "password"}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
               placeholder="Create a strong password"
               className="h-[50px] w-full rounded-xl border border-gray-200 pl-11 pr-11 text-[15px] text-slate-700 placeholder:text-slate-400 focus:border-blue-600 focus:outline-none"
             />
@@ -129,6 +210,8 @@ function SignupPage() {
 
             <input
               type={showConfirmPassword ? "text" : "password"}
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
               placeholder="Confirm your password"
               className="h-[50px] w-full rounded-xl border border-gray-200 pl-11 pr-11 text-[15px] text-slate-700 placeholder:text-slate-400 focus:border-blue-600 focus:outline-none"
             />
@@ -151,10 +234,18 @@ function SignupPage() {
 
         {/* Create Account Button */}
         <button
-          onClick={() => navigate("/student/dashboard")}
-          className="mt-7 h-[52px] w-full rounded-xl bg-blue-600 text-[17px] font-semibold text-white transition hover:bg-blue-700"
+          type="button"
+          onClick={handleSignup}
+          disabled={loading}
+          className={`mt-7 h-[52px] w-full rounded-xl text-[17px] font-semibold text-white transition ${
+            loading
+              ? "cursor-not-allowed bg-blue-400"
+              : "bg-blue-600 hover:bg-blue-700"
+          }`}
         >
-          Create {role === "student" ? "Student" : "Teacher"} Account
+          {loading
+            ? "Creating Account..."
+            : `Create ${role === "student" ? "Student" : "Teacher"} Account`}
         </button>
 
         {/* Terms & Privacy */}
@@ -183,6 +274,7 @@ function SignupPage() {
         <div className="text-center text-sm text-slate-500">
           Already have an account?{" "}
           <button
+            type="button"
             onClick={() => navigate("/login")}
             className="font-semibold text-blue-600 hover:underline"
           >
