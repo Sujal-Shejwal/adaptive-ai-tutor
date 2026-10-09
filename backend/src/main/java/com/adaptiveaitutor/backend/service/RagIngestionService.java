@@ -35,222 +35,128 @@ public class RagIngestionService {
             VectorStore vectorStore,
             JdbcTemplate jdbcTemplate) {
 
-        this.noteService =
-                noteService;
-
-        this.pdfTextExtractorService =
-                pdfTextExtractorService;
-
-        this.textChunkingService =
-                textChunkingService;
-
-        this.vectorStore =
-                vectorStore;
-
-        this.jdbcTemplate =
-                jdbcTemplate;
+        this.noteService = noteService;
+        this.pdfTextExtractorService = pdfTextExtractorService;
+        this.textChunkingService = textChunkingService;
+        this.vectorStore = vectorStore;
+        this.jdbcTemplate = jdbcTemplate;
     }
 
     // =====================================================
     // INGEST ONE PDF INTO VECTOR STORE
     // =====================================================
 
-    public Map<String, Object> ingestNote(
-            Long noteId) {
+    public Map<String, Object> ingestNote(Long noteId) {
 
-        Note note =
-                noteService
-                        .getNoteById(noteId)
-                        .orElse(null);
+        Note note = noteService
+                .getNoteById(noteId)
+                .orElse(null);
 
         if (note == null) {
-
-            throw new RuntimeException(
-                    "Note not found: " + noteId
-            );
+            throw new RuntimeException("Note not found: " + noteId);
         }
 
         Path temporaryPdf = null;
 
         try {
 
-            // -------------------------------------------------
             // 1. Get PDF file path
-            // -------------------------------------------------
 
-            String filePath =
-                    note.getFilePath();
+            String filePath = note.getFilePath();
 
-            if (
-                    filePath == null ||
-                    filePath.isBlank()
-            ) {
-
+            if (filePath == null || filePath.isBlank()) {
                 throw new RuntimeException(
-                        "PDF file path is empty for note: "
-                                + noteId
-                );
+                        "PDF file path is empty for note: " + noteId);
             }
 
-            // -------------------------------------------------
             // 2. Handle Vercel Blob PDF
-            // -------------------------------------------------
 
-            if (
-                    filePath.startsWith("https://") ||
-                    filePath.startsWith("http://")
-            ) {
+            if (filePath.startsWith("https://")
+                    || filePath.startsWith("http://")) {
 
-                temporaryPdf =
-                        downloadBlobPdf(
-                                filePath
-                        );
-
-                filePath =
-                        temporaryPdf.toString();
+                temporaryPdf = downloadBlobPdf(filePath);
+                filePath = temporaryPdf.toString();
             }
 
-            // -------------------------------------------------
             // 3. Extract PDF text
-            // -------------------------------------------------
 
-            String text =
-                    pdfTextExtractorService
-                            .extractText(
-                                    filePath
-                            );
+            String text = pdfTextExtractorService.extractText(filePath);
 
-            // -------------------------------------------------
             // 4. Split text into chunks
-            // -------------------------------------------------
 
-            List<String> chunks =
-                    textChunkingService
-                            .chunkText(text);
+            List<String> chunks = textChunkingService.chunkText(text);
 
             if (chunks.isEmpty()) {
-
                 throw new RuntimeException(
-                        "No text chunks created for note: "
-                                + noteId
-                );
+                        "No text chunks created for note: " + noteId);
             }
 
-            // -------------------------------------------------
             // 5. Convert chunks into Spring AI Documents
-            // -------------------------------------------------
 
-            List<Document> documents =
-                    new ArrayList<>();
+            List<Document> documents = new ArrayList<>();
 
-            for (
-                    int i = 0;
-                    i < chunks.size();
-                    i++
-            ) {
+            for (int i = 0; i < chunks.size(); i++) {
 
-                Map<String, Object> metadata =
-                        new HashMap<>();
+                Map<String, Object> metadata = new HashMap<>();
 
-                metadata.put(
-                        "noteId",
-                        note.getId()
-                );
+                metadata.put("noteId", note.getId());
+                metadata.put("fileName", note.getFileName());
+                metadata.put("topicId", note.getTopic().getId());
+                metadata.put("chunkIndex", i);
 
-                metadata.put(
-                        "fileName",
-                        note.getFileName()
-                );
-
-                metadata.put(
-                        "topicId",
-                        note.getTopic().getId()
-                );
-
-                metadata.put(
-                        "chunkIndex",
-                        i
-                );
-
-                Document document =
-                        new Document(
-                                chunks.get(i),
-                                metadata
-                        );
+                Document document = new Document(chunks.get(i), metadata);
 
                 documents.add(document);
             }
 
-            // -------------------------------------------------
-            // 6. Store chunks in PGVector
-            // -------------------------------------------------
+            // 6. Log diagnostic information before embedding
 
-            vectorStore.add(
-                    documents
-            );
+            System.out.println("========== PDF INGESTION DEBUG ==========");
+            System.out.println("Note ID: " + noteId);
+            System.out.println("File name: " + note.getFileName());
+            System.out.println("Extracted text length: "
+                    + (text == null ? 0 : text.length()));
+            System.out.println("Chunks created: " + chunks.size());
+            System.out.println("Documents created: " + documents.size());
+            System.out.println("==========================================");
 
-            // -------------------------------------------------
-            // 7. Return result
-            // -------------------------------------------------
+            if (documents.isEmpty()) {
+                throw new RuntimeException(
+                        "No documents created for embedding. Note ID: " + noteId);
+            }
 
-            Map<String, Object> result =
-                    new HashMap<>();
+            // 7. Store chunks in PGVector
 
-            result.put(
-                    "success",
-                    true
-            );
+            vectorStore.add(documents);
 
-            result.put(
-                    "noteId",
-                    noteId
-            );
+            // 8. Return result
 
-            result.put(
-                    "fileName",
-                    note.getFileName()
-            );
+            Map<String, Object> result = new HashMap<>();
 
-            result.put(
-                    "totalChunks",
-                    documents.size()
-            );
-
-            result.put(
-                    "message",
-                    "PDF successfully ingested into PGVector"
-            );
+            result.put("success", true);
+            result.put("noteId", noteId);
+            result.put("fileName", note.getFileName());
+            result.put("totalChunks", documents.size());
+            result.put("message", "PDF successfully ingested into PGVector");
 
             return result;
 
         } catch (Exception exception) {
 
             throw new RuntimeException(
-                    "Failed to ingest PDF: "
-                            + note.getFileName(),
-                    exception
-            );
+                    "Failed to ingest PDF: " + note.getFileName(),
+                    exception);
 
         } finally {
 
-            // -------------------------------------------------
-            // 8. Delete temporary Blob PDF
-            // -------------------------------------------------
+            // 9. Delete temporary Blob PDF
 
             if (temporaryPdf != null) {
-
                 try {
-
-                    Files.deleteIfExists(
-                            temporaryPdf
-                    );
-
+                    Files.deleteIfExists(temporaryPdf);
                 } catch (IOException exception) {
-
                     System.err.println(
-                            "Could not delete temporary PDF: "
-                                    + temporaryPdf
-                    );
+                            "Could not delete temporary PDF: " + temporaryPdf);
                 }
             }
         }
@@ -260,52 +166,34 @@ public class RagIngestionService {
     // DOWNLOAD VERCEL BLOB PDF
     // =====================================================
 
-    private Path downloadBlobPdf(
-            String blobUrl) {
+    private Path downloadBlobPdf(String blobUrl) {
 
         try {
 
-            HttpClient httpClient =
-                    HttpClient.newHttpClient();
+            HttpClient httpClient = HttpClient.newHttpClient();
 
-            HttpRequest request =
-                    HttpRequest.newBuilder()
-                            .uri(
-                                    URI.create(
-                                            blobUrl
-                                    )
-                            )
-                            .GET()
-                            .build();
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(blobUrl))
+                    .GET()
+                    .build();
 
-            HttpResponse<byte[]> response =
-                    httpClient.send(
-                            request,
-                            HttpResponse.BodyHandlers
-                                    .ofByteArray()
-                    );
+            HttpResponse<byte[]> response = httpClient.send(
+                    request,
+                    HttpResponse.BodyHandlers.ofByteArray());
 
-            if (
-                    response.statusCode() < 200 ||
-                    response.statusCode() >= 300
-            ) {
+            if (response.statusCode() < 200
+                    || response.statusCode() >= 300) {
 
                 throw new RuntimeException(
                         "Failed to download PDF from Vercel Blob. HTTP status: "
-                                + response.statusCode()
-                );
+                                + response.statusCode());
             }
 
-            Path temporaryFile =
-                    Files.createTempFile(
-                            "adaptive-ai-tutor-",
-                            ".pdf"
-                    );
+            Path temporaryFile = Files.createTempFile(
+                    "adaptive-ai-tutor-",
+                    ".pdf");
 
-            Files.write(
-                    temporaryFile,
-                    response.body()
-            );
+            Files.write(temporaryFile, response.body());
 
             return temporaryFile;
 
@@ -313,8 +201,7 @@ public class RagIngestionService {
 
             throw new RuntimeException(
                     "Failed to download PDF from Vercel Blob",
-                    exception
-            );
+                    exception);
         }
     }
 
@@ -322,23 +209,17 @@ public class RagIngestionService {
     // DELETE VECTOR CHUNKS FOR NOTE
     // =====================================================
 
-    public int deleteVectorsForNote(
-            Long noteId) {
+    public int deleteVectorsForNote(Long noteId) {
 
         if (noteId == null) {
-
             return 0;
         }
 
-        String sql =
-                """
+        String sql = """
                 DELETE FROM public.vector_store
                 WHERE metadata->>'noteId' = ?
                 """;
 
-        return jdbcTemplate.update(
-                sql,
-                noteId.toString()
-        );
+        return jdbcTemplate.update(sql, noteId.toString());
     }
 }
