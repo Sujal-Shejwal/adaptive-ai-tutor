@@ -1,609 +1,648 @@
 import {
-  Search,
-  Bell,
-  UserRound,
-  Check,
-  CheckCheck,
+    Search,
+    Bell,
+    UserRound,
+    Check,
+    CheckCheck,
 } from "lucide-react";
 
 import {
-  Link,
-  useNavigate,
+    Link,
+    useNavigate,
 } from "react-router-dom";
 
 import {
-  useEffect,
-  useState,
+    useEffect,
+    useState,
 } from "react";
+
 
 const DashboardHeader = () => {
 
-  const [showProfileMenu, setShowProfileMenu] =
-    useState(false);
+    const [showProfileMenu, setShowProfileMenu] =
+        useState(false);
 
-  const [showNotifications, setShowNotifications] =
-    useState(false);
+    const [showNotifications, setShowNotifications] =
+        useState(false);
 
-  const [notifications, setNotifications] =
-    useState([]);
+    const [notifications, setNotifications] =
+        useState([]);
 
-  const [unreadCount, setUnreadCount] =
-    useState(0);
+    const [unreadCount, setUnreadCount] =
+        useState(0);
 
-  const navigate = useNavigate();
+    const navigate = useNavigate();
 
-  // =====================================================
-  // LOGGED-IN USER
-  // =====================================================
 
-  const userId =
-    localStorage.getItem("userId");
+    // =====================================================
+    // API BASE URL
+    // =====================================================
 
-  const userName =
-    localStorage.getItem("userName") ||
-    "Student";
+    const API_URL =
+        import.meta.env.VITE_API_BASE_URL ||
+        "http://localhost:8080";
 
-  const userRole =
-    localStorage.getItem("userRole") ||
-    "student";
 
-  const displayRole =
-    userRole.charAt(0).toUpperCase() +
-    userRole.slice(1);
+    // =====================================================
+    // LOGGED-IN USER
+    // =====================================================
 
-  // =====================================================
-  // LOAD NOTIFICATIONS
-  // =====================================================
+    const userId =
+        localStorage.getItem("userId");
 
-  const loadNotifications = async () => {
+    const userName =
+        localStorage.getItem("userName") ||
+        "Student";
 
-    if (!userId) {
-      return;
-    }
+    const userRole =
+        localStorage.getItem("userRole") ||
+        "student";
 
-    try {
+    const displayRole =
+        userRole.charAt(0).toUpperCase() +
+        userRole.slice(1);
 
-      const response =
-        await fetch(
-          `http://localhost:8080/api/notifications/user/${userId}`
-        );
 
-      if (!response.ok) {
-        return;
-      }
+    // =====================================================
+    // LOAD NOTIFICATIONS
+    // =====================================================
 
-      const data =
-        await response.json();
+    const loadNotifications = async () => {
 
-      setNotifications(
-        Array.isArray(data)
-          ? data
-          : []
-      );
-
-      const unread =
-        Array.isArray(data)
-          ? data.filter(
-              (notification) =>
-                !notification.read
-            ).length
-          : 0;
-
-      setUnreadCount(unread);
-
-    } catch (error) {
-
-      console.error(
-        "Failed to load notifications:",
-        error
-      );
-    }
-  };
-
-  // =====================================================
-  // LOAD NOTIFICATIONS ON PAGE LOAD
-  // =====================================================
-
-  useEffect(() => {
-
-    loadNotifications();
-
-  }, [userId]);
-
-  // =====================================================
-  // OPEN / CLOSE NOTIFICATION PANEL
-  // =====================================================
-
-  const handleNotificationClick = () => {
-
-    setShowNotifications(
-      (previous) => !previous
-    );
-
-    setShowProfileMenu(false);
-
-    loadNotifications();
-  };
-
-  // =====================================================
-  // MARK ONE NOTIFICATION AS READ
-  // =====================================================
-
-  const markNotificationAsRead =
-    async (notificationId) => {
-
-      try {
-
-        const response =
-          await fetch(
-            `http://localhost:8080/api/notifications/${notificationId}/read`,
-            {
-              method: "POST",
-            }
-          );
-
-        if (!response.ok) {
-          return;
+        if (!userId) {
+            return;
         }
 
-        setNotifications(
-          (previous) =>
-            previous.map(
-              (notification) =>
-                notification.id === notificationId
-                  ? {
-                      ...notification,
-                      read: true,
-                    }
-                  : notification
-            )
-        );
+        try {
 
-        setUnreadCount(
-          (previous) =>
-            Math.max(0, previous - 1)
-        );
+            const response =
+                await fetch(
+                    `${API_URL}/api/notifications/user/${userId}`
+                );
 
-      } catch (error) {
+            if (!response.ok) {
+                return;
+            }
 
-        console.error(
-          "Failed to mark notification as read:",
-          error
-        );
-      }
+            const data =
+                await response.json();
+
+            setNotifications(
+                Array.isArray(data)
+                    ? data
+                    : []
+            );
+
+            const unread =
+                Array.isArray(data)
+                    ? data.filter(
+                        (notification) =>
+                            !notification.read
+                    ).length
+                    : 0;
+
+            setUnreadCount(unread);
+
+        } catch (error) {
+
+            console.error(
+                "Failed to load notifications:",
+                error
+            );
+        }
     };
 
-  // =====================================================
-  // MARK ALL AS READ
-  // =====================================================
 
-  const markAllAsRead = async () => {
+    // =====================================================
+    // LOAD NOTIFICATIONS ON PAGE LOAD
+    // =====================================================
 
-    if (!userId) {
-      return;
-    }
+    useEffect(() => {
 
-    try {
+        loadNotifications();
 
-      const response =
-        await fetch(
-          `http://localhost:8080/api/notifications/user/${userId}/read-all`,
-          {
-            method: "POST",
-          }
+    }, [userId]);
+
+
+    // =====================================================
+    // OPEN / CLOSE NOTIFICATION PANEL
+    // =====================================================
+
+    const handleNotificationClick = () => {
+
+        setShowNotifications(
+            (previous) => !previous
         );
 
-      if (!response.ok) {
-        return;
-      }
+        setShowProfileMenu(false);
 
-      setNotifications(
-        (previous) =>
-          previous.map(
-            (notification) => ({
-              ...notification,
-              read: true,
-            })
-          )
-      );
+        loadNotifications();
+    };
 
-      setUnreadCount(0);
 
-    } catch (error) {
+    // =====================================================
+    // MARK ONE NOTIFICATION AS READ
+    // =====================================================
 
-      console.error(
-        "Failed to mark all notifications as read:",
-        error
-      );
-    }
-  };
+    const markNotificationAsRead =
+        async (notificationId) => {
 
-  // =====================================================
-  // LOGOUT
-  // =====================================================
+            try {
 
-  const handleLogout = () => {
+                const response =
+                    await fetch(
+                        `${API_URL}/api/notifications/${notificationId}/read`,
+                        {
+                            method: "POST",
+                        }
+                    );
 
-    localStorage.removeItem("userRole");
-    localStorage.removeItem("userId");
-    localStorage.removeItem("userName");
-    localStorage.removeItem("userEmail");
+                if (!response.ok) {
+                    return;
+                }
 
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
+                setNotifications(
+                    (previous) =>
+                        previous.map(
+                            (notification) =>
+                                notification.id === notificationId
+                                    ? {
+                                        ...notification,
+                                        read: true,
+                                    }
+                                    : notification
+                        )
+                );
 
-    setShowProfileMenu(false);
-    setShowNotifications(false);
+                setUnreadCount(
+                    (previous) =>
+                        Math.max(0, previous - 1)
+                );
 
-    navigate("/login");
-  };
+            } catch (error) {
 
-  return (
-
-    <header className="fixed left-[290px] right-0 top-0 z-40 flex h-[68px] items-center justify-between border-b border-gray-200 bg-white px-6">
-
-      {/* ================================================= */}
-      {/* SEARCH                                            */}
-      {/* ================================================= */}
-
-      <div className="w-full max-w-[478px]">
-
-        <div className="flex h-10 items-center gap-3 rounded-xl border border-gray-200 bg-gray-50 px-3">
-
-          <Search
-            size={18}
-            className="text-gray-400"
-          />
-
-          <input
-            type="text"
-            placeholder="Search subjects, topics, notes..."
-            className="w-full bg-transparent text-sm text-gray-700 outline-none placeholder:text-gray-400"
-          />
-
-        </div>
-
-      </div>
-
-      {/* ================================================= */}
-      {/* RIGHT SIDE                                        */}
-      {/* ================================================= */}
-
-      <div className="ml-6 flex items-center gap-3">
-
-        {/* ================================================= */}
-        {/* NOTIFICATIONS                                     */}
-        {/* ================================================= */}
-
-        <div className="relative">
-
-          <button
-            type="button"
-            onClick={
-              handleNotificationClick
+                console.error(
+                    "Failed to mark notification as read:",
+                    error
+                );
             }
-            className="relative flex h-10 w-10 items-center justify-center rounded-xl border border-gray-200 bg-white transition hover:bg-gray-50"
-          >
+        };
 
-            <Bell
-              size={19}
-              className="text-gray-500"
-            />
 
-            {/* Unread indicator */}
+    // =====================================================
+    // MARK ALL AS READ
+    // =====================================================
 
-            {unreadCount > 0 && (
+    const markAllAsRead = async () => {
 
-              <span className="absolute right-1.5 top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-semibold text-white">
+        if (!userId) {
+            return;
+        }
 
-                {unreadCount > 9
-                  ? "9+"
-                  : unreadCount}
+        try {
 
-              </span>
+            const response =
+                await fetch(
+                    `${API_URL}/api/notifications/user/${userId}/read-all`,
+                    {
+                        method: "POST",
+                    }
+                );
 
-            )}
+            if (!response.ok) {
+                return;
+            }
 
-          </button>
+            setNotifications(
+                (previous) =>
+                    previous.map(
+                        (notification) => ({
+                            ...notification,
+                            read: true,
+                        })
+                    )
+            );
 
-          {/* ================================================= */}
-          {/* NOTIFICATION DROPDOWN                             */}
-          {/* ================================================= */}
+            setUnreadCount(0);
 
-          {showNotifications && (
+        } catch (error) {
 
-            <div className="absolute right-0 top-[48px] z-[100] w-[380px] overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-xl">
+            console.error(
+                "Failed to mark all notifications as read:",
+                error
+            );
+        }
+    };
 
-              {/* Header */}
 
-              <div className="flex items-center justify-between border-b border-gray-200 px-5 py-4">
+    // =====================================================
+    // LOGOUT
+    // =====================================================
 
-                <div>
+    const handleLogout = () => {
 
-                  <h3 className="text-sm font-semibold text-gray-900">
-                    Notifications
-                  </h3>
+        localStorage.removeItem("userRole");
+        localStorage.removeItem("userId");
+        localStorage.removeItem("userName");
+        localStorage.removeItem("userEmail");
 
-                  <p className="mt-0.5 text-xs text-gray-400">
+        localStorage.removeItem("token");
+        localStorage.removeItem("user");
 
-                    {unreadCount > 0
-                      ? `${unreadCount} unread`
-                      : "You're all caught up"}
+        setShowProfileMenu(false);
+        setShowNotifications(false);
 
-                  </p>
+        navigate("/login");
+    };
+
+
+    // =====================================================
+    // RENDER
+    // =====================================================
+
+    return (
+
+        <header className="fixed left-[290px] right-0 top-0 z-40 flex h-[68px] items-center justify-between border-b border-gray-200 bg-white px-6">
+
+            {/* ================================================= */}
+            {/* SEARCH                                           */}
+            {/* ================================================= */}
+
+            <div className="w-full max-w-[478px]">
+
+                <div className="flex h-10 items-center gap-3 rounded-xl border border-gray-200 bg-gray-50 px-3">
+
+                    <Search
+                        size={18}
+                        className="text-gray-400"
+                    />
+
+                    <input
+                        type="text"
+                        placeholder="Search subjects, topics, notes..."
+                        className="w-full bg-transparent text-sm text-gray-700 outline-none placeholder:text-gray-400"
+                    />
 
                 </div>
 
-                {unreadCount > 0 && (
+            </div>
 
-                  <button
-                    type="button"
-                    onClick={
-                      markAllAsRead
-                    }
-                    className="flex items-center gap-1.5 text-xs font-medium text-blue-600 hover:text-blue-700"
-                  >
 
-                    <CheckCheck
-                      size={14}
-                    />
+            {/* ================================================= */}
+            {/* RIGHT SIDE                                        */}
+            {/* ================================================= */}
 
-                    Mark all read
+            <div className="ml-6 flex items-center gap-3">
 
-                  </button>
+                {/* ================================================= */}
+                {/* NOTIFICATIONS                                    */}
+                {/* ================================================= */}
 
-                )}
+                <div className="relative">
 
-              </div>
+                    <button
+                        type="button"
+                        onClick={handleNotificationClick}
+                        className="relative flex h-10 w-10 items-center justify-center rounded-xl border border-gray-200 bg-white transition hover:bg-gray-50"
+                    >
 
-              {/* Notification List */}
+                        <Bell
+                            size={19}
+                            className="text-gray-500"
+                        />
 
-              <div className="max-h-[420px] overflow-y-auto">
+                        {/* Unread indicator */}
 
-                {notifications.length === 0 ? (
+                        {unreadCount > 0 && (
 
-                  <div className="px-5 py-10 text-center">
+                            <span className="absolute right-1.5 top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-semibold text-white">
 
-                    <Bell
-                      size={30}
-                      className="mx-auto mb-3 text-gray-300"
-                    />
+                                {unreadCount > 9
+                                    ? "9+"
+                                    : unreadCount}
 
-                    <p className="text-sm font-medium text-gray-600">
-                      No notifications
-                    </p>
+                            </span>
 
-                    <p className="mt-1 text-xs text-gray-400">
-                      New classroom activities will appear here.
-                    </p>
+                        )}
 
-                  </div>
+                    </button>
 
-                ) : (
 
-                  notifications.map(
-                    (notification) => (
+                    {/* ================================================= */}
+                    {/* NOTIFICATION DROPDOWN                            */}
+                    {/* ================================================= */}
 
-                      <div
-                        key={
-                          notification.id
-                        }
-                        className={`border-b border-gray-100 px-5 py-4 transition hover:bg-gray-50 ${
-                          !notification.read
-                            ? "bg-blue-50/40"
-                            : ""
-                        }`}
-                      >
+                    {showNotifications && (
 
-                        <div className="flex gap-3">
+                        <div className="absolute right-0 top-[48px] z-[100] w-[380px] overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-xl">
 
-                          {/* Notification Icon */}
+                            {/* Header */}
 
-                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-100">
+                            <div className="flex items-center justify-between border-b border-gray-200 px-5 py-4">
 
-                            <Bell
-                              size={16}
-                              className="text-blue-600"
-                            />
+                                <div>
 
-                          </div>
+                                    <h3 className="text-sm font-semibold text-gray-900">
+                                        Notifications
+                                    </h3>
 
-                          {/* Content */}
+                                    <p className="mt-0.5 text-xs text-gray-400">
 
-                          <div className="min-w-0 flex-1">
+                                        {unreadCount > 0
+                                            ? `${unreadCount} unread`
+                                            : "You're all caught up"}
 
-                            <div className="flex items-start justify-between gap-2">
+                                    </p>
 
-                              <p className="text-sm font-semibold text-gray-900">
+                                </div>
 
-                                {
-                                  notification.title
-                                }
 
-                              </p>
+                                {unreadCount > 0 && (
 
-                              {!notification.read && (
+                                    <button
+                                        type="button"
+                                        onClick={markAllAsRead}
+                                        className="flex items-center gap-1.5 text-xs font-medium text-blue-600 hover:text-blue-700"
+                                    >
 
-                                <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-blue-600" />
+                                        <CheckCheck
+                                            size={14}
+                                        />
 
-                              )}
+                                        Mark all read
+
+                                    </button>
+
+                                )}
 
                             </div>
 
-                            <p className="mt-1 text-xs leading-5 text-gray-500">
 
-                              {
-                                notification.message
-                              }
+                            {/* Notification List */}
 
-                            </p>
+                            <div className="max-h-[420px] overflow-y-auto">
 
-                            <div className="mt-2 flex items-center justify-between">
+                                {notifications.length === 0 ? (
 
-                              <span className="text-[10px] text-gray-400">
+                                    <div className="px-5 py-10 text-center">
 
-                                {
-                                  notification.createdAt
-                                    ? new Date(
-                                        notification.createdAt
-                                      ).toLocaleString(
-                                        "en-IN",
-                                        {
-                                          day: "2-digit",
-                                          month: "short",
-                                          hour: "2-digit",
-                                          minute: "2-digit",
-                                        }
-                                      )
-                                    : ""
-                                }
+                                        <Bell
+                                            size={30}
+                                            className="mx-auto mb-3 text-gray-300"
+                                        />
 
-                              </span>
+                                        <p className="text-sm font-medium text-gray-600">
+                                            No notifications
+                                        </p>
 
-                              {!notification.read && (
+                                        <p className="mt-1 text-xs text-gray-400">
+                                            New classroom activities will appear here.
+                                        </p>
 
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    markNotificationAsRead(
-                                      notification.id
+                                    </div>
+
+                                ) : (
+
+                                    notifications.map(
+                                        (notification) => (
+
+                                            <div
+                                                key={notification.id}
+                                                className={`border-b border-gray-100 px-5 py-4 transition hover:bg-gray-50 ${
+                                                    !notification.read
+                                                        ? "bg-blue-50/40"
+                                                        : ""
+                                                }`}
+                                            >
+
+                                                <div className="flex gap-3">
+
+                                                    {/* Notification Icon */}
+
+                                                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-100">
+
+                                                        <Bell
+                                                            size={16}
+                                                            className="text-blue-600"
+                                                        />
+
+                                                    </div>
+
+
+                                                    {/* Content */}
+
+                                                    <div className="min-w-0 flex-1">
+
+                                                        <div className="flex items-start justify-between gap-2">
+
+                                                            <p className="text-sm font-semibold text-gray-900">
+
+                                                                {
+                                                                    notification.title
+                                                                }
+
+                                                            </p>
+
+
+                                                            {!notification.read && (
+
+                                                                <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-blue-600" />
+
+                                                            )}
+
+                                                        </div>
+
+
+                                                        <p className="mt-1 text-xs leading-5 text-gray-500">
+
+                                                            {
+                                                                notification.message
+                                                            }
+
+                                                        </p>
+
+
+                                                        <div className="mt-2 flex items-center justify-between">
+
+                                                            <span className="text-[10px] text-gray-400">
+
+                                                                {
+                                                                    notification.createdAt
+                                                                        ? new Date(
+                                                                            notification.createdAt
+                                                                        ).toLocaleString(
+                                                                            "en-IN",
+                                                                            {
+                                                                                day: "2-digit",
+                                                                                month: "short",
+                                                                                hour: "2-digit",
+                                                                                minute: "2-digit",
+                                                                            }
+                                                                        )
+                                                                        : ""
+                                                                }
+
+                                                            </span>
+
+
+                                                            {!notification.read && (
+
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() =>
+                                                                        markNotificationAsRead(
+                                                                            notification.id
+                                                                        )
+                                                                    }
+                                                                    className="flex items-center gap-1 text-[11px] font-medium text-blue-600 hover:text-blue-700"
+                                                                >
+
+                                                                    <Check
+                                                                        size={13}
+                                                                    />
+
+                                                                    Mark read
+
+                                                                </button>
+
+                                                            )}
+
+                                                        </div>
+
+                                                    </div>
+
+                                                </div>
+
+                                            </div>
+
+                                        )
                                     )
-                                  }
-                                  className="flex items-center gap-1 text-[11px] font-medium text-blue-600 hover:text-blue-700"
-                                >
 
-                                  <Check
-                                    size={13}
-                                  />
-
-                                  Mark read
-
-                                </button>
-
-                              )}
+                                )}
 
                             </div>
-
-                          </div>
 
                         </div>
 
-                      </div>
+                    )}
 
-                    )
-                  )
+                </div>
 
-                )}
 
-              </div>
+                {/* ================================================= */}
+                {/* USER PROFILE                                     */}
+                {/* ================================================= */}
+
+                <div className="relative">
+
+                    <button
+                        type="button"
+                        onClick={() => {
+
+                            setShowProfileMenu(
+                                (previous) => !previous
+                            );
+
+                            setShowNotifications(false);
+
+                        }}
+                        className="flex h-10 items-center gap-3 rounded-xl border border-gray-200 bg-white px-2.5 transition hover:bg-gray-50"
+                    >
+
+                        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600">
+
+                            <UserRound
+                                size={17}
+                                className="text-white"
+                            />
+
+                        </div>
+
+
+                        <div className="text-left leading-tight">
+
+                            <p className="text-sm font-medium text-gray-900">
+                                {userName}
+                            </p>
+
+                            <span className="text-[11px] text-gray-400">
+                                {displayRole}
+                            </span>
+
+                        </div>
+
+                    </button>
+
+
+                    {/* ================================================= */}
+                    {/* PROFILE DROPDOWN                                 */}
+                    {/* ================================================= */}
+
+                    {showProfileMenu && (
+
+                        <div className="absolute right-0 top-[48px] z-[100] w-56 overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-xl">
+
+                            <Link
+                                to={
+                                    userRole.toLowerCase() ===
+                                    "teacher"
+                                        ? "/teacher/profile"
+                                        : "/student/profile"
+                                }
+                                onClick={() =>
+                                    setShowProfileMenu(false)
+                                }
+                                className="block px-5 py-4 text-sm text-gray-700 transition hover:bg-gray-50"
+                            >
+
+                                View Profile
+
+                            </Link>
+
+
+                            <Link
+                                to={
+                                    userRole.toLowerCase() ===
+                                    "teacher"
+                                        ? "/teacher/settings"
+                                        : "/student/settings"
+                                }
+                                onClick={() =>
+                                    setShowProfileMenu(false)
+                                }
+                                className="block px-5 py-4 text-sm text-gray-700 transition hover:bg-gray-50"
+                            >
+
+                                Settings
+
+                            </Link>
+
+
+                            <div className="border-t border-gray-200" />
+
+
+                            <button
+                                type="button"
+                                onClick={handleLogout}
+                                className="block w-full px-5 py-4 text-left text-sm text-red-500 transition hover:bg-red-50"
+                            >
+
+                                Logout
+
+                            </button>
+
+                        </div>
+
+                    )}
+
+                </div>
 
             </div>
 
-          )}
+        </header>
 
-        </div>
-
-        {/* ================================================= */}
-        {/* USER PROFILE                                      */}
-        {/* ================================================= */}
-
-        <div className="relative">
-
-          <button
-            type="button"
-            onClick={() => {
-
-              setShowProfileMenu(
-                (previous) => !previous
-              );
-
-              setShowNotifications(false);
-
-            }}
-            className="flex h-10 items-center gap-3 rounded-xl border border-gray-200 bg-white px-2.5 transition hover:bg-gray-50"
-          >
-
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600">
-
-              <UserRound
-                size={17}
-                className="text-white"
-              />
-
-            </div>
-
-            <div className="text-left leading-tight">
-
-              <p className="text-sm font-medium text-gray-900">
-                {userName}
-              </p>
-
-              <span className="text-[11px] text-gray-400">
-                {displayRole}
-              </span>
-
-            </div>
-
-          </button>
-
-          {/* ================================================= */}
-          {/* PROFILE DROPDOWN                                  */}
-          {/* ================================================= */}
-
-          {showProfileMenu && (
-
-            <div className="absolute right-0 top-[48px] z-[100] w-56 overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-xl">
-
-              <Link
-                to={
-                  userRole.toLowerCase() ===
-                  "teacher"
-                    ? "/teacher/profile"
-                    : "/student/profile"
-                }
-                onClick={() =>
-                  setShowProfileMenu(false)
-                }
-                className="block px-5 py-4 text-sm text-gray-700 transition hover:bg-gray-50"
-              >
-                View Profile
-              </Link>
-
-              <Link
-                to={
-                  userRole.toLowerCase() ===
-                  "teacher"
-                    ? "/teacher/settings"
-                    : "/student/settings"
-                }
-                onClick={() =>
-                  setShowProfileMenu(false)
-                }
-                className="block px-5 py-4 text-sm text-gray-700 transition hover:bg-gray-50"
-              >
-                Settings
-              </Link>
-
-              <div className="border-t border-gray-200" />
-
-              <button
-                type="button"
-                onClick={handleLogout}
-                className="block w-full px-5 py-4 text-left text-sm text-red-500 transition hover:bg-red-50"
-              >
-                Logout
-              </button>
-
-            </div>
-
-          )}
-
-        </div>
-
-      </div>
-
-    </header>
-  );
+    );
 };
+
 
 export default DashboardHeader;

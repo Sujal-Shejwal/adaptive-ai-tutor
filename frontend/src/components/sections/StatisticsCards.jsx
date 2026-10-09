@@ -1,389 +1,394 @@
 import {
-    CheckCircle2,
-    BookOpen,
-    List,
-    TrendingUp,
+  CheckCircle2,
+  BookOpen,
+  List,
+  TrendingUp,
 } from "lucide-react";
 
 import {
-    useCallback,
-    useEffect,
-    useState,
+  useCallback,
+  useEffect,
+  useState,
 } from "react";
-
-const API_URL =
-    import.meta.env.VITE_API_BASE_URL || "http://localhost:8080";
 
 const StatisticsCards = () => {
 
-    const [statistics, setStatistics] = useState({
-        completedTopics: 0,
-        learningMaterials: 0,
-        totalTopics: 0,
-        overallProgress: 0,
-    });
+  const [statistics, setStatistics] = useState({
+    completedTopics: 0,
+    learningMaterials: 0,
+    totalTopics: 0,
+    overallProgress: 0,
+  });
 
-    const [loading, setLoading] =
-        useState(true);
+  const [loading, setLoading] =
+    useState(true);
 
 
-    // =========================================================
-    // GET LOGGED-IN USER ID
-    // =========================================================
+  // =========================================================
+  // API BASE URL
+  // =========================================================
 
-    const getUserId = () => {
+  const API_URL =
+    import.meta.env.VITE_API_BASE_URL || "http://localhost:8080";
 
-        const storedId =
-            localStorage.getItem("userId");
 
-        if (storedId) {
-            return storedId;
+  // =========================================================
+  // GET LOGGED-IN USER ID
+  // =========================================================
+
+  const getUserId = () => {
+
+    const storedId =
+      localStorage.getItem("userId");
+
+    if (storedId) {
+      return storedId;
+    }
+
+    try {
+
+      const storedUser =
+        JSON.parse(
+          localStorage.getItem("user") ||
+          "null"
+        );
+
+      return storedUser?.id
+        ? String(storedUser.id)
+        : null;
+
+    } catch {
+
+      return null;
+    }
+  };
+
+
+  // =========================================================
+  // FETCH DASHBOARD STATISTICS
+  // =========================================================
+
+  const fetchStatistics =
+    useCallback(async () => {
+
+      try {
+
+        const userId =
+          getUserId();
+
+        if (!userId) {
+
+          console.error(
+            "Student user ID not found."
+          );
+
+          setLoading(false);
+
+          return;
         }
 
-        try {
 
-            const storedUser =
-                JSON.parse(
-                    localStorage.getItem("user") ||
-                    "null"
-                );
+        const response =
+          await fetch(
+            `${API_URL}/api/dashboard/user/${userId}/statistics`
+          );
 
-            return storedUser?.id
-                ? String(storedUser.id)
-                : null;
 
-        } catch {
+        if (!response.ok) {
 
-            return null;
+          throw new Error(
+            `Failed to fetch dashboard statistics (${response.status})`
+          );
+
         }
+
+
+        const data =
+          await response.json();
+
+
+        setStatistics({
+
+          completedTopics:
+            Number(
+              data.completedTopics
+            ) || 0,
+
+          learningMaterials:
+            Number(
+              data.learningMaterials
+            ) || 0,
+
+          totalTopics:
+            Number(
+              data.totalTopics
+            ) || 0,
+
+          overallProgress:
+            Number(
+              data.overallProgress
+            ) || 0,
+
+        });
+
+      } catch (error) {
+
+        console.error(
+          "Dashboard statistics error:",
+          error
+        );
+
+      } finally {
+
+        setLoading(false);
+
+      }
+
+    }, [API_URL]);
+
+
+  // =========================================================
+  // INITIAL LOAD
+  // =========================================================
+
+  useEffect(() => {
+
+    fetchStatistics();
+
+  }, [fetchStatistics]);
+
+
+  // =========================================================
+  // REFRESH WHEN RETURNING TO DASHBOARD
+  // =========================================================
+
+  useEffect(() => {
+
+    const handleFocus = () => {
+
+      fetchStatistics();
+
     };
 
 
-    // =========================================================
-    // FETCH DASHBOARD STATISTICS
-    // =========================================================
-
-    const fetchStatistics =
-        useCallback(async () => {
-
-            try {
-
-                const userId =
-                    getUserId();
-
-                if (!userId) {
-
-                    console.error(
-                        "Student user ID not found."
-                    );
-
-                    setLoading(false);
-
-                    return;
-                }
+    window.addEventListener(
+      "focus",
+      handleFocus
+    );
 
 
-                const response =
-                    await fetch(
-                        `${API_URL}/api/dashboard/user/${userId}/statistics`
-                    );
+    return () => {
+
+      window.removeEventListener(
+        "focus",
+        handleFocus
+      );
+
+    };
+
+  }, [fetchStatistics]);
 
 
-                if (!response.ok) {
+  // =========================================================
+  // AUTO REFRESH
+  // =========================================================
 
-                    throw new Error(
-                        `Failed to fetch dashboard statistics (${response.status})`
-                    );
+  useEffect(() => {
 
-                }
-
-
-                const data =
-                    await response.json();
-
-
-                setStatistics({
-
-                    completedTopics:
-                        Number(
-                            data.completedTopics
-                        ) || 0,
-
-                    learningMaterials:
-                        Number(
-                            data.learningMaterials
-                        ) || 0,
-
-                    totalTopics:
-                        Number(
-                            data.totalTopics
-                        ) || 0,
-
-                    overallProgress:
-                        Number(
-                            data.overallProgress
-                        ) || 0,
-
-                });
-
-            } catch (error) {
-
-                console.error(
-                    "Dashboard statistics error:",
-                    error
-                );
-
-            } finally {
-
-                setLoading(false);
-
-            }
-
-        }, []);
-
-
-    // =========================================================
-    // INITIAL LOAD
-    // =========================================================
-
-    useEffect(() => {
+    const interval =
+      setInterval(() => {
 
         fetchStatistics();
 
-    }, [fetchStatistics]);
+      }, 5000);
 
 
-    // =========================================================
-    // REFRESH WHEN RETURNING TO DASHBOARD
-    // =========================================================
+    return () => {
 
-    useEffect(() => {
+      clearInterval(interval);
 
-        const handleFocus = () => {
+    };
 
-            fetchStatistics();
+  }, [fetchStatistics]);
 
-        };
 
+  // =========================================================
+  // STATISTICS DATA
+  // =========================================================
 
-        window.addEventListener(
-            "focus",
-            handleFocus
-        );
+  const cards = [
 
+    {
+      icon: CheckCircle2,
 
-        return () => {
+      value:
+        statistics.completedTopics,
 
-            window.removeEventListener(
-                "focus",
-                handleFocus
-            );
+      label:
+        "Topics Completed",
 
-        };
+      description:
+        "Based on your progress",
 
-    }, [fetchStatistics]);
+      iconBg:
+        "bg-blue-100",
 
+      iconColor:
+        "text-blue-600",
 
-    // =========================================================
-    // AUTO REFRESH
-    // =========================================================
+      descriptionColor:
+        "text-blue-600",
+    },
 
-    useEffect(() => {
 
-        const interval =
-            setInterval(() => {
+    {
+      icon: BookOpen,
 
-                fetchStatistics();
+      value:
+        statistics.learningMaterials,
 
-            }, 5000);
+      label:
+        "Learning Materials",
 
+      description:
+        "Available in your courses",
 
-        return () => {
+      iconBg:
+        "bg-emerald-100",
 
-            clearInterval(interval);
+      iconColor:
+        "text-emerald-500",
 
-        };
+      descriptionColor:
+        "text-emerald-500",
+    },
 
-    }, [fetchStatistics]);
 
+    {
+      icon: List,
 
-    // =========================================================
-    // STATISTICS DATA
-    // =========================================================
+      value:
+        statistics.totalTopics,
 
-    const cards = [
+      label:
+        "Total Topics",
 
-        {
-            icon: CheckCircle2,
+      description:
+        "Across all subjects",
 
-            value:
-                statistics.completedTopics,
+      iconBg:
+        "bg-amber-100",
 
-            label:
-                "Topics Completed",
+      iconColor:
+        "text-amber-500",
 
-            description:
-                "Based on your progress",
+      descriptionColor:
+        "text-amber-500",
+    },
 
-            iconBg:
-                "bg-blue-100",
 
-            iconColor:
-                "text-blue-600",
+    {
+      icon: TrendingUp,
 
-            descriptionColor:
-                "text-blue-600",
-        },
+      value:
+        `${statistics.overallProgress}%`,
 
+      label:
+        "Overall Progress",
 
-        {
-            icon: BookOpen,
+      description:
+        "Course completion",
 
-            value:
-                statistics.learningMaterials,
+      iconBg:
+        "bg-violet-100",
 
-            label:
-                "Learning Materials",
+      iconColor:
+        "text-violet-500",
 
-            description:
-                "Available in your courses",
+      descriptionColor:
+        "text-violet-500",
+    },
 
-            iconBg:
-                "bg-emerald-100",
+  ];
 
-            iconColor:
-                "text-emerald-500",
 
-            descriptionColor:
-                "text-emerald-500",
-        },
+  // =========================================================
+  // RENDER
+  // =========================================================
 
+  return (
 
-        {
-            icon: List,
+    <section>
 
-            value:
-                statistics.totalTopics,
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
 
-            label:
-                "Total Topics",
+        {cards.map((card) => {
 
-            description:
-                "Across all subjects",
+          const Icon = card.icon;
 
-            iconBg:
-                "bg-amber-100",
 
-            iconColor:
-                "text-amber-500",
+          return (
 
-            descriptionColor:
-                "text-amber-500",
-        },
+            <div
+              key={card.label}
+              className="rounded-2xl border border-gray-200 bg-white p-5"
+            >
 
+              {/* ICON */}
 
-        {
-            icon: TrendingUp,
+              <div
+                className={`flex h-10 w-10 items-center justify-center rounded-xl ${card.iconBg}`}
+              >
 
-            value:
-                `${statistics.overallProgress}%`,
+                <Icon
+                  size={19}
+                  className={card.iconColor}
+                />
 
-            label:
-                "Overall Progress",
+              </div>
 
-            description:
-                "Course completion",
 
-            iconBg:
-                "bg-violet-100",
+              {/* VALUE */}
 
-            iconColor:
-                "text-violet-500",
+              <p className="mt-4 text-2xl font-bold text-gray-900">
 
-            descriptionColor:
-                "text-violet-500",
-        },
+                {loading
+                  ? "..."
+                  : card.value}
 
-    ];
+              </p>
 
 
-    // =========================================================
-    // RENDER
-    // =========================================================
+              {/* LABEL */}
 
-    return (
+              <p className="mt-1 text-sm text-gray-500">
 
-        <section>
+                {card.label}
 
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+              </p>
 
-                {cards.map((card) => {
 
-                    const Icon = card.icon;
+              {/* DESCRIPTION */}
 
+              <p
+                className={`mt-1 text-xs ${card.descriptionColor}`}
+              >
 
-                    return (
+                {card.description}
 
-                        <div
-                            key={card.label}
-                            className="rounded-2xl border border-gray-200 bg-white p-5"
-                        >
-
-                            {/* ICON */}
-
-                            <div
-                                className={`flex h-10 w-10 items-center justify-center rounded-xl ${card.iconBg}`}
-                            >
-
-                                <Icon
-                                    size={19}
-                                    className={card.iconColor}
-                                />
-
-                            </div>
-
-
-                            {/* VALUE */}
-
-                            <p className="mt-4 text-2xl font-bold text-gray-900">
-
-                                {loading
-                                    ? "..."
-                                    : card.value}
-
-                            </p>
-
-
-                            {/* LABEL */}
-
-                            <p className="mt-1 text-sm text-gray-500">
-
-                                {card.label}
-
-                            </p>
-
-
-                            {/* DESCRIPTION */}
-
-                            <p
-                                className={`mt-1 text-xs ${card.descriptionColor}`}
-                            >
-
-                                {card.description}
-
-                            </p>
-
-                        </div>
-
-                    );
-
-                })}
+              </p>
 
             </div>
 
-        </section>
+          );
 
-    );
+        })}
+
+      </div>
+
+    </section>
+
+  );
 
 };
 
