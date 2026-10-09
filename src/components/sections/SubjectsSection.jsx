@@ -147,7 +147,7 @@ const SubjectsSection = () => {
 
                 const progressResponse =
                     await fetch(
-                        `http://localhost:8080/api/progress/user/${userId}/subjects`
+                        `${import.meta.env.VITE_API_BASE_URL}/api/progress/user/${userId}/subjects`
                     );
 
 
@@ -191,7 +191,7 @@ const SubjectsSection = () => {
 
                                     const unitsResponse =
                                         await fetch(
-                                            `http://localhost:8080/api/units/subject/${subject.id}`
+                                            `${import.meta.env.VITE_API_BASE_URL}/api/units/subject/${subject.id}`
                                         );
 
 

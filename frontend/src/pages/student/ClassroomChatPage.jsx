@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 
 const API_BASE = `${import.meta.env.VITE_API_BASE_URL}`;
-const WS_URL = "ws://localhost:8080/ws";
+const WS_URL = import.meta.env.VITE_WS_URL;
 
 function getCurrentUserId() {
   const storedId = localStorage.getItem("userId");

@@ -1,3 +1,4 @@
+
 import {
     BookOpen,
     MessageSquare,
@@ -8,6 +9,10 @@ import {
 import { Link } from "react-router-dom";
 import { useCallback, useEffect, useState } from "react";
 
+// Use the deployed backend URL in production.
+const API_URL = (
+    import.meta.env.VITE_API_BASE_URL
+).replace(/\/+$/, "");
 
 // =====================================================
 // COLOR STYLES
@@ -43,125 +48,88 @@ const colorStyles = {
     },
 };
 
-
 // =====================================================
 // SUBJECTS PAGE
 // =====================================================
 
 function SubjectsPage() {
-
     const [subjects, setSubjects] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
-
 
     // =====================================================
     // GET LOGGED-IN USER ID
     // =====================================================
 
     const getUserId = () => {
-
-        const storedId =
-            localStorage.getItem("userId");
+        const storedId = localStorage.getItem("userId");
 
         if (storedId) {
             return storedId;
         }
 
         try {
+            const storedUser = JSON.parse(
+                localStorage.getItem("user") || "null"
+            );
 
-            const storedUser =
-                JSON.parse(
-                    localStorage.getItem("user") ||
-                    "null"
-                );
-
-            return storedUser?.id
+            return storedUser?.id != null
                 ? String(storedUser.id)
                 : null;
-
         } catch {
-
             return null;
         }
     };
 
-    const userId =
-        getUserId();
-
+    const userId = getUserId();
 
     // =====================================================
     // FETCH SUBJECT DATA
     // =====================================================
 
     const fetchSubjects = useCallback(async () => {
-
         if (!userId) {
-
-            setError(
-                "User is not logged in."
-            );
-
+            setError("User is not logged in.");
             setLoading(false);
-
             return;
         }
 
-
         try {
-
             setError("");
-
 
             // =================================================
             // 1. GET ALL SUBJECTS
             // =================================================
 
-            const subjectsResponse =
-                await fetch(
-                    `${import.meta.env.VITE_API_BASE_URL}/api/subjects`
-                );
-
+            const subjectsResponse = await fetch(
+                `${API_URL}/api/subjects`
+            );
 
             if (!subjectsResponse.ok) {
-
-                throw new Error(
-                    "Failed to fetch subjects."
-                );
+                throw new Error("Failed to fetch subjects.");
             }
 
+            const subjectsData = await subjectsResponse.json();
 
-            const subjectsData =
-                await subjectsResponse.json();
-
+            if (!Array.isArray(subjectsData)) {
+                throw new Error("Invalid subjects response.");
+            }
 
             // =================================================
             // 2. GET SUBJECT PROGRESS
             // =================================================
 
-            const progressResponse =
-                await fetch(
-                    `http://localhost:8080/api/progress/user/${userId}/subjects`
-                );
-
-
-            if (!progressResponse.ok) {
-
-                throw new Error(
-                    "Failed to fetch subject progress."
-                );
-            }
-
-
-            const progressData =
-                await progressResponse.json();
-
-
-            console.log(
-                "Subject progress:",
-                progressData
+            const progressResponse = await fetch(
+                `${API_URL}/api/progress/user/${encodeURIComponent(userId)}/subjects`
             );
 
+            if (!progressResponse.ok) {
+                throw new Error("Failed to fetch subject progress.");
+            }
+
+            const progressData = await progressResponse.json();
+
+            console.log("Subject progress:", progressData);
 
             // =================================================
             // 3. GET UNITS FOR EACH SUBJECT
@@ -174,397 +142,262 @@ function SubjectsPage() {
                 "purple",
             ];
 
+            const formattedSubjects = await Promise.all(
+                subjectsData.map(async (subject, index) => {
+                    let units = [];
 
-            const formattedSubjects =
-                await Promise.all(
+                    try {
+                        const unitsResponse = await fetch(
+                            `${API_URL}/api/units/subject/${encodeURIComponent(subject.id)}`
+                        );
 
-                    subjectsData.map(
-                        async (subject, index) => {
+                        if (unitsResponse.ok) {
+                            const unitsData = await unitsResponse.json();
 
-                            let units = [];
-
-
-                            try {
-
-                                const unitsResponse =
-                                    await fetch(
-                                        `http://localhost:8080/api/units/subject/${subject.id}`
-                                    );
-
-
-                                if (unitsResponse.ok) {
-
-                                    units =
-                                        await unitsResponse.json();
-                                }
-
-                            } catch (unitError) {
-
-                                console.error(
-                                    `Error fetching units for subject ${subject.id}:`,
-                                    unitError
-                                );
+                            if (Array.isArray(unitsData)) {
+                                units = unitsData;
                             }
-
-
-                            // =================================================
-                            // 4. CALCULATE TOTAL TOPICS
-                            // =================================================
-
-                            const totalTopics =
-                                units.reduce(
-                                    (
-                                        total,
-                                        unit
-                                    ) =>
-                                        total +
-                                        (
-                                            unit.topics || 0
-                                        ),
-                                    0
-                                );
-
-
-                            // =================================================
-                            // 5. GET REAL PROGRESS
-                            // =================================================
-
-                            const progress =
-                                progressData[subject.id] ?? 0;
-
-
-                            return {
-
-                                id:
-                                    subject.id,
-
-                                name:
-                                    subject.name,
-
-                                code:
-                                    subject.code,
-
-                                description:
-                                    subject.description,
-
-                                shortName:
-                                    subject.code,
-
-                                color:
-                                    colors[
-                                        index %
-                                        colors.length
-                                    ],
-
-                                units:
-                                    units.length,
-
-                                topics:
-                                    totalTopics,
-
-                                progress:
-                                    progress,
-
-                            };
-
+                        } else {
+                            console.error(
+                                `Failed to fetch units for subject ${subject.id}:`,
+                                unitsResponse.status
+                            );
                         }
-                    )
-                );
+                    } catch (unitError) {
+                        console.error(
+                            `Error fetching units for subject ${subject.id}:`,
+                            unitError
+                        );
+                    }
 
+                    // =================================================
+                    // 4. CALCULATE TOTAL TOPICS
+                    // =================================================
+
+                    const totalTopics = units.reduce(
+                        (total, unit) =>
+                            total + (Number(unit.topics) || 0),
+                        0
+                    );
+
+                    // =================================================
+                    // 5. GET REAL PROGRESS
+                    // =================================================
+
+                    const rawProgress = Number(
+                        progressData?.[subject.id] ?? 0
+                    );
+
+                    const progress = Number.isFinite(rawProgress)
+                        ? Math.min(100, Math.max(0, rawProgress))
+                        : 0;
+
+                    return {
+                        id: subject.id,
+                        name: subject.name,
+                        code: subject.code,
+                        description: subject.description,
+                        shortName: subject.code,
+                        color: colors[index % colors.length],
+                        units: units.length,
+                        topics: totalTopics,
+                        progress,
+                    };
+                })
+            );
 
             // =================================================
             // 6. SAVE REAL DATA
             // =================================================
 
-            setSubjects(
-                formattedSubjects
-            );
-
+            setSubjects(formattedSubjects);
         } catch (error) {
-
-            console.error(
-                "Error fetching subjects:",
-                error
-            );
-
+            console.error("Error fetching subjects:", error);
 
             setError(
                 "Unable to load subjects. Please try again."
             );
-
         } finally {
-
             setLoading(false);
-
         }
-
     }, [userId]);
-
 
     // =====================================================
     // INITIAL LOAD
     // =====================================================
 
     useEffect(() => {
-
         setLoading(true);
-
         fetchSubjects();
-
     }, [fetchSubjects]);
-
 
     // =====================================================
     // REFRESH WHEN USER RETURNS TO PAGE
     // =====================================================
 
     useEffect(() => {
-
         const handleFocus = () => {
-
             fetchSubjects();
-
         };
 
-
-        window.addEventListener(
-            "focus",
-            handleFocus
-        );
-
+        window.addEventListener("focus", handleFocus);
 
         return () => {
-
-            window.removeEventListener(
-                "focus",
-                handleFocus
-            );
-
+            window.removeEventListener("focus", handleFocus);
         };
-
     }, [fetchSubjects]);
-
 
     // =====================================================
     // AUTO REFRESH EVERY 5 SECONDS
     // =====================================================
 
     useEffect(() => {
-
-        const interval =
-            setInterval(() => {
-
-                fetchSubjects();
-
-            }, 5000);
-
+        const interval = setInterval(() => {
+            fetchSubjects();
+        }, 5000);
 
         return () => {
-
             clearInterval(interval);
-
         };
-
     }, [fetchSubjects]);
-
 
     // =====================================================
     // LOADING STATE
     // =====================================================
 
     if (loading) {
-
         return (
-
             <div className="min-h-full bg-slate-50 px-6 pb-8 pt-20">
-
                 <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm">
-
                     <p className="text-sm text-slate-500">
                         Loading subjects...
                     </p>
-
                 </div>
-
             </div>
-
         );
-
     }
-
 
     // =====================================================
     // ERROR STATE
     // =====================================================
 
     if (error) {
-
         return (
-
             <div className="min-h-full bg-slate-50 px-6 pb-8 pt-20">
-
                 <div className="rounded-2xl border border-red-200 bg-red-50 p-8 text-center">
-
                     <p className="text-sm text-red-600">
                         {error}
                     </p>
 
+                    <button
+                        type="button"
+                        onClick={() => {
+                            setLoading(true);
+                            fetchSubjects();
+                        }}
+                        className="mt-3 text-sm font-medium text-red-700 underline"
+                    >
+                        Try again
+                    </button>
                 </div>
-
             </div>
-
         );
-
     }
-
 
     // =====================================================
     // SUBJECTS PAGE
     // =====================================================
 
     return (
-
         <div className="min-h-full bg-slate-50 px-6 pb-8 pt-20">
 
-
-            {/* =================================================
-                PAGE HEADER
-            ================================================= */}
+            {/* PAGE HEADER */}
 
             <div className="mb-8">
-
                 <h1 className="text-3xl font-bold text-slate-900">
                     My Subjects
                 </h1>
 
-
                 <p className="mt-2 text-slate-500">
                     Select a subject to view units, notes, and start learning.
                 </p>
-
             </div>
 
-
-            {/* =================================================
-                EMPTY STATE
-            ================================================= */}
+            {/* EMPTY STATE */}
 
             {subjects.length === 0 && (
-
                 <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm">
-
                     <p className="text-sm text-slate-500">
                         No subjects are available yet.
                     </p>
-
                 </div>
-
             )}
 
-
-            {/* =================================================
-                SUBJECT CARDS
-            ================================================= */}
+            {/* SUBJECT CARDS */}
 
             {subjects.length > 0 && (
-
                 <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
-
                     {subjects.map((subject) => {
-
-                        const styles =
-                            colorStyles[
-                                subject.color
-                            ];
-
+                        const styles = colorStyles[subject.color];
 
                         return (
-
                             <div
                                 key={subject.id}
                                 className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition hover:shadow-md"
                             >
-
-
-                                {/* ==========================================
-                                    CARD HEADER
-                                ========================================== */}
+                                {/* CARD HEADER */}
 
                                 <div className="flex items-start gap-4">
-
                                     <div
                                         className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl text-sm font-bold ${styles.icon}`}
                                     >
                                         {subject.shortName}
                                     </div>
 
-
                                     <div className="flex-1">
-
                                         <h2 className="text-lg font-semibold text-slate-900">
                                             {subject.name}
                                         </h2>
-
 
                                         <p className="mt-1 text-sm text-slate-500">
                                             {subject.units} Units ·{" "}
                                             {subject.topics} Topics
                                         </p>
-
                                     </div>
-
                                 </div>
 
-
-                                {/* ==========================================
-                                    DESCRIPTION
-                                ========================================== */}
+                                {/* DESCRIPTION */}
 
                                 <p className="mt-5 text-sm leading-6 text-slate-500">
                                     {subject.description}
                                 </p>
 
-
-                                {/* ==========================================
-                                    PROGRESS
-                                ========================================== */}
+                                {/* PROGRESS */}
 
                                 <div className="mt-6">
-
                                     <div className="mb-2 flex items-center justify-between">
-
                                         <span className="text-sm font-medium text-slate-600">
                                             Progress
                                         </span>
 
-
                                         <span className="text-sm font-semibold text-slate-900">
                                             {subject.progress}%
                                         </span>
-
                                     </div>
 
-
                                     <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100">
-
                                         <div
                                             className={`h-full rounded-full transition-all duration-500 ${styles.progress}`}
                                             style={{
                                                 width: `${subject.progress}%`,
                                             }}
                                         />
-
                                     </div>
-
                                 </div>
 
-
-                                {/* ==========================================
-                                    ACTIONS
-                                ========================================== */}
+                                {/* ACTIONS */}
 
                                 <div className="mt-6 flex gap-3">
-
 
                                     {/* ASK AI */}
 
@@ -572,15 +405,9 @@ function SubjectsPage() {
                                         to={`/student/chat/${subject.id}`}
                                         className={`flex flex-1 items-center justify-center gap-2 rounded-lg border px-4 py-2.5 text-sm font-medium transition ${styles.button}`}
                                     >
-
-                                        <MessageSquare
-                                            size={17}
-                                        />
-
+                                        <MessageSquare size={17} />
                                         Ask AI
-
                                     </Link>
-
 
                                     {/* QUIZ */}
 
@@ -588,15 +415,9 @@ function SubjectsPage() {
                                         to={`/student/quiz/${subject.id}`}
                                         className="flex flex-1 items-center justify-center gap-2 rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
                                     >
-
-                                        <ClipboardCheck
-                                            size={17}
-                                        />
-
+                                        <ClipboardCheck size={17} />
                                         Quiz
-
                                     </Link>
-
 
                                     {/* STUDY */}
 
@@ -604,36 +425,18 @@ function SubjectsPage() {
                                         to={`/student/study/${subject.id}`}
                                         className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium text-white transition ${styles.study}`}
                                     >
-
-                                        <BookOpen
-                                            size={17}
-                                        />
-
+                                        <BookOpen size={17} />
                                         Study
-
-                                        <ArrowRight
-                                            size={16}
-                                        />
-
+                                        <ArrowRight size={16} />
                                     </Link>
-
                                 </div>
-
                             </div>
-
                         );
-
                     })}
-
                 </div>
-
             )}
-
         </div>
-
     );
-
 }
-
 
 export default SubjectsPage;

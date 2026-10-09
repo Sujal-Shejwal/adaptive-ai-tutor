@@ -46,7 +46,7 @@ function TeacherUnitsPage() {
         try {
 
             const response = await fetch(
-                `http://localhost:8080/api/subjects/${subjectId}`
+                `${import.meta.env.VITE_API_BASE_URL}/api/subjects/${subjectId}`
             );
 
             if (!response.ok) {
@@ -84,7 +84,7 @@ function TeacherUnitsPage() {
             setError("");
 
             const response = await fetch(
-                `http://localhost:8080/api/units/subject/${subjectId}`
+                `${import.meta.env.VITE_API_BASE_URL}/api/units/subject/${subjectId}`
             );
 
             if (!response.ok) {
@@ -255,7 +255,7 @@ function TeacherUnitsPage() {
 
             const response =
                 await fetch(
-                    `http://localhost:8080/api/units/${unit.id}`,
+                   `${import.meta.env.VITE_API_BASE_URL}/api/units/${unit.id}`,
                     {
                         method: "DELETE",
                     }

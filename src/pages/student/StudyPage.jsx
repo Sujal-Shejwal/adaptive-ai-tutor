@@ -156,7 +156,7 @@ function StudyPage() {
                 const resolvedSubjectId = foundSubject.id;
 
                 const unitsResponse = await fetch(
-                    `http://localhost:8080/api/units/subject/${resolvedSubjectId}`
+                    `${import.meta.env.VITE_API_BASE_URL}/api/units/subject/${resolvedSubjectId}`
                 );
 
                 if (!unitsResponse.ok) {
@@ -177,7 +177,7 @@ function StudyPage() {
                 }
 
                 const subjectProgressResponse = await fetch(
-                    `http://localhost:8080/api/progress/user/${userId}/subjects`
+                   `${import.meta.env.VITE_API_BASE_URL}/api/progress/user/${userId}/subjects`
                 );
 
                 if (subjectProgressResponse.ok) {
@@ -198,7 +198,7 @@ function StudyPage() {
                         async (unit) => {
                             try {
                                 const response = await fetch(
-                                    `http://localhost:8080/api/progress/user/${userId}/unit/${unit.id}`
+                                    `${import.meta.env.VITE_API_BASE_URL}/api/progress/user/${userId}/unit/${unit.id}`
                                 );
 
                                 if (!response.ok) {
@@ -245,7 +245,7 @@ function StudyPage() {
 
                                     const response =
                                         await fetch(
-                                            `http://localhost:8080/api/topics/unit/${unit.id}`
+                                           `${import.meta.env.VITE_API_BASE_URL}/api/topics/unit/${unit.id}`
                                         );
 
 

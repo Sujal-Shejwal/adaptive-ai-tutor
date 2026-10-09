@@ -46,7 +46,7 @@ function TeacherTopicsPage() {
         try {
 
             const response = await fetch(
-                `http://localhost:8080/api/units/${unitId}`
+                `${import.meta.env.VITE_API_BASE_URL}/api/units/${unitId}`
             );
 
             if (!response.ok) {
@@ -84,7 +84,7 @@ function TeacherTopicsPage() {
             setError("");
 
             const response = await fetch(
-                `http://localhost:8080/api/topics/unit/${unitId}`
+                `${import.meta.env.VITE_API_BASE_URL}/api/topics/unit/${unitId}`
             );
 
             if (!response.ok) {
@@ -254,7 +254,7 @@ function TeacherTopicsPage() {
 
             const response =
                 await fetch(
-                    `http://localhost:8080/api/topics/${topic.id}`,
+                   `${import.meta.env.VITE_API_BASE_URL}/api/topics/${topic.id}`,
                     {
                         method: "DELETE",
                     }

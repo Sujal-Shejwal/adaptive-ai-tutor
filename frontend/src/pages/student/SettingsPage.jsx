@@ -134,7 +134,7 @@ function SettingsPage() {
                 setError("");
 
                 const response = await fetch(
-                    `http://localhost:8080/api/users/${userId}/settings`
+                    `${import.meta.env.VITE_API_BASE_URL}/api/users/${userId}/settings`
                 );
 
                 if (!response.ok) {
@@ -416,7 +416,7 @@ function SettingsPage() {
 
 
             const response = await fetch(
-                `http://localhost:8080/api/users/${userId}/settings`,
+                `${import.meta.env.VITE_API_BASE_URL}/api/users/${userId}/settings`,
                 {
                     method: "PUT",
 

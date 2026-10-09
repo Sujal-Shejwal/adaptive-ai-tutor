@@ -169,7 +169,7 @@ function TeacherQuizzesPage() {
         try {
 
             const response = await fetch(
-                `http://localhost:8080/api/quizzes/teacher/${teacherId}`
+                `${import.meta.env.VITE_API_BASE_URL}/api/quizzes/teacher/${teacherId}`
             );
 
             if (!response.ok) {
@@ -442,7 +442,7 @@ function TeacherQuizzesPage() {
 
             const response =
                 await fetch(
-                    `http://localhost:8080/api/quiz-attempts/quiz/${quizId}`
+                   `${import.meta.env.VITE_API_BASE_URL}/api/quiz-attempts/quiz/${quizId}`
                 );
 
             if (
@@ -515,7 +515,7 @@ function TeacherQuizzesPage() {
 
             const response =
                 await fetch(
-                    `http://localhost:8080/api/quizzes/${quiz.id}`,
+                   `${import.meta.env.VITE_API_BASE_URL}/api/quizzes/${quiz.id}`,
                     {
                         method: "DELETE",
                     }
@@ -773,7 +773,7 @@ function TeacherQuizzesPage() {
 
                 const questionResponse =
                     await fetch(
-                        `http://localhost:8080/api/quizzes/${createdQuiz.id}/questions`,
+                        `${import.meta.env.VITE_API_BASE_URL}/api/quizzes/${createdQuiz.id}/questions`,
                         {
                             method: "POST",
 

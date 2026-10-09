@@ -133,7 +133,7 @@ function TeacherSubjectsPage() {
 
             const response =
                 await fetch(
-                    `http://localhost:8080/api/subjects/${subject.id}`,
+                    `${import.meta.env.VITE_API_BASE_URL}/api/subjects/${subject.id}`,
                     {
                         method: "DELETE",
                     }

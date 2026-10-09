@@ -102,7 +102,7 @@ function QuizPage() {
                 }
 
                 const quizzesResponse = await fetch(
-                    `http://localhost:8080/api/quizzes/subject/${foundSubject.id}`
+                    `${import.meta.env.VITE_API_BASE_URL}/api/quizzes/subject/${foundSubject.id}`
                 );
 
                 if (!quizzesResponse.ok) {
@@ -140,7 +140,7 @@ function QuizPage() {
 
                         const questionsResponse =
                             await fetch(
-                                `http://localhost:8080/api/quizzes/${candidateQuiz.id}/questions`
+                                `${import.meta.env.VITE_API_BASE_URL}/api/quizzes/${candidateQuiz.id}/questions`
                             );
 
                         if (!questionsResponse.ok) {

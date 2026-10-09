@@ -161,7 +161,7 @@ function TeacherUploadNotesPage() {
             setError("");
 
             const response = await fetch(
-                `http://localhost:8080/api/units/subject/${subjectId}`
+               `${import.meta.env.VITE_API_BASE_URL}/api/units/subject/${subjectId}`
             );
 
             if (!response.ok) {
@@ -216,7 +216,7 @@ function TeacherUploadNotesPage() {
             setError("");
 
             const response = await fetch(
-                `http://localhost:8080/api/topics/unit/${unitId}`
+               `${import.meta.env.VITE_API_BASE_URL}/api/topics/unit/${unitId}`
             );
 
             if (!response.ok) {
@@ -271,7 +271,7 @@ function TeacherUploadNotesPage() {
             setError("");
 
             const response = await fetch(
-                `http://localhost:8080/api/notes/topic/${topicId}`
+              `${import.meta.env.VITE_API_BASE_URL}/api/notes/topic/${topicId}`
             );
 
             if (!response.ok) {
@@ -365,7 +365,7 @@ function TeacherUploadNotesPage() {
             setLoadingVideos(true);
 
             const response = await fetch(
-                `http://localhost:8080/api/videos/topic/${topicId}`
+                `${import.meta.env.VITE_API_BASE_URL}/api/videos/topic/${topicId}`
             );
 
             if (!response.ok) {
@@ -871,7 +871,7 @@ function TeacherUploadNotesPage() {
             setSuccess("");
 
             const response = await fetch(
-                `http://localhost:8080/api/videos/${videoId}`,
+                `${import.meta.env.VITE_API_BASE_URL}/api/videos/${videoId}`,
                 {
                     method: "DELETE",
                 }
@@ -967,7 +967,7 @@ function TeacherUploadNotesPage() {
             setSuccess("");
 
             const response = await fetch(
-                `http://localhost:8080/api/notes/${fileId}`,
+                `${import.meta.env.VITE_API_BASE_URL}/api/notes/${fileId}`,
                 {
                     method: "DELETE",
                 }

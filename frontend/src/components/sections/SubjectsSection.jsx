@@ -1,9 +1,12 @@
+
 import {
     ArrowRight,
     MessageSquare,
     ClipboardCheck,
 } from "lucide-react";
+
 import { Link } from "react-router-dom";
+
 import {
     useCallback,
     useEffect,
@@ -11,7 +14,7 @@ import {
 } from "react";
 
 const API_URL =
-    import.meta.env.VITE_API_BASE_URL || "http://localhost:8080";
+    import.meta.env.VITE_API_BASE_URL;
 
 const colorStyles = {
     blue: {
@@ -20,18 +23,21 @@ const colorStyles = {
         ask: "border-blue-600 text-blue-600 hover:bg-blue-50",
         continue: "bg-blue-600 hover:bg-blue-700",
     },
+
     green: {
         icon: "bg-emerald-100 text-emerald-600",
         progress: "bg-emerald-500",
         ask: "border-emerald-500 text-emerald-600 hover:bg-emerald-50",
         continue: "bg-emerald-500 hover:bg-emerald-600",
     },
+
     orange: {
         icon: "bg-orange-100 text-orange-600",
         progress: "bg-orange-500",
         ask: "border-orange-500 text-orange-600 hover:bg-orange-50",
         continue: "bg-orange-500 hover:bg-orange-600",
     },
+
     purple: {
         icon: "bg-purple-100 text-purple-600",
         progress: "bg-purple-500",

@@ -187,7 +187,7 @@ export default function TeacherDashboardPage() {
 
         const response =
           await fetch(
-            `http://localhost:8080/api/dashboard/user/${userId}/statistics`
+           `${import.meta.env.VITE_API_BASE_URL}/api/dashboard/user/${userId}/statistics`
           );
 
         if (!response.ok) {
@@ -507,7 +507,7 @@ export default function TeacherDashboardPage() {
 
       const response =
         await fetch(
-          `http://localhost:8080/api/notes/${documentId}`,
+          `${import.meta.env.VITE_API_BASE_URL}/api/notes/${documentId}`,
           {
             method: "DELETE",
           }
@@ -550,7 +550,7 @@ export default function TeacherDashboardPage() {
   ) => {
 
     window.open(
-      `http://localhost:8080/api/notes/${documentId}/file`,
+      `${import.meta.env.VITE_API_BASE_URL}/api/notes/${documentId}/file`,
       "_blank",
       "noopener,noreferrer"
     );
@@ -621,7 +621,7 @@ export default function TeacherDashboardPage() {
 
       const response =
         await fetch(
-          `http://localhost:8080/api/quiz-attempts/quiz/${quiz.id}`
+         `${import.meta.env.VITE_API_BASE_URL}/api/quiz-attempts/quiz/${quiz.id}`
         );
 
       if (!response.ok) {
