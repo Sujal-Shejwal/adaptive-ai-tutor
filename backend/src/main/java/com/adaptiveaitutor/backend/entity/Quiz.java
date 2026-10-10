@@ -58,6 +58,11 @@ public class Quiz {
     @Column(name = "difficulty")
     private String difficulty;
 
+    // Student who owns this adaptive practice quiz.
+    // Null for normal teacher-created quizzes.
+    @Column(name = "adaptive_student_id")
+    private Long adaptiveStudentId;
+
     // =====================================================
     // SUBJECT
     // =====================================================
@@ -134,6 +139,7 @@ public class Quiz {
 
         this.adaptive = false;
         this.difficulty = null;
+        this.adaptiveStudentId = null;
     }
 
     // =====================================================
@@ -161,6 +167,7 @@ public class Quiz {
 
         this.adaptive = false;
         this.difficulty = null;
+        this.adaptiveStudentId = null;
     }
 
     // =====================================================
@@ -262,6 +269,20 @@ public class Quiz {
     }
 
     // =====================================================
+    // ADAPTIVE STUDENT
+    // =====================================================
+
+    public Long getAdaptiveStudentId() {
+        return adaptiveStudentId;
+    }
+
+    public void setAdaptiveStudentId(
+            Long adaptiveStudentId) {
+
+        this.adaptiveStudentId = adaptiveStudentId;
+    }
+
+    // =====================================================
     // SUBJECT
     // =====================================================
 
@@ -328,13 +349,8 @@ public class Quiz {
             return;
         }
 
-        questions.add(
-                question
-        );
-
-        question.setQuiz(
-                this
-        );
+        questions.add(question);
+        question.setQuiz(this);
     }
 
     // =====================================================
@@ -348,12 +364,7 @@ public class Quiz {
             return;
         }
 
-        questions.remove(
-                question
-        );
-
-        question.setQuiz(
-                null
-        );
+        questions.remove(question);
+        question.setQuiz(null);
     }
 }

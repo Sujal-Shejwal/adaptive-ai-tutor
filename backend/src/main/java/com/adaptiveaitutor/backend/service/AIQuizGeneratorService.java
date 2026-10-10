@@ -344,8 +344,9 @@ public class AIQuizGeneratorService {
 
         // Mark quizzes generated for a student as adaptive.
         if (studentId != null) {
-            quiz.setAdaptive(true);
-            quiz.setDifficulty(difficulty);
+    quiz.setAdaptive(true);
+    quiz.setDifficulty(difficulty);
+    quiz.setAdaptiveStudentId(studentId);
 
             if (quiz.getTopic() != null
                     && quiz.getTopic().getTitle() != null

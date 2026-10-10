@@ -62,211 +62,172 @@ public class QuizAttemptService {
         // FIND QUIZ
         // -------------------------------------------------
 
-        Quiz quiz =
-                quizRepository
-                        .findById(quizId)
-                        .orElseThrow(() ->
-                                new RuntimeException(
-                                        "Quiz not found"
-                                )
-                        );
+        Quiz quiz = quizRepository
+                .findById(quizId)
+                .orElseThrow(() ->
+                        new RuntimeException("Quiz not found")
+                );
 
         // -------------------------------------------------
         // FIND STUDENT
         // -------------------------------------------------
 
-        User student =
-                userRepository
-                        .findById(studentId)
-                        .orElseThrow(() ->
-                                new RuntimeException(
-                                        "Student not found"
-                                )
-                        );
+        User student = userRepository
+                .findById(studentId)
+                .orElseThrow(() ->
+                        new RuntimeException("Student not found")
+                );
 
         // -------------------------------------------------
         // VERIFY STUDENT ROLE
         // -------------------------------------------------
 
-        if (!"student".equalsIgnoreCase(
-                student.getRole())) {
-
+        if (!"student".equalsIgnoreCase(student.getRole())) {
             throw new RuntimeException(
                     "Only students can submit quizzes"
             );
         }
 
         // -------------------------------------------------
+        // VERIFY ADAPTIVE PRACTICE OWNERSHIP
+        // -------------------------------------------------
+
+        /*
+         * Adaptive practice quizzes are generated for a
+         * particular student.
+         *
+         * The student whose ID is stored on the adaptive
+         * quiz can submit it without a classroom assignment.
+         *
+         * Other students cannot submit that adaptive quiz.
+         */
+
+        boolean adaptivePracticeAuthorized =
+                quiz.isAdaptive()
+                && quiz.getAdaptiveStudentId() != null
+                && quiz.getAdaptiveStudentId().equals(studentId);
+
+        // -------------------------------------------------
         // VERIFY CLASSROOM ENROLLMENT + ASSIGNMENT
         // -------------------------------------------------
-        //
-        // The quiz can be assigned to one or more
-        // classrooms.
-        //
-        // The student must have:
-        //
-        // 1. An ACTIVE classroom enrollment
-        // 2. An ACTIVE quiz assignment in that classroom
-        //
-        // The student is authorized if at least one
-        // matching active assignment exists.
-        //
-        // We also keep track of whether at least one
-        // authorized assignment is still within its
-        // assignment-specific deadline.
 
-        List<ClassroomEnrollment> enrollments =
-                enrollmentRepository
-                        .findByStudentId(studentId);
+        /*
+         * Normal classroom quizzes still require:
+         *
+         * 1. An ACTIVE classroom enrollment.
+         * 2. An ACTIVE assignment for that classroom.
+         * 3. A valid assignment deadline.
+         *
+         * Adaptive practice quizzes use the ownership
+         * validation above instead.
+         */
 
-        boolean authorized = false;
+        if (!adaptivePracticeAuthorized) {
 
-        boolean deadlineValid = false;
+            List<ClassroomEnrollment> enrollments =
+                    enrollmentRepository.findByStudentId(studentId);
 
-        LocalDateTime now =
-                LocalDateTime.now();
+            boolean authorized = false;
+            boolean deadlineValid = false;
 
-        if (enrollments != null) {
+            LocalDateTime now = LocalDateTime.now();
 
-            for (ClassroomEnrollment enrollment :
-                    enrollments) {
+            if (enrollments != null) {
 
-                if (enrollment == null) {
-                    continue;
-                }
+                for (ClassroomEnrollment enrollment : enrollments) {
 
-                // -----------------------------------------
-                // ACTIVE ENROLLMENT ONLY
-                // -----------------------------------------
+                    if (enrollment == null) {
+                        continue;
+                    }
 
-                if (!"ACTIVE".equalsIgnoreCase(
-                        enrollment.getStatus())) {
+                    // Only active enrollments are accepted.
+                    if (!"ACTIVE".equalsIgnoreCase(
+                            enrollment.getStatus())) {
+                        continue;
+                    }
 
-                    continue;
-                }
+                    // Validate classroom information.
+                    if (enrollment.getClassroom() == null
+                            || enrollment.getClassroom().getId() == null) {
+                        continue;
+                    }
 
-                // -----------------------------------------
-                // CLASSROOM VALIDATION
-                // -----------------------------------------
+                    Long classroomId =
+                            enrollment.getClassroom().getId();
 
-                if (
-                        enrollment.getClassroom() == null ||
-                        enrollment.getClassroom().getId() == null
-                ) {
+                    // Find the assignment for this classroom and quiz.
+                    QuizAssignment assignment =
+                            assignmentRepository
+                                    .findByClassroomIdAndQuizId(
+                                            classroomId,
+                                            quizId
+                                    )
+                                    .orElse(null);
 
-                    continue;
-                }
+                    if (assignment == null) {
+                        continue;
+                    }
 
-                Long classroomId =
-                        enrollment
-                                .getClassroom()
-                                .getId();
+                    // Only active assignments are accepted.
+                    if (!"ACTIVE".equalsIgnoreCase(
+                            assignment.getStatus())) {
+                        continue;
+                    }
 
-                // -----------------------------------------
-                // FIND QUIZ ASSIGNMENT
-                // -----------------------------------------
+                    // The student is authorized for this quiz.
+                    authorized = true;
 
-                QuizAssignment assignment =
-                        assignmentRepository
-                                .findByClassroomIdAndQuizId(
-                                        classroomId,
-                                        quizId
-                                )
-                                .orElse(null);
+                    /*
+                     * A null deadline is allowed for backward
+                     * compatibility with older assignments.
+                     */
+                    if (assignment.getDueAt() == null) {
 
-                if (assignment == null) {
-                    continue;
-                }
+                        deadlineValid = true;
 
-                // -----------------------------------------
-                // ASSIGNMENT MUST BE ACTIVE
-                // -----------------------------------------
+                    } else if (now.isBefore(assignment.getDueAt())) {
 
-                if (!"ACTIVE".equalsIgnoreCase(
-                        assignment.getStatus())) {
+                        deadlineValid = true;
+                    }
 
-                    continue;
-                }
-
-                // -------------------------------------------------
-                // STUDENT IS AUTHORIZED FOR THIS QUIZ
-                // -------------------------------------------------
-
-                authorized = true;
-
-                // -------------------------------------------------
-                // CHECK ASSIGNMENT DEADLINE
-                // -------------------------------------------------
-                //
-                // IMPORTANT:
-                //
-                // The deadline belongs to the assignment.
-                // It starts from the time the teacher assigned
-                // the quiz, not from the original quiz creation
-                // time.
-                //
-                // If dueAt is null, we allow the assignment to
-                // continue for backward compatibility with older
-                // assignments created before dueAt was added.
-                //
-                // If dueAt exists, submission is allowed only
-                // before the deadline.
-
-                if (assignment.getDueAt() == null) {
-
-                    deadlineValid = true;
-
-                } else if (
-                        now.isBefore(
-                                assignment.getDueAt()
-                        )
-                ) {
-
-                    deadlineValid = true;
-                }
-
-                // -------------------------------------------------
-                // If one authorized assignment is still valid,
-                // the student can submit.
-                // -------------------------------------------------
-
-                if (deadlineValid) {
-                    break;
+                    /*
+                     * At least one authorized assignment with a
+                     * valid deadline is sufficient.
+                     */
+                    if (deadlineValid) {
+                        break;
+                    }
                 }
             }
-        }
 
-        // -------------------------------------------------
-        // VERIFY CLASSROOM AUTHORIZATION
-        // -------------------------------------------------
+            // -------------------------------------------------
+            // VERIFY CLASSROOM AUTHORIZATION
+            // -------------------------------------------------
 
-        if (!authorized) {
+            if (!authorized) {
+                throw new RuntimeException(
+                        "You are not authorized to submit this quiz"
+                );
+            }
 
-            throw new RuntimeException(
-                    "You are not authorized to submit this quiz"
-            );
-        }
+            // -------------------------------------------------
+            // VERIFY ASSIGNMENT DEADLINE
+            // -------------------------------------------------
 
-        // -------------------------------------------------
-        // VERIFY ASSIGNMENT DEADLINE
-        // -------------------------------------------------
-
-        if (!deadlineValid) {
-
-            throw new RuntimeException(
-                    "Quiz submission deadline has expired"
-            );
+            if (!deadlineValid) {
+                throw new RuntimeException(
+                        "Quiz submission deadline has expired"
+                );
+            }
         }
 
         // -------------------------------------------------
         // DUPLICATE SUBMISSION CHECK
         // -------------------------------------------------
 
-        if (quizAttemptRepository
-                .existsByQuizIdAndStudentId(
-                        quizId,
-                        studentId
-                )) {
+        if (quizAttemptRepository.existsByQuizIdAndStudentId(
+                quizId,
+                studentId)) {
 
             throw new RuntimeException(
                     "Quiz has already been submitted by this student"
@@ -278,11 +239,9 @@ public class QuizAttemptService {
         // -------------------------------------------------
 
         List<QuizQuestion> questions =
-                quizQuestionRepository
-                        .findByQuizId(quizId);
+                quizQuestionRepository.findByQuizId(quizId);
 
-        if (questions.isEmpty()) {
-
+        if (questions == null || questions.isEmpty()) {
             throw new RuntimeException(
                     "This quiz has no questions"
             );
@@ -294,25 +253,17 @@ public class QuizAttemptService {
 
         int correctAnswers = 0;
 
-        for (QuizQuestion question :
-                questions) {
+        for (QuizQuestion question : questions) {
 
             Integer selectedAnswer = null;
 
             if (answers != null) {
-
-                selectedAnswer =
-                        answers.get(
-                                question.getId()
-                        );
+                selectedAnswer = answers.get(question.getId());
             }
 
-            if (
-                    selectedAnswer != null &&
-                    selectedAnswer.equals(
-                            question.getCorrectAnswer()
-                    )
-            ) {
+            if (selectedAnswer != null
+                    && selectedAnswer.equals(
+                            question.getCorrectAnswer())) {
 
                 correctAnswers++;
             }
@@ -322,73 +273,57 @@ public class QuizAttemptService {
         // TOTAL QUESTIONS
         // -------------------------------------------------
 
-        int totalQuestions =
-                questions.size();
+        int totalQuestions = questions.size();
 
         // -------------------------------------------------
         // CALCULATE PERCENTAGE
         // -------------------------------------------------
 
-        int score =
-                (int) Math.round(
-                        (
-                                (double) correctAnswers /
-                                totalQuestions
-                        ) *
-                        100
-                );
+        int score = (int) Math.round(
+                ((double) correctAnswers / totalQuestions) * 100
+        );
 
         // -------------------------------------------------
         // CREATE ATTEMPT
         // -------------------------------------------------
 
-        QuizAttempt attempt =
-                new QuizAttempt(
-                        quiz,
-                        student,
-                        score,
-                        totalQuestions,
-                        correctAnswers,
-                        LocalDateTime.now()
-                );
+        QuizAttempt attempt = new QuizAttempt(
+                quiz,
+                student,
+                score,
+                totalQuestions,
+                correctAnswers,
+                LocalDateTime.now()
+        );
 
         // -------------------------------------------------
         // SAVE ATTEMPT
         // -------------------------------------------------
 
         QuizAttempt savedAttempt =
-                quizAttemptRepository.save(
-                        attempt
-                );
+                quizAttemptRepository.save(attempt);
 
         // -------------------------------------------------
         // NOTIFY QUIZ TEACHER
         // -------------------------------------------------
 
-        if (
-                quiz.getCreatedBy() != null &&
-                quiz.getCreatedBy().getId() != null
-        ) {
+        if (quiz.getCreatedBy() != null
+                && quiz.getCreatedBy().getId() != null) {
 
             Notification notification =
                     notificationService.createNotification(
                             quiz.getCreatedBy().getId(),
                             "QUIZ",
                             "Quiz submitted",
-                            "Student \"" +
-                                    student.getName() +
-                                    "\" submitted the quiz \"" +
-                                    quiz.getTitle() +
-                                    "\"."
+                            "Student \""
+                                    + student.getName()
+                                    + "\" submitted the quiz \""
+                                    + quiz.getTitle()
+                                    + "\"."
                     );
 
-            notification.setReferenceType(
-                    "QUIZ"
-            );
-
-            notification.setReferenceId(
-                    quiz.getId()
-            );
+            notification.setReferenceType("QUIZ");
+            notification.setReferenceId(quiz.getId());
         }
 
         return savedAttempt;
@@ -398,35 +333,27 @@ public class QuizAttemptService {
     // GET STUDENT ATTEMPTS
     // =====================================================
 
-    public List<QuizAttempt> getStudentAttempts(
-            Long studentId) {
+    public List<QuizAttempt> getStudentAttempts(Long studentId) {
 
-        return quizAttemptRepository
-                .findByStudentId(studentId);
+        return quizAttemptRepository.findByStudentId(studentId);
     }
 
     // =====================================================
     // GET QUIZ ATTEMPTS
     // =====================================================
 
-    public List<QuizAttempt> getQuizAttempts(
-            Long quizId) {
+    public List<QuizAttempt> getQuizAttempts(Long quizId) {
 
-        return quizAttemptRepository
-                .findByQuizId(quizId);
+        return quizAttemptRepository.findByQuizId(quizId);
     }
 
     // =====================================================
     // GET ALL ATTEMPTS FOR TEACHER
     // =====================================================
 
-    public List<QuizAttempt> getTeacherAttempts(
-            Long teacherId) {
+    public List<QuizAttempt> getTeacherAttempts(Long teacherId) {
 
-        return quizAttemptRepository
-                .findByQuizCreatedById(
-                        teacherId
-                );
+        return quizAttemptRepository.findByQuizCreatedById(teacherId);
     }
 
     // =====================================================
@@ -438,9 +365,6 @@ public class QuizAttemptService {
             Long studentId) {
 
         return quizAttemptRepository
-                .existsByQuizIdAndStudentId(
-                        quizId,
-                        studentId
-                );
+                .existsByQuizIdAndStudentId(quizId, studentId);
     }
 }
