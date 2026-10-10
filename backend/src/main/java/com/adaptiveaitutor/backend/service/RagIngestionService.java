@@ -243,4 +243,32 @@ public class RagIngestionService {
 
         return jdbcTemplate.update(sql, noteId.toString());
     }
+
+
+    // =====================================================
+// RETRIEVE STORED TEXT CHUNKS FOR A NOTE
+// =====================================================
+
+public String getStoredTextForNote(Long noteId) {
+
+    if (noteId == null) {
+        return "";
+    }
+
+    String sql = """
+            SELECT content
+            FROM public.vector_store
+            WHERE metadata->>'noteId' = ?
+            ORDER BY (metadata->>'chunkIndex')::INTEGER
+            """;
+
+    List<String> chunks = jdbcTemplate.query(
+            sql,
+            (resultSet, rowNumber) ->
+                    resultSet.getString("content"),
+            noteId.toString()
+    );
+
+    return String.join("\n\n", chunks).trim();
+}
 }
