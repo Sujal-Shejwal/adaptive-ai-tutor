@@ -1,3 +1,4 @@
+
 package com.adaptiveaitutor.backend.config;
 
 import org.springframework.context.annotation.Configuration;
@@ -14,7 +15,9 @@ public class WebConfig implements WebMvcConfigurer {
         registry.addMapping("/**")
                 .allowedOrigins(
                         "http://localhost:5173",
-                        "https://adaptive-ai-tutor-gamma.vercel.app"
+                        "https://adaptive-ai-tutor-gamma.vercel.app",
+                        "https://adaptiveaitutor.me",
+                        "https://www.adaptiveaitutor.me"
                 )
                 .allowedMethods(
                         "GET",
@@ -31,8 +34,6 @@ public class WebConfig implements WebMvcConfigurer {
             ResourceHandlerRegistry registry) {
 
         registry.addResourceHandler("/uploads/**")
-                .addResourceLocations(
-                        "file:uploads/"
-                );
+                .addResourceLocations("file:uploads/");
     }
 }
