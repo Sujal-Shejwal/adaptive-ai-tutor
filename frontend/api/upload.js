@@ -1,4 +1,5 @@
 import { handleUpload } from "@vercel/blob/client";
+import { uploadPdfToBlob } from "../utils/blobUpload";
 
 export default async function handler(request) {
   const body = await request.json();

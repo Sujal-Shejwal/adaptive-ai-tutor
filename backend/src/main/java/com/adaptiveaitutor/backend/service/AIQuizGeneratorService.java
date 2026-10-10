@@ -1,6 +1,12 @@
 package com.adaptiveaitutor.backend.service;
 
 import java.io.File;
+import java.io.InputStream;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -816,131 +822,117 @@ public class AIQuizGeneratorService {
     // EXTRACT COURSE MATERIAL
     // =====================================================
 
-    private String extractCourseMaterial(
-            List<Note> notes) {
+    private String extractCourseMaterial(List<Note> notes) {
 
-        StringBuilder material =
-                new StringBuilder();
+    StringBuilder material = new StringBuilder();
 
-        for (
-                Note note :
-                notes
-        ) {
+    HttpClient httpClient = HttpClient.newBuilder()
+            .connectTimeout(Duration.ofSeconds(15))
+            .followRedirects(HttpClient.Redirect.NORMAL)
+            .build();
 
-            if (
-                    note == null ||
-                    note.getFilePath() == null ||
-                    note.getFilePath().isBlank()
-            ) {
+    for (Note note : notes) {
 
+        if (note == null
+                || note.getFilePath() == null
+                || note.getFilePath().isBlank()) {
+            continue;
+        }
+
+        if (material.length() >= MAX_CONTEXT_CHARACTERS) {
+            break;
+        }
+
+        String filePath = note.getFilePath().trim();
+
+        try (PDDocument document = loadPdfDocument(httpClient, filePath)) {
+
+            PDFTextStripper stripper = new PDFTextStripper();
+            String text = stripper.getText(document);
+
+            if (text == null || text.isBlank()) {
                 continue;
             }
 
-            if (
-                    material.length()
-                            >= MAX_CONTEXT_CHARACTERS
-            ) {
+            String cleanedText = text
+                    .replaceAll("\\s+", " ")
+                    .trim();
 
+            int remaining =
+                    MAX_CONTEXT_CHARACTERS - material.length();
+
+            if (remaining <= 0) {
                 break;
             }
 
-            String filePath =
-                    note.getFilePath()
-                            .trim();
-
-            File pdfFile =
-                    new File(
-                            filePath
-                    );
-
-            if (
-                    !pdfFile.exists()
-            ) {
-
-                System.out.println(
-                        "PDF file not found: "
-                                + filePath
-                );
-
-                continue;
+            if (cleanedText.length() > remaining) {
+                cleanedText = cleanedText.substring(0, remaining);
             }
 
-            try (
-                    PDDocument document =
-                            Loader.loadPDF(
-                                    pdfFile
-                            )
-            ) {
+            material.append("\n\n===== ")
+                    .append(note.getFileName())
+                    .append(" =====\n\n")
+                    .append(cleanedText);
 
-                PDFTextStripper stripper =
-                        new PDFTextStripper();
+        } catch (Exception exception) {
 
-                String text =
-                        stripper.getText(
-                                document
-                        );
+            System.out.println("Unable to extract PDF: " + filePath);
+            exception.printStackTrace();
+        }
+    }
 
-                if (
-                        text == null ||
-                        text.isBlank()
-                ) {
+    return material.toString().trim();
+}
 
-                    continue;
-                }
+private PDDocument loadPdfDocument(
+        HttpClient httpClient,
+        String filePath) throws Exception {
 
-                String cleanedText =
-                        text
-                                .replaceAll(
-                                        "\\s+",
-                                        " "
-                                )
-                                .trim();
+    if (filePath.startsWith("https://")
+            || filePath.startsWith("http://")) {
 
-                int remaining =
-                        MAX_CONTEXT_CHARACTERS
-                                - material.length();
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(filePath))
+                .timeout(Duration.ofSeconds(60))
+                .GET()
+                .build();
 
-                if (
-                        cleanedText.length()
-                                > remaining
-                ) {
+        HttpResponse<InputStream> response = httpClient.send(
+                request,
+                HttpResponse.BodyHandlers.ofInputStream()
+        );
 
-                    cleanedText =
-                            cleanedText.substring(
-                                    0,
-                                    remaining
-                            );
-                }
+        if (response.statusCode() < 200
+                || response.statusCode() >= 300) {
 
-                material
-                        .append(
-                                "\n\n===== "
-                        )
-                        .append(
-                                note.getFileName()
-                        )
-                        .append(
-                                " =====\n\n"
-                        )
-                        .append(
-                                cleanedText
-                        );
-
-            } catch (Exception exception) {
-
-                System.out.println(
-                        "Unable to extract PDF: "
-                                + filePath
+            try (InputStream body = response.body()) {
+                body.transferTo(
+                        java.io.OutputStream.nullOutputStream()
                 );
-
-                exception.printStackTrace();
             }
+
+            throw new RuntimeException(
+                    "Failed to download PDF. HTTP status: "
+                            + response.statusCode()
+            );
         }
 
-        return material
-                .toString()
-                .trim();
+        try (InputStream inputStream = response.body()) {
+            byte[] pdfBytes = inputStream.readAllBytes();
+            return Loader.loadPDF(pdfBytes);
+        }
     }
+
+    File pdfFile = new File(filePath);
+
+    if (!pdfFile.exists() || !pdfFile.isFile()) {
+        throw new java.io.FileNotFoundException(
+                "PDF file not found: " + filePath
+        );
+    }
+
+    return Loader.loadPDF(pdfFile);
+}
 
     // =====================================================
     // PARSE QUESTION

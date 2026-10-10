@@ -12,6 +12,7 @@ import {
 
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { uploadPdfToBlob } from "../utils/blobUpload";
 
 
 function TeacherUploadNotesPage() {
@@ -621,145 +622,88 @@ function TeacherUploadNotesPage() {
     // =========================
 
     const uploadFile = async (file) => {
+    try {
+        setUploading(true);
+        setError("");
+        setSuccess("");
 
-        try {
+        // Upload the PDF to permanent Vercel Blob storage
+        const blob = await uploadPdfToBlob(file);
 
-            setUploading(true);
-
-            setError("");
-
-            setSuccess("");
-
-
-            const formData =
-                new FormData();
-
-
-            formData.append(
-                "file",
-                file
-            );
-
-
-            formData.append(
-                "topicId",
-                selectedTopicId
-            );
-
-
-            const response =
-                await fetch(
-                    `${import.meta.env.VITE_API_BASE_URL}/api/notes/upload`,
-                    {
-                        method: "POST",
-                        body: formData,
-                    }
-                );
-
-
-            if (!response.ok) {
-
-                throw new Error(
-                    "Failed to upload file."
-                );
-
-            }
-
-
-            const createdNote =
-                await response.json();
-
-
-            // Find selected data
-
-            const selectedSubject =
-                subjects.find(
-                    (subject) =>
-                        String(subject.id) ===
-                        String(selectedSubjectId)
-                );
-
-
-            const selectedUnit =
-                units.find(
-                    (unit) =>
-                        String(unit.id) ===
-                        String(selectedUnitId)
-                );
-
-
-            const selectedTopic =
-                topics.find(
-                    (topic) =>
-                        String(topic.id) ===
-                        String(selectedTopicId)
-                );
-
-
-            // Add file to UI
-
-            const newFile = {
-
-                id: createdNote.id,
-
-                name:
-                    createdNote.fileName ||
-                    file.name,
-
-                size:
-                    formatFileSize(
-                        file.size
-                    ),
-
-                subject:
-                    selectedSubject?.name ||
-                    "",
-
-                unit:
-                    selectedUnit?.title ||
-                    "",
-
-                topic:
-                    selectedTopic?.title ||
-                    "",
-
-                status:
-                    "Uploaded",
-
-            };
-
-
-            setUploadedFiles(
-                (currentFiles) => [
-                    newFile,
-                    ...currentFiles,
-                ]
-            );
-
-
-            setSuccess(
-                `${file.name} uploaded successfully.`
-            );
-
-
-        } catch (error) {
-
-            console.error(
-                "Error uploading file:",
-                error
-            );
-
-            setError(
-                `Unable to upload ${file.name}. Please try again.`
-            );
-
-        } finally {
-
-            setUploading(false);
-
+        if (!blob?.url) {
+            throw new Error("PDF upload did not return a valid Blob URL.");
         }
 
-    };
+        // Save the permanent Blob URL in the backend
+        const body = new URLSearchParams();
+        body.append("fileName", file.name);
+        body.append("blobUrl", blob.url);
+        body.append("topicId", selectedTopicId);
+
+        const response = await fetch(
+            `${import.meta.env.VITE_API_BASE_URL}/api/notes/blob`,
+            {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/x-www-form-urlencoded",
+                },
+                body,
+            }
+        );
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(
+                errorText || "Failed to save the uploaded PDF."
+            );
+        }
+
+        const createdNote = await response.json();
+
+        // Find selected data
+        const selectedSubject = subjects.find(
+            (subject) =>
+                String(subject.id) === String(selectedSubjectId)
+        );
+
+        const selectedUnit = units.find(
+            (unit) =>
+                String(unit.id) === String(selectedUnitId)
+        );
+
+        const selectedTopic = topics.find(
+            (topic) =>
+                String(topic.id) === String(selectedTopicId)
+        );
+
+        // Add the uploaded file to the existing UI
+        const newFile = {
+            id: createdNote.id,
+            name: createdNote.fileName || file.name,
+            size: formatFileSize(file.size),
+            subject: selectedSubject?.name || "",
+            unit: selectedUnit?.title || "",
+            topic: selectedTopic?.title || "",
+            status: "Uploaded",
+        };
+
+        setUploadedFiles((currentFiles) => [
+            newFile,
+            ...currentFiles,
+        ]);
+
+        setSuccess(`${file.name} uploaded successfully.`);
+    } catch (error) {
+        console.error("Error uploading file:", error);
+
+        setError(
+            error?.message ||
+            `Unable to upload ${file.name}. Please try again.`
+        );
+    } finally {
+        setUploading(false);
+    }
+};
 
 
     // =========================
