@@ -12,7 +12,7 @@ import {
 
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { uploadPdfToBlob } from "../utils/blobUpload";
+import { uploadPdfToBlob } from "../../../utils/blobUpload";
 
 
 function TeacherUploadNotesPage() {
