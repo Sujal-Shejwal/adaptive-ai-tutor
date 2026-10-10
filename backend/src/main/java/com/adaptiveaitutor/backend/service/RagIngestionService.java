@@ -22,6 +22,8 @@ import com.adaptiveaitutor.backend.entity.Note;
 @Service
 public class RagIngestionService {
 
+    private static final int EMBEDDING_BATCH_SIZE = 50;
+
     private final NoteService noteService;
     private final PdfTextExtractorService pdfTextExtractorService;
     private final TextChunkingService textChunkingService;
@@ -69,7 +71,7 @@ public class RagIngestionService {
                         "PDF file path is empty for note: " + noteId);
             }
 
-            // 2. Handle Vercel Blob PDF
+            // 2. Download PDF from Vercel Blob when necessary
 
             if (filePath.startsWith("https://")
                     || filePath.startsWith("http://")) {
@@ -104,12 +106,10 @@ public class RagIngestionService {
                 metadata.put("topicId", note.getTopic().getId());
                 metadata.put("chunkIndex", i);
 
-                Document document = new Document(chunks.get(i), metadata);
-
-                documents.add(document);
+                documents.add(new Document(chunks.get(i), metadata));
             }
 
-            // 6. Log diagnostic information before embedding
+            // 6. Log diagnostic information
 
             System.out.println("========== PDF INGESTION DEBUG ==========");
             System.out.println("Note ID: " + noteId);
@@ -118,6 +118,7 @@ public class RagIngestionService {
                     + (text == null ? 0 : text.length()));
             System.out.println("Chunks created: " + chunks.size());
             System.out.println("Documents created: " + documents.size());
+            System.out.println("Embedding batch size: " + EMBEDDING_BATCH_SIZE);
             System.out.println("==========================================");
 
             if (documents.isEmpty()) {
@@ -125,9 +126,29 @@ public class RagIngestionService {
                         "No documents created for embedding. Note ID: " + noteId);
             }
 
-            // 7. Store chunks in PGVector
+            // 7. Store documents in smaller batches
 
-            vectorStore.add(documents);
+            int totalDocuments = documents.size();
+
+            for (int start = 0; start < totalDocuments;
+                    start += EMBEDDING_BATCH_SIZE) {
+
+                int end = Math.min(
+                        start + EMBEDDING_BATCH_SIZE,
+                        totalDocuments);
+
+                List<Document> batch = documents.subList(start, end);
+
+                System.out.println(
+                        "Embedding batch: " + (start + 1) + "-" + end
+                                + " of " + totalDocuments);
+
+                vectorStore.add(batch);
+            }
+
+            System.out.println(
+                    "Successfully ingested " + totalDocuments
+                            + " documents for note " + noteId);
 
             // 8. Return result
 
@@ -136,7 +157,7 @@ public class RagIngestionService {
             result.put("success", true);
             result.put("noteId", noteId);
             result.put("fileName", note.getFileName());
-            result.put("totalChunks", documents.size());
+            result.put("totalChunks", totalDocuments);
             result.put("message", "PDF successfully ingested into PGVector");
 
             return result;
