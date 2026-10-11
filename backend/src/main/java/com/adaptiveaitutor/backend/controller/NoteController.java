@@ -35,316 +35,166 @@ import com.adaptiveaitutor.backend.service.RagIngestionService;
 public class NoteController {
 
     private final NoteService noteService;
-
     private final TopicRepository topicRepository;
-
     private final RagIngestionService ragIngestionService;
 
-    private final Path uploadDirectory =
-            Paths.get("uploads");
+    private final Path uploadDirectory = Paths.get("uploads");
 
     public NoteController(
             NoteService noteService,
             TopicRepository topicRepository,
             RagIngestionService ragIngestionService) {
 
-        this.noteService =
-                noteService;
-
-        this.topicRepository =
-                topicRepository;
-
-        this.ragIngestionService =
-                ragIngestionService;
+        this.noteService = noteService;
+        this.topicRepository = topicRepository;
+        this.ragIngestionService = ragIngestionService;
     }
 
-    // =====================================================
     // GET ALL NOTES
-    // =====================================================
-
     @GetMapping
     public ResponseEntity<List<Note>> getAllNotes() {
-
-        return ResponseEntity.ok(
-                noteService.getAllNotes()
-        );
+        return ResponseEntity.ok(noteService.getAllNotes());
     }
 
-    // =====================================================
     // GET NOTES BY TOPIC
-    // =====================================================
-
     @GetMapping("/topic/{topicId}")
     public ResponseEntity<List<Note>> getNotesByTopic(
             @PathVariable Long topicId) {
 
         return ResponseEntity.ok(
-                noteService.getNotesByTopicId(topicId)
-        );
+                noteService.getNotesByTopicId(topicId));
     }
 
-    // =====================================================
     // GET NOTE BY ID
-    // =====================================================
-
     @GetMapping("/{id}")
     public ResponseEntity<Note> getNoteById(
             @PathVariable Long id) {
 
-        return noteService
-                .getNoteById(id)
+        return noteService.getNoteById(id)
                 .map(ResponseEntity::ok)
-                .orElse(
-                        ResponseEntity
-                                .notFound()
-                                .build()
-                );
+                .orElse(ResponseEntity.notFound().build());
     }
 
-    // =====================================================
     // VIEW / OPEN PDF FILE
-    // =====================================================
-
     @GetMapping("/{id}/file")
-    public ResponseEntity<?> getNoteFile(
-            @PathVariable Long id) {
+    public ResponseEntity<?> getNoteFile(@PathVariable Long id) {
 
         try {
-
-            // -------------------------------------------------
-            // Find note from database
-            // -------------------------------------------------
-
-            Note note =
-                    noteService
-                            .getNoteById(id)
-                            .orElse(null);
+            Note note = noteService.getNoteById(id).orElse(null);
 
             if (note == null) {
-
-                return ResponseEntity
-                        .notFound()
-                        .build();
+                return ResponseEntity.notFound().build();
             }
 
-            String filePath =
-                    note.getFilePath();
+            String filePath = note.getFilePath();
 
-            // -------------------------------------------------
+            if (filePath == null || filePath.isBlank()) {
+                return ResponseEntity.notFound().build();
+            }
+
             // VERCEL BLOB PDF
-            // -------------------------------------------------
+            if (filePath.startsWith("https://")) {
+                URI uri = URI.create(filePath);
 
-            if (
-                    filePath.startsWith("https://") ||
-                    filePath.startsWith("http://")
-            ) {
+                if (uri.getHost() == null) {
+                    return ResponseEntity.badRequest().build();
+                }
 
                 return ResponseEntity
                         .status(302)
-                        .location(
-                                URI.create(filePath)
-                        )
+                        .location(uri)
                         .build();
             }
 
-            // -------------------------------------------------
-            // LOCAL PDF
-            // -------------------------------------------------
-
-            Path localFilePath =
-                    Paths.get(filePath);
-
-            if (!Files.exists(localFilePath)) {
-
-                return ResponseEntity
-                        .notFound()
-                        .build();
+            // HTTP is not accepted for remote PDF URLs.
+            if (filePath.startsWith("http://")) {
+                return ResponseEntity.badRequest().build();
             }
 
-            Resource resource =
-                    new UrlResource(
-                            localFilePath.toUri()
-                    );
+            // LOCAL PDF: works only if the file exists on this server.
+            Path localFilePath = Paths.get(filePath);
 
-            if (
-                    !resource.exists() ||
-                    !resource.isReadable()
-            ) {
-
-                return ResponseEntity
-                        .notFound()
-                        .build();
+            if (!Files.exists(localFilePath)
+                    || !Files.isRegularFile(localFilePath)
+                    || !Files.isReadable(localFilePath)) {
+                return ResponseEntity.notFound().build();
             }
 
-            return ResponseEntity
-                    .ok()
-                    .contentType(
-                            MediaType.APPLICATION_PDF
-                    )
+            Resource resource = new UrlResource(localFilePath.toUri());
+
+            if (!resource.exists() || !resource.isReadable()) {
+                return ResponseEntity.notFound().build();
+            }
+
+            String safeFileName = note.getFileName()
+                    .replace("\"", "")
+                    .replace("\r", "")
+                    .replace("\n", "");
+
+            return ResponseEntity.ok()
+                    .contentType(MediaType.APPLICATION_PDF)
                     .header(
                             HttpHeaders.CONTENT_DISPOSITION,
-                            "inline; filename=\"" +
-                                    note.getFileName() +
-                                    "\""
-                    )
+                            "inline; filename=\"" + safeFileName + "\"")
                     .body(resource);
 
         } catch (Exception exception) {
-
             exception.printStackTrace();
-
-            return ResponseEntity
-                    .internalServerError()
-                    .build();
+            return ResponseEntity.internalServerError().build();
         }
     }
 
-    // =====================================================
     // UPLOAD NOTE - LOCAL / EXISTING FLOW
-    // =====================================================
-
     @PostMapping("/upload")
     public ResponseEntity<Note> uploadNote(
             @RequestParam("file") MultipartFile file,
             @RequestParam("topicId") Long topicId) {
 
         try {
-
-            // -------------------------------------------------
-            // Check file
-            // -------------------------------------------------
-
             if (file.isEmpty()) {
-
-                return ResponseEntity
-                        .badRequest()
-                        .build();
+                return ResponseEntity.badRequest().build();
             }
 
-            // -------------------------------------------------
-            // Original file name
-            // -------------------------------------------------
+            String originalFileName = file.getOriginalFilename();
 
-            String originalFileName =
-                    file.getOriginalFilename();
-
-            // -------------------------------------------------
-            // Only PDF
-            // -------------------------------------------------
-
-            if (
-                    originalFileName == null ||
-                    !originalFileName
-                            .toLowerCase()
-                            .endsWith(".pdf")
-            ) {
-
-                return ResponseEntity
-                        .badRequest()
-                        .build();
+            if (originalFileName == null
+                    || !originalFileName.toLowerCase().endsWith(".pdf")) {
+                return ResponseEntity.badRequest().build();
             }
 
-            // -------------------------------------------------
-            // Find topic
-            // -------------------------------------------------
-
-            Topic topic =
-                    topicRepository
-                            .findById(topicId)
-                            .orElse(null);
+            Topic topic = topicRepository.findById(topicId).orElse(null);
 
             if (topic == null) {
-
-                return ResponseEntity
-                        .notFound()
-                        .build();
+                return ResponseEntity.notFound().build();
             }
 
-            // -------------------------------------------------
-            // Create uploads directory
-            // -------------------------------------------------
-
-            Files.createDirectories(
-                    uploadDirectory
-            );
-
-            // -------------------------------------------------
-            // Create unique file name
-            // -------------------------------------------------
+            Files.createDirectories(uploadDirectory);
 
             String storedFileName =
-                    UUID.randomUUID()
-                            + "_"
-                            + originalFileName;
+                    UUID.randomUUID() + "_" + Paths.get(originalFileName).getFileName();
 
-            Path filePath =
-                    uploadDirectory.resolve(
-                            storedFileName
-                    );
+            Path filePath = uploadDirectory.resolve(storedFileName);
 
-            // -------------------------------------------------
-            // Save PDF
-            // -------------------------------------------------
+            Files.copy(file.getInputStream(), filePath);
 
-            Files.copy(
-                    file.getInputStream(),
-                    filePath
-            );
+            Note note = new Note(
+                    originalFileName,
+                    filePath.toString(),
+                    topic);
 
-            // -------------------------------------------------
-            // Save Note
-            // -------------------------------------------------
+            Note savedNote = noteService.createNote(note);
 
-            Note note =
-                    new Note(
-                            originalFileName,
-                            filePath.toString(),
-                            topic
-                    );
+            ragIngestionService.ingestNote(savedNote.getId());
 
-            Note savedNote =
-                    noteService.createNote(
-                            note
-                    );
+            return ResponseEntity.ok(savedNote);
 
-            // =================================================
-            // AUTOMATIC RAG INGESTION
-            // =================================================
-
-            ragIngestionService.ingestNote(
-                    savedNote.getId()
-            );
-
-            // -------------------------------------------------
-            // Return saved note
-            // -------------------------------------------------
-
-            return ResponseEntity.ok(
-                    savedNote
-            );
-
-        } catch (IOException exception) {
-
+        } catch (IOException | RuntimeException exception) {
             exception.printStackTrace();
-
-            return ResponseEntity
-                    .internalServerError()
-                    .build();
-
-        } catch (RuntimeException exception) {
-
-            exception.printStackTrace();
-
-            return ResponseEntity
-                    .internalServerError()
-                    .build();
+            return ResponseEntity.internalServerError().build();
         }
     }
 
-    // =====================================================
     // UPLOAD NOTE - VERCEL BLOB FLOW
-    // =====================================================
-
     @PostMapping("/blob")
     public ResponseEntity<Note> uploadFromBlob(
             @RequestParam("fileName") String fileName,
@@ -352,208 +202,85 @@ public class NoteController {
             @RequestParam("topicId") Long topicId) {
 
         try {
-
-            // -------------------------------------------------
-            // Validate file name
-            // -------------------------------------------------
-
-            if (
-                    fileName == null ||
-                    fileName.isBlank()
-            ) {
-
-                return ResponseEntity
-                        .badRequest()
-                        .build();
+            if (fileName == null
+                    || fileName.isBlank()
+                    || !fileName.toLowerCase().endsWith(".pdf")) {
+                return ResponseEntity.badRequest().build();
             }
 
-            // -------------------------------------------------
-            // Validate Blob URL
-            // -------------------------------------------------
-
-            if (
-                    blobUrl == null ||
-                    blobUrl.isBlank()
-            ) {
-
-                return ResponseEntity
-                        .badRequest()
-                        .build();
+            if (blobUrl == null || blobUrl.isBlank()) {
+                return ResponseEntity.badRequest().build();
             }
 
-            if (
-                    !blobUrl.startsWith("https://") &&
-                    !blobUrl.startsWith("http://")
-            ) {
+            URI blobUri = URI.create(blobUrl);
 
-                return ResponseEntity
-                        .badRequest()
-                        .build();
+            if (!"https".equalsIgnoreCase(blobUri.getScheme())
+                    || blobUri.getHost() == null) {
+                return ResponseEntity.badRequest().build();
             }
 
-            // -------------------------------------------------
-            // Only PDF
-            // -------------------------------------------------
-
-            if (
-                    !fileName
-                            .toLowerCase()
-                            .endsWith(".pdf")
-            ) {
-
-                return ResponseEntity
-                        .badRequest()
-                        .build();
-            }
-
-            // -------------------------------------------------
-            // Find topic
-            // -------------------------------------------------
-
-            Topic topic =
-                    topicRepository
-                            .findById(topicId)
-                            .orElse(null);
+            Topic topic = topicRepository.findById(topicId).orElse(null);
 
             if (topic == null) {
-
-                return ResponseEntity
-                        .notFound()
-                        .build();
+                return ResponseEntity.notFound().build();
             }
 
-            // -------------------------------------------------
-            // Save Blob URL in Note
-            // -------------------------------------------------
+            Note note = new Note(
+                    Paths.get(fileName).getFileName().toString(),
+                    blobUri.toString(),
+                    topic);
 
-            Note note =
-                    new Note(
-                            fileName,
-                            blobUrl,
-                            topic
-                    );
+            Note savedNote = noteService.createNote(note);
 
-            Note savedNote =
-                    noteService.createNote(
-                            note
-                    );
+            ragIngestionService.ingestNote(savedNote.getId());
 
-            // =================================================
-            // AUTOMATIC RAG INGESTION
-            // =================================================
+            return ResponseEntity.ok(savedNote);
 
-            ragIngestionService.ingestNote(
-                    savedNote.getId()
-            );
-
-            // -------------------------------------------------
-            // Return saved note
-            // -------------------------------------------------
-
-            return ResponseEntity.ok(
-                    savedNote
-            );
-
-        } catch (RuntimeException exception) {
-
+        } catch (IllegalArgumentException | RuntimeException exception) {
             exception.printStackTrace();
-
-            return ResponseEntity
-                    .internalServerError()
-                    .build();
+            return ResponseEntity.internalServerError().build();
         }
     }
 
-    // =====================================================
     // DELETE NOTE
-    // =====================================================
-
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteNote(
-            @PathVariable Long id) {
+    public ResponseEntity<Void> deleteNote(@PathVariable Long id) {
 
         try {
-
-            // -------------------------------------------------
-            // Find note
-            // -------------------------------------------------
-
-            Note note =
-                    noteService
-                            .getNoteById(id)
-                            .orElse(null);
+            Note note = noteService.getNoteById(id).orElse(null);
 
             if (note == null) {
-
-                return ResponseEntity
-                        .notFound()
-                        .build();
+                return ResponseEntity.notFound().build();
             }
 
-            // -------------------------------------------------
-            // Delete PGVector chunks
-            // -------------------------------------------------
-
             int deletedVectorChunks =
-                    ragIngestionService
-                            .deleteVectorsForNote(id);
+                    ragIngestionService.deleteVectorsForNote(id);
 
             System.out.println(
-                    "Deleted " +
-                            deletedVectorChunks +
-                            " vector chunks for note " +
-                            id
-            );
+                    "Deleted " + deletedVectorChunks
+                            + " vector chunks for note " + id);
 
-            // -------------------------------------------------
-            // Delete physical PDF file
-            // -------------------------------------------------
+            String filePath = note.getFilePath();
 
-            String filePath =
-                    note.getFilePath();
+            // Delete local files only. Blob URLs are not local files.
+            if (filePath != null
+                    && !filePath.startsWith("https://")
+                    && !filePath.startsWith("http://")) {
 
-            // Only delete local files.
-            // Vercel Blob files are not local files.
-            if (
-                    filePath != null &&
-                    !filePath.startsWith("https://") &&
-                    !filePath.startsWith("http://")
-            ) {
-
-                Path localFilePath =
-                        Paths.get(filePath);
+                Path localFilePath = Paths.get(filePath);
 
                 if (Files.exists(localFilePath)) {
-
                     Files.delete(localFilePath);
                 }
             }
 
-            // -------------------------------------------------
-            // Delete Note database record
-            // -------------------------------------------------
-
             noteService.deleteNote(id);
 
-            return ResponseEntity
-                    .noContent()
-                    .build();
+            return ResponseEntity.noContent().build();
 
-        } catch (IOException exception) {
-
+        } catch (IOException | RuntimeException exception) {
             exception.printStackTrace();
-
-            return ResponseEntity
-                    .internalServerError()
-                    .build();
-
-        } catch (RuntimeException exception) {
-
-            exception.printStackTrace();
-
-            return ResponseEntity
-                    .internalServerError()
-                    .build();
+            return ResponseEntity.internalServerError().build();
         }
     }
 }
