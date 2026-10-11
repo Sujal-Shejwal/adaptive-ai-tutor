@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 
 const API_BASE = `${import.meta.env.VITE_API_BASE_URL}`;
-const WS_URL = import.meta.env.VITE_WS_URL;
+const WS_URL = "wss://adaptive-ai-tutor-pn9h.vercel.app/ws";
 
 function getCurrentUserId() {
   const storedId = localStorage.getItem("userId");
