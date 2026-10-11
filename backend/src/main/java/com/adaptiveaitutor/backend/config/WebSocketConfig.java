@@ -1,3 +1,4 @@
+
 package com.adaptiveaitutor.backend.config;
 
 import org.springframework.context.annotation.Configuration;
@@ -8,44 +9,22 @@ import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerCo
 
 @Configuration
 @EnableWebSocketMessageBroker
-public class WebSocketConfig
-        implements WebSocketMessageBrokerConfigurer {
-
-    // =====================================================
-    // MESSAGE BROKER
-    // =====================================================
+public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
     @Override
-    public void configureMessageBroker(
-            MessageBrokerRegistry registry) {
-
-        // Messages sent to /topic will be
-        // delivered to subscribed users.
-        registry.enableSimpleBroker(
-                "/topic"
-        );
-
-        // Messages sent from frontend to backend
-        // will use /app.
-        registry.setApplicationDestinationPrefixes(
-                "/app"
-        );
+    public void configureMessageBroker(MessageBrokerRegistry registry) {
+        registry.enableSimpleBroker("/topic");
+        registry.setApplicationDestinationPrefixes("/app");
     }
 
-
-    // =====================================================
-    // WEBSOCKET ENDPOINT
-    // =====================================================
-
     @Override
-    public void registerStompEndpoints(
-            StompEndpointRegistry registry) {
-
-        registry.addEndpoint(
-                "/ws"
-        )
-        .setAllowedOriginPatterns(
-                "http://localhost:5173"
-        );
+    public void registerStompEndpoints(StompEndpointRegistry registry) {
+        registry.addEndpoint("/ws")
+                .setAllowedOriginPatterns(
+                        "http://localhost:5173",
+                        "https://adaptiveaitutor.me",
+                        "https://www.adaptiveaitutor.me",
+                        "https://adaptive-ai-tutor-gamma.vercel.app"
+                );
     }
 }
