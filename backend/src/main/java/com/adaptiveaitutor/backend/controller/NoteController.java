@@ -236,7 +236,7 @@ public class NoteController {
 
             return ResponseEntity.ok(savedNote);
 
-        } catch (IllegalArgumentException | RuntimeException exception) {
+        } catch (RuntimeException e) {
             exception.printStackTrace();
             return ResponseEntity.internalServerError().build();
         }
