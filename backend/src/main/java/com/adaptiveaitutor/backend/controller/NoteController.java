@@ -1,3 +1,4 @@
+
 package com.adaptiveaitutor.backend.controller;
 
 import java.io.IOException;
@@ -31,7 +32,12 @@ import com.adaptiveaitutor.backend.service.RagIngestionService;
 
 @RestController
 @RequestMapping("/api/notes")
-@CrossOrigin(origins = "http://localhost:5173")
+@CrossOrigin(origins = {
+        "http://localhost:5173",
+        "https://adaptiveaitutor.me",
+        "https://www.adaptiveaitutor.me",
+        "https://adaptive-ai-tutor-gamma.vercel.app"
+})
 public class NoteController {
 
     private final NoteService noteService;
@@ -92,7 +98,7 @@ public class NoteController {
                 return ResponseEntity.notFound().build();
             }
 
-            // VERCEL BLOB PDF
+            // Redirect Blob-hosted PDFs to their public HTTPS URL.
             if (filePath.startsWith("https://")) {
                 URI uri = URI.create(filePath);
 
@@ -106,12 +112,12 @@ public class NoteController {
                         .build();
             }
 
-            // HTTP is not accepted for remote PDF URLs.
+            // Reject insecure remote URLs.
             if (filePath.startsWith("http://")) {
                 return ResponseEntity.badRequest().build();
             }
 
-            // LOCAL PDF: works only if the file exists on this server.
+            // Local files work only when the file exists on this server.
             Path localFilePath = Paths.get(filePath);
 
             if (!Files.exists(localFilePath)
@@ -126,7 +132,11 @@ public class NoteController {
                 return ResponseEntity.notFound().build();
             }
 
-            String safeFileName = note.getFileName()
+            String fileName = note.getFileName() == null
+                    ? "document.pdf"
+                    : note.getFileName();
+
+            String safeFileName = fileName
                     .replace("\"", "")
                     .replace("\r", "")
                     .replace("\n", "");
@@ -138,8 +148,8 @@ public class NoteController {
                             "inline; filename=\"" + safeFileName + "\"")
                     .body(resource);
 
-        } catch (Exception exception) {
-            exception.printStackTrace();
+        } catch (Exception e) {
+            e.printStackTrace();
             return ResponseEntity.internalServerError().build();
         }
     }
@@ -170,8 +180,9 @@ public class NoteController {
 
             Files.createDirectories(uploadDirectory);
 
-            String storedFileName =
-                    UUID.randomUUID() + "_" + Paths.get(originalFileName).getFileName();
+            String storedFileName = UUID.randomUUID()
+                    + "_"
+                    + Paths.get(originalFileName).getFileName();
 
             Path filePath = uploadDirectory.resolve(storedFileName);
 
@@ -188,8 +199,8 @@ public class NoteController {
 
             return ResponseEntity.ok(savedNote);
 
-        } catch (IOException | RuntimeException exception) {
-            exception.printStackTrace();
+        } catch (IOException | RuntimeException e) {
+            e.printStackTrace();
             return ResponseEntity.internalServerError().build();
         }
     }
@@ -225,8 +236,12 @@ public class NoteController {
                 return ResponseEntity.notFound().build();
             }
 
+            String safeFileName = Paths.get(fileName)
+                    .getFileName()
+                    .toString();
+
             Note note = new Note(
-                    Paths.get(fileName).getFileName().toString(),
+                    safeFileName,
                     blobUri.toString(),
                     topic);
 
@@ -237,7 +252,7 @@ public class NoteController {
             return ResponseEntity.ok(savedNote);
 
         } catch (RuntimeException e) {
-            exception.printStackTrace();
+            e.printStackTrace();
             return ResponseEntity.internalServerError().build();
         }
     }
@@ -262,7 +277,7 @@ public class NoteController {
 
             String filePath = note.getFilePath();
 
-            // Delete local files only. Blob URLs are not local files.
+            // Delete local files only, never attempt to delete a remote URL.
             if (filePath != null
                     && !filePath.startsWith("https://")
                     && !filePath.startsWith("http://")) {
@@ -278,8 +293,8 @@ public class NoteController {
 
             return ResponseEntity.noContent().build();
 
-        } catch (IOException | RuntimeException exception) {
-            exception.printStackTrace();
+        } catch (IOException | RuntimeException e) {
+            e.printStackTrace();
             return ResponseEntity.internalServerError().build();
         }
     }
